@@ -1,9 +1,11 @@
-import numpy as np
 import os
-from unittest import TestCase
-import ROOT as r
-from datagen import SingleDatasetGenerator
 from array import array
+from unittest import TestCase
+
+import numpy as np
+import ROOT as r
+from datagen import SingleDatasetGeneratorUproot
+
 
 def create_test_tree(filename, treename, branches, n_events, max_instances=1):
     f = r.TFile(filename, "RECREATE")
@@ -59,7 +61,7 @@ class TestSingleDatasetGen(TestCase):
             files.append(fname)
             self.addCleanup(os.remove, fname)
 
-        self.sdg = SingleDatasetGenerator(
+        self.sdg = SingleDatasetGeneratorUproot(
             files=files,
             branches=self.branches,
             treename=self.treename,

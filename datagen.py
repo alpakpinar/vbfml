@@ -1,9 +1,14 @@
-import uproot
-import pandas as pd
-import numpy as np
 from dataclasses import dataclass
 
-class SingleDatasetGenerator():
+import numpy as np
+import pandas as pd
+import uproot
+
+
+class SingleDatasetGeneratorUproot():
+    """
+    Generates data from a series of files.
+    """
     def __init__(self, files: 'list[str]', branches: 'list[str]', treename:str, dataset:str)->None:
         self.files = files
         self.branches = branches
