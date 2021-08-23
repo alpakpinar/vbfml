@@ -4,7 +4,7 @@ import numpy as np
 from dataclasses import dataclass
 
 class SingleDatasetGenerator():
-    def __init__(self, files, branches, treename, dataset):
+    def __init__(self, files: 'list[str]', branches: 'list[str]', treename:str, dataset:str)->None:
         self.files = files
         self.branches = branches
         self.n_files = len(self.files)
@@ -12,20 +12,21 @@ class SingleDatasetGenerator():
         self.dataset = dataset
         self.reset()
 
-    def _next_file(self):
+    def _next_file(self) -> None:
         self.file_index += 1
         self.event_index = 0
 
-    def reset(self):
+    def reset(self) -> None:
         self.file_index = 0
         self.event_index = 0
 
-    def has_events_left(self):
+    def has_events_left(self) -> bool:
         return  self.file_index < len(self.files)
 
-    def _get_file(self):
+    def _get_file(self) -> str:
         """Current file path to read from."""
         return self.files[self.file_index]
+
     def _open_file(self):
         """Current file object to read from."""
         return uproot.open(self._get_file())
@@ -34,10 +35,10 @@ class SingleDatasetGenerator():
         """Current tree to read from."""
         return self._open_file()[self.treename]
 
-    def read_events(self, n_events_to_read):
+    def read_events(self, n_events_to_read: int) -> np.ndarray:
         """
         Returns a tuple (features, labels) for use in ML.
-        
+
         """
         dataframes = []
         n_events_left_to_read = n_events_to_read
@@ -88,7 +89,7 @@ class SingleDatasetGenerator():
         return x, y
 
 @dataclass
-class Dataset():
+class DatasetInfo():
     name: str
     xs: float
     files: list
