@@ -12,14 +12,14 @@ def create_test_tree(filename, treename, branches, n_events, max_instances=1):
 
     n = array("i",[0])
     t.Branch(
-            "n", 
+            "n",
             n,
             f'n/I'
             )
     for branch in branches:
         arr = array("d",max_instances*[0])
         t.Branch(
-                branch, 
+                branch,
                 arr,
                 f'{branch}[n]/F'
                 )
@@ -37,34 +37,85 @@ def create_test_tree(filename, treename, branches, n_events, max_instances=1):
     f.Close()
 
 class TestSingleDatasetGen(TestCase):
-    def test_single(self):
-        treename = "tree"
-        branches = ["a","b"]
-        n_events = 10
-        n_file = 2
+
+    def setUp(self):
+        self.treename = "tree"
+        self.branches = ["a","b"]
+        self.n_events = 10
+        self.n_file = 2
+        self.total_events = self.n_events * self.n_file
+
         files = []
-        total_events = n_events * n_file
-        for i in range(n_file):
+        for i in range(self.n_file):
             fname = os.path.abspath(f"test_single_{i}.root")
 
             create_test_tree(
                 filename=fname,
-                treename=treename,
-                branches=branches,
-                n_events=n_events,
+                treename=self.treename,
+                branches=self.branches,
+                n_events=self.n_events,
                 max_instances=1
             )
             files.append(fname)
-            # self.addCleanup(os.remove, fname)
+            self.addCleanup(os.remove, fname)
 
-        sdg = SingleDatasetGenerator(
+        self.sdg = SingleDatasetGenerator(
             files=files,
-            branches=branches,
-            treename=treename,
+            branches=self.branches,
+            treename=self.treename,
             dataset="dataset"
         )
 
-        # Read all events in one go
-        x, y = sdg.read_events(n_events)
-        assert(x.shape == (n_events, len(branches)))
-        assert(y.shape == (n_events, 1))
+    def test_full_read_no_overflow(self):
+        '''Read all events in one go.'''
+        try:
+            x, y = self.sdg.read_events(self.total_events)
+        except EOFError:
+            self.fail("SingleDatasetGenerator raised unexpected EOFError.")
+        self.assertTrue(x.shape == (self.total_events, len(self.branches)))
+        self.assertTrue(y.shape == (self.total_events, 1))
+
+    def test_partial_read_no_overflow_two_files(self):
+        '''Read some events in one go, accessing two files.'''
+        try:
+            x, y = self.sdg.read_events(self.total_events - 1)
+        except EOFError:
+            self.fail("SingleDatasetGenerator raised unexpected EOFError.")
+        self.assertTrue(x.shape == (self.total_events-1, len(self.branches)))
+        self.assertTrue(y.shape == (self.total_events-1, 1))
+
+    def test_partial_read_no_overflow_single_file(self):
+        '''Read some events in one go, only accessing one file.'''
+        try:
+            x, y = self.sdg.read_events(3)
+        except EOFError:
+            self.fail("SingleDatasetGenerator raised unexpected EOFError.")
+        self.assertTrue(x.shape == (3, len(self.branches)))
+        self.assertTrue(y.shape == (3, 1))
+
+    def test_full_read_with_overflow(self):
+        '''Try to read more events than exist'''
+        with self.assertRaises(EOFError):
+            self.sdg.read_events(self.total_events+1)
+
+    def test_partial_reads_with_overflow(self):
+        '''Try to read more events than exist in multiple steps'''
+        ### First read: All but one event
+        try:
+            x, y = self.sdg.read_events(self.total_events - 1)
+        except EOFError:
+            self.fail("SingleDatasetGenerator raised unexpected EOFError.")
+        self.assertTrue(x.shape == (self.total_events - 1, len(self.branches)))
+        self.assertTrue(y.shape == (self.total_events - 1, 1))
+
+        ### Second read: Last event
+        try:
+            x, y = self.sdg.read_events(1)
+        except EOFError:
+            self.fail("SingleDatasetGenerator raised unexpected EOFError.")
+        self.assertTrue(x.shape == (1, len(self.branches)))
+        self.assertTrue(y.shape == (1, 1))
+
+        ### Second read: no events left, should fail
+        with self.assertRaises(EOFError):
+            self.sdg.read_events(2)
