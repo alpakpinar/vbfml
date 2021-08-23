@@ -12,7 +12,7 @@ class SingleDatasetGenerator():
         self.dataset = dataset
         self.reset()
 
-    def next_file(self):
+    def _next_file(self):
         self.file_index += 1
         self.event_index = 0
 
@@ -57,7 +57,7 @@ class SingleDatasetGenerator():
             # next file in next iteration
             if stop > tree.num_entries:
                 stop = tree.num_entries
-                self.next_file()
+                self._next_file()
             else:
                 self.event_index = stop
 
@@ -73,6 +73,7 @@ class SingleDatasetGenerator():
 
             # How much more do we need to read
             n_events_read = stop - start
+            assert(len(df) == n_events_read)
             n_events_left_to_read = n_events_left_to_read - n_events_read
 
         df = pd.concat(dataframes)
