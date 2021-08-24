@@ -49,4 +49,14 @@ class TestSingleDataseSequence(TestCase):
             self.assertTrue(nevents == self.nevents_per_file)
 
 
-            
+    def test_readevents_single_file(self):
+        x, y = self.sds.read_events(start=1, stop=5)
+
+    def test_index_into_file(self):
+        """Translation of global event index to file index + local event index"""
+        for global_event_index in range(self.total_events):
+            file_index, local_event_index = self.sds._index_into_file(global_event_index)
+            expected_file_index = global_event_index // self.nevents_per_file
+            expected_local_event_index =  global_event_index % self.nevents_per_file
+            self.assertEqual(file_index, expected_file_index)
+            self.assertEqual(local_event_index,expected_local_event_index)

@@ -32,5 +32,33 @@ class SingleDatasetSequence(Sequence):
         for file_index in range(self.n_files):
             self._update_nevents_dict_single_file(file_index)
 
+    def _index_into_file(self, global_event_index):
+        """
+        Translate global file index to tuple of (file index, local event index).
+        
+        A global event index is just the index of the desired events in the list of all events in all files (between 0 and total event number)
+        
+        The file index is the index of the file that contains this event, and the local event index is the index of the given event counting from the beginning of the file.
+        """
+        events_before = 0
+
+        target_file_index = None
+        local_event_index = None
+
+        for file_index in range(self.n_files):
+            nevents = self.nevents_per_file[file_index]
+        
+            right_file =  global_event_index < events_before + nevents
+            if right_file:
+                target_file_index = file_index
+                local_event_index = global_event_index - events_before
+                break
+            events_before += nevents
+
+        return (target_file_index, local_event_index)
+
+    def read_events(self, start, stop):
+        return None, None
+
     def reset(self):
         pass
