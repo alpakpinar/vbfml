@@ -100,25 +100,39 @@ class DatasetInfo():
     files: list
     nevents: int
 
-class MultiDatasetGenerator():
-    def __init__(self):
+class MultiDatasetGeneratorUproot():
+    def __init__(self) -> None:
         self.datasets = {}
         self.generators = {}
-        self.total_events = 0
-        self.batch_size = 100
         self.fractions = {}
 
-    def add_dataset(self, dataset, kwargs):
+        self._batch_size = 100
+    
+    @property
+    def batch_size(self):
+        return self._batch_size
+
+    @batch_size.setter
+    def batch_size(self, new_batch_size: int) -> None:
+        assert(new_batch_size > 0)
+        self._batch_size = new_batch_size
+
+    def get_total_events(self) -> int:
+        return np.sum([dataset.nevents for dataset in self.datasets])
+
+    def add_dataset(self, dataset: DatasetInfo, kwargs) -> None:
         self.datasets[dataset.name] = dataset
-        self.generators[dataset.name] = SingleDatasetGenerator(dataset.files, dataset=dataset, **kwargs)
-        self.total_events += dataset.nevents
+        self.generators[dataset.name] = SingleDatasetGeneratorUproot(files=dataset.files, dataset=dataset, **kwargs)
 
+    def reset(self) -> None:
+        for generator in self.generators.values():
+            generator.reset()
 
-    def build(self):
+    def build(self) -> None:
         self.n_batches = self.total_events // self.batch_size
         for name, dataset in self.datasets.items():
             self.fractions[name] = dataset.nevents / self.total_events
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> np.ndarray:
         if index > self.n_batches:
             raise IndexError

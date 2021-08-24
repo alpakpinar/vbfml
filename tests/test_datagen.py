@@ -6,37 +6,8 @@ import numpy as np
 import ROOT as r
 from datagen import SingleDatasetGeneratorUproot
 
+from .util import create_test_tree
 
-def create_test_tree(filename, treename, branches, n_events, max_instances=1):
-    f = r.TFile(filename, "RECREATE")
-    t = r.TTree(treename, treename)
-    arrays = {}
-
-    n = array("i",[0])
-    t.Branch(
-            "n",
-            n,
-            f'n/I'
-            )
-    for branch in branches:
-        arr = array("d",max_instances*[0])
-        t.Branch(
-                branch,
-                arr,
-                f'{branch}[n]/F'
-                )
-        arrays[branch] = arr
-    for _ in range(n_events):
-        if max_instances>1:
-            n[0] = int(np.random.randint(low=1, high=max_instances))
-        else:
-            n[0] = 1
-        for i in range(int(n[0])):
-            for branch in branches:
-                arrays[branch][i] = np.random.randn()
-        t.Fill()
-    f.Write()
-    f.Close()
 
 class TestSingleDatasetGen(TestCase):
 
