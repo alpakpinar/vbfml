@@ -1,12 +1,8 @@
 import os
-from array import array
 from unittest import TestCase
 
-import numpy as np
-import ROOT as r
-from datagen import SingleDatasetGeneratorUproot
-
-from .util import create_test_tree
+from vbfml.input.datagen import SingleDatasetGeneratorUproot
+from vbfml.tests.util import create_test_tree
 
 
 class TestSingleDatasetGen(TestCase):

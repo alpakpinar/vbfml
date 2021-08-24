@@ -1,0 +1,2 @@
+class SingleDatasetSequence():
+    pass
