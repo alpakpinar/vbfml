@@ -63,7 +63,7 @@ class UprootReaderMultiFile(Sequence):
 
         return (target_file_index, local_event_index)
 
-    def read_event_features_single_file(self, file_index, local_start, local_stop):
+    def read_events_single_file(self, file_index, local_start, local_stop):
         tree = self._get_tree(file_index)
         df = tree.arrays(
             expressions=self.branches,
@@ -93,17 +93,13 @@ class UprootReaderMultiFile(Sequence):
             if file_index == file_index_stop:
                 local_stop = local_event_index_stop
 
-            df = self.read_event_features_single_file(
-                file_index, local_start, local_stop
-            )
+            df = self.read_events_single_file(file_index, local_start, local_stop)
 
             dataframes.append(df)
 
         df = pd.concat(dataframes)
-        features = df.to_numpy().T
-        labels = np.array([[self.dataset] * features.shape[1]])
 
-        return features, labels
+        return df
 
     def reset(self):
         pass

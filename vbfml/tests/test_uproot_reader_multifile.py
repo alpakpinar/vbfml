@@ -29,7 +29,7 @@ class TestSingleDataseSequence(TestCase):
                 max_instances=1,
             )
             self.files.append(fname)
-            # self.addCleanup(os.remove, fname)
+            self.addCleanup(os.remove, fname)
 
         self.reader = UprootReaderMultiFile(
             files=self.files,
@@ -53,7 +53,7 @@ class TestSingleDataseSequence(TestCase):
             self.assertTrue(nevents == self.nevents_per_file)
 
     def test_index_into_file(self):
-        """Translation of global event index to file index + local event index"""
+        """Test translation of global event index to file index + local event index"""
         for global_event_index in range(self.total_events):
             file_index, local_event_index = self.reader._index_into_file(
                 global_event_index
@@ -64,12 +64,12 @@ class TestSingleDataseSequence(TestCase):
             self.assertEqual(local_event_index, expected_local_event_index)
 
     def test_read_event_features_single_file(self):
-        """Read event features without crossing file boundaries, test output shape & content"""
+        """Read data without crossing file boundaries, test output shape & content"""
         start = 0
         stop = 5
 
         for file_index in range(len(self.files)):
-            df = self.reader.read_event_features_single_file(
+            df = self.reader.read_events_single_file(
                 file_index=file_index, local_start=start, local_stop=stop
             )
 
@@ -81,17 +81,21 @@ class TestSingleDataseSequence(TestCase):
                 self.assertTrue(np.all(df[column] == file_index))
 
     def test_readevents(self):
-        """Read features + labels across file boundaries, test output shape & content"""
+        """Read data across file boundaries, test output shape & content"""
         for start in range(self.total_events):
             for stop in range(start, self.total_events):
-                x, y = self.reader.read_events(start=start, stop=stop)
-                expected_nevents = stop - start
-                self.assertEqual(x.shape[0], self.n_features)
-                self.assertEqual(x.shape[1], expected_nevents)
-                self.assertEqual(y.shape[0], 1)
-                self.assertEqual(y.shape[1], expected_nevents)
+                df = self.reader.read_events(start=start, stop=stop)
 
-                for i in range(x.shape[1]):
-                    obs = x[0, i]
-                    exp = (start + i) // self.nevents_per_file
-                    self.assertEqual(exp, obs, msg=f"start={start}, stop={stop}, i={i}")
+                # Test shape
+                expected_nevents = stop - start
+                self.assertEqual(len(df), expected_nevents)
+                self.assertEqual(len(df.columns), self.n_features)
+
+                # Test content
+                for branch in self.branches:
+                    branch_data = list(df[branch])
+                    expected = [
+                        (start + i) // self.nevents_per_file
+                        for i in range(expected_nevents)
+                    ]
+                    self.assertListEqual(branch_data, expected)
