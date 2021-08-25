@@ -1,5 +1,8 @@
+import numpy as np
+import pandas as pd
 import uproot
 from tensorflow.keras.utils import Sequence
+
 
 class SingleDatasetSequence(Sequence):
     def __init__(self, files: 'list[str]', branches: 'list[str]', treename:str, dataset:str)->None:
@@ -13,6 +16,7 @@ class SingleDatasetSequence(Sequence):
 
     def _open_file(self, file_index):
         """Current file object to read from."""
+        print(self._file_path(file_index))
         return uproot.open(self._file_path(file_index))
 
     def _get_tree(self, file_index):
@@ -57,8 +61,46 @@ class SingleDatasetSequence(Sequence):
 
         return (target_file_index, local_event_index)
 
+    def read_event_features_single_file(self, file_index, local_start, local_stop):
+        tree = self._get_tree(file_index)
+        df = tree.arrays(
+                expressions=self.branches,
+                entry_start=local_start,
+                entry_stop=local_stop,
+                library='pandas'
+            )
+        return df
+
+
     def read_events(self, start, stop):
-        return None, None
+        file_index_start, local_event_index_start = self._index_into_file(start)
+        file_index_stop, local_event_index_stop = self._index_into_file(stop)
+
+        assert(file_index_start is not None)
+        assert(file_index_stop is not None)
+        assert(local_event_index_start is not None)
+        assert(local_event_index_stop is not None)
+        dataframes = []
+        for file_index in range(file_index_start, file_index_stop+1):
+            # Read from start except in first file
+            local_start = 0
+            if file_index == file_index_start:
+                local_start = local_event_index_start
+
+            # Read until the end except in last file
+            local_stop = None
+            if file_index == file_index_stop:
+                local_stop = local_event_index_stop
+            
+            df = self.read_event_features_single_file(file_index, local_start, local_stop)
+
+            dataframes.append(df)
+        
+        df = pd.concat(dataframes)
+        features = df.to_numpy().T
+        labels = np.array([[self.dataset] * features.shape[1]])
+
+        return features, labels
 
     def reset(self):
         pass

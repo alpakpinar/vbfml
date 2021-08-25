@@ -1,2 +1,7 @@
 *pyc
 __pycache__
+.vscode/
+vbfml.egg-info/
+*root
+*png
+*pdf

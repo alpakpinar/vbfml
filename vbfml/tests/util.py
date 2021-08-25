@@ -14,13 +14,13 @@ def create_test_tree(filename, treename, branches, n_events, value=None, max_ins
             f'n/I'
             )
     for branch in branches:
-        arr = array("d",max_instances*[0])
+        arrays[branch] = array("d",max_instances*[0])
         t.Branch(
                 branch,
-                arr,
-                f'{branch}[n]/F'
-                )
-        arrays[branch] = arr
+                arrays[branch],
+                f'{branch}[n]/D'
+        )
+
     for _ in range(n_events):
         if max_instances>1:
             n_instances[0] = int(np.random.randint(low=1, high=max_instances))
