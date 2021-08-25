@@ -5,6 +5,14 @@ from tensorflow.keras.utils import Sequence
 
 
 class UprootReaderMultiFile(Sequence):
+    """
+    Wrapper class for reading data from multiple consecutive ROOT files.
+    
+    The implementation hides the multi-file nature of the input data from 
+    the user. Data is treated as a continuous stream of events without
+    file boundaries, and arbitrary continuous sequences of events can be 
+    read.
+    """
     def __init__(
         self, files: "list[str]", branches: "list[str]", treename: str, dataset: str
     ) -> None:
@@ -17,12 +25,11 @@ class UprootReaderMultiFile(Sequence):
         self._update_nevents_dict_all_files()
 
     def _open_file(self, file_index):
-        """Current file object to read from."""
-        print(self._file_path(file_index))
+        """Open and return file object for given index."""
         return uproot.open(self._file_path(file_index))
 
     def _get_tree(self, file_index):
-        """Current tree to read from."""
+        """Open file and return tree object for given index."""
         return self._open_file(file_index)[self.treename]
 
     def _file_path(self, file_index):
@@ -64,6 +71,9 @@ class UprootReaderMultiFile(Sequence):
         return (target_file_index, local_event_index)
 
     def read_events_single_file(self, file_index, local_start, local_stop):
+        """
+        Read and return event data, within in a given file.
+        """
         tree = self._get_tree(file_index)
         df = tree.arrays(
             expressions=self.branches,
@@ -74,6 +84,9 @@ class UprootReaderMultiFile(Sequence):
         return df
 
     def read_events(self, start, stop):
+        """
+        Read and return event data, possibly across file boundaries.
+        """
         file_index_start, local_event_index_start = self._index_into_file(start)
         file_index_stop, local_event_index_stop = self._index_into_file(stop)
 
