@@ -2,7 +2,7 @@ import os
 from unittest import TestCase
 
 import numpy as np
-from vbfml.input import SingleDatasetSequence
+from vbfml.input import UprootReaderMultiFile
 from vbfml.tests.util import create_test_tree
 
 
@@ -31,7 +31,7 @@ class TestSingleDataseSequence(TestCase):
             self.files.append(fname)
             # self.addCleanup(os.remove, fname)
 
-        self.sds = SingleDatasetSequence(
+        self.reader = UprootReaderMultiFile(
             files=self.files,
             branches=self.branches,
             treename=self.treename,
@@ -41,21 +41,21 @@ class TestSingleDataseSequence(TestCase):
     def test_file_list(self):
         """Test that the file list is propagated correctly"""
         expected_keys = list(sorted(self.files))
-        observed_keys = list(sorted(self.sds.files))
+        observed_keys = list(sorted(self.reader.files))
         self.assertTrue(expected_keys == observed_keys)
 
     def test_nevents(self):
         """Test that the number of events is calculated correctly"""
-        self.assertTrue(len(self.sds.nevents_per_file))
-        for file_index, nevents in self.sds.nevents_per_file.items():
-            filepath = self.sds._file_path(file_index)
+        self.assertTrue(len(self.reader.nevents_per_file))
+        for file_index, nevents in self.reader.nevents_per_file.items():
+            filepath = self.reader._file_path(file_index)
             self.assertTrue(filepath in self.files)
             self.assertTrue(nevents == self.nevents_per_file)
 
     def test_index_into_file(self):
         """Translation of global event index to file index + local event index"""
         for global_event_index in range(self.total_events):
-            file_index, local_event_index = self.sds._index_into_file(
+            file_index, local_event_index = self.reader._index_into_file(
                 global_event_index
             )
             expected_file_index = global_event_index // self.nevents_per_file
@@ -69,7 +69,7 @@ class TestSingleDataseSequence(TestCase):
         stop = 5
 
         for file_index in range(len(self.files)):
-            df = self.sds.read_event_features_single_file(
+            df = self.reader.read_event_features_single_file(
                 file_index=file_index, local_start=start, local_stop=stop
             )
 
@@ -84,7 +84,7 @@ class TestSingleDataseSequence(TestCase):
         """Read features + labels across file boundaries, test output shape & content"""
         for start in range(self.total_events):
             for stop in range(start, self.total_events):
-                x, y = self.sds.read_events(start=start, stop=stop)
+                x, y = self.reader.read_events(start=start, stop=stop)
                 expected_nevents = stop - start
                 self.assertEqual(x.shape[0], self.n_features)
                 self.assertEqual(x.shape[1], expected_nevents)

@@ -4,7 +4,7 @@ import uproot
 from tensorflow.keras.utils import Sequence
 
 
-class SingleDatasetSequence(Sequence):
+class UprootReaderMultiFile(Sequence):
     def __init__(
         self, files: "list[str]", branches: "list[str]", treename: str, dataset: str
     ) -> None:
