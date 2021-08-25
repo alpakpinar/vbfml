@@ -3,4 +3,5 @@ numpy
 pandas
 tensorflow
 uproot
+pytest
 black
