@@ -32,16 +32,28 @@ class MultiDatasetSequence(Sequence):
     def shuffle(self, shuffle: bool) -> None:
         self._shuffle = shuffle
 
-    def __getitem__(self, idx: int) -> tuple:
+    def _read_dataframes_for_batch(self, idx) -> list:
         dataframes = []
         for name in self.datasets.keys():
-            start = np.floor(idx * self.batch_size * self.fractions[name])
-            stop = np.floor((idx + 1) * self.batch_size * self.fractions[name]) - 1
-            if not name in self.readers:
-                self._initialize_reader(name)
-            df = self.readers[name].read_events(start, stop)
-            df["label"] = name
+            df = self._read_single_dataframe_for_batch_(idx, name)
             dataframes.append(df)
+        return dataframes
+
+    def _get_start_stop_for_single_read(self, idx: int, dataset_name: str) -> tuple:
+        start = np.floor(idx * self.batch_size * self.fractions[dataset_name])
+        stop = np.floor((idx + 1) * self.batch_size * self.fractions[dataset_name]) - 1
+        return start, stop
+
+    def _read_single_dataframe_for_batch_(self, idx: int, dataset_name: str):
+        start, stop = self._get_start_stop_for_single_read(idx, dataset_name)
+        if not dataset_name in self.readers:
+            self._initialize_reader(dataset_name)
+        df = self.readers[dataset_name].read_events(start, stop)
+        df["label"] = dataset_name
+        return df
+
+    def __getitem__(self, idx: int) -> tuple:
+        dataframes = self._read_dataframes_for_batch(idx)
 
         df = pd.concat(dataframes)
 
