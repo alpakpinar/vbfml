@@ -23,7 +23,7 @@ class MultiDatasetSequence(Sequence):
 
     def __len__(self) -> int:
         return self.total_events() // self.batch_size
-    
+
     @property
     def shuffle(self) -> bool:
         return self._shuffle
@@ -36,7 +36,7 @@ class MultiDatasetSequence(Sequence):
         dataframes = []
         for name in self.datasets.keys():
             start = np.floor(idx * self.batch_size * self.fractions[name])
-            stop = np.floor((idx + 1) * self.batch_size * self.fractions[name])-1
+            stop = np.floor((idx + 1) * self.batch_size * self.fractions[name]) - 1
             if not name in self.readers:
                 self._initialize_reader(name)
             df = self.readers[name].read_events(start, stop)
@@ -49,7 +49,7 @@ class MultiDatasetSequence(Sequence):
             df = df.sample(frac=1)
 
         features = df.drop(columns="label").to_numpy().T
-        labels = np.array(df["label"]).reshape((1,len(df['label'])))
+        labels = np.array(df["label"]).reshape((1, len(df["label"])))
 
         return (features, labels)
 

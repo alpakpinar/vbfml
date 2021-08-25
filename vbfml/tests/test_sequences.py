@@ -56,7 +56,7 @@ class TestMultiDatasetSequence(TestCase):
 
     def test_batch_shapes(self):
         """Test that the individual batches are shaped correctly."""
-        batch_indices = [0, len(self.mds)-1]
+        batch_indices = [0, len(self.mds) - 1]
 
         for idx in batch_indices:
             features, labels = self.mds[idx]
@@ -72,19 +72,18 @@ class TestMultiDatasetSequence(TestCase):
         features, labels = self.mds[0]
 
         first_dataset = True
-        for f1, label in zip(features[:,0], labels[:,0]):
-            
+        for f1, label in zip(features[:, 0], labels[:, 0]):
+
             # Check that values and labels agree
             valid = False
-            valid |= (f1==0) and (label=='dataset_0')
-            valid |= (f1==1) and (label=='dataset_1')
+            valid |= (f1 == 0) and (label == "dataset_0")
+            valid |= (f1 == 1) and (label == "dataset_1")
             self.assertTrue(valid)
 
             # Since we did not shuffle, can check
             # that we never see dataset 0 again
             # after once seeing dataset 1
             if f1 == 1:
-               first_dataset = False
+                first_dataset = False
             if not first_dataset:
                 self.assertEqual(f1, 1)
-
