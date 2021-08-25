@@ -6,3 +6,4 @@ vbfml.egg-info/
 *png
 *pdf
 bkp*
+.coverage

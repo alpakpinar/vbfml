@@ -11,7 +11,7 @@ class TestMultiDatasetSequenceNoShuffle(TestCase):
         self.treename = "tree"
         self.branches = ["a", "b"]
         self.nevents_per_file = 10000
-        self.n_file = 3
+        self.n_file = 2
         self.n_features = len(self.branches)
         self.values = list(range(self.n_file))
         self.total_events = self.nevents_per_file * self.n_file
@@ -40,5 +40,15 @@ class TestMultiDatasetSequenceNoShuffle(TestCase):
                 name=label, files=[fname], n_events=10000 if i == 0 else 1000
             )
 
-    def test_empty(self):
-        pass
+    def test_n_dataset(self):
+        self.assertEqual(len(self.mds.datasets),self.n_file)
+
+    def test_total_events(self):
+        self.assertEqual(self.mds.total_events(),11000)
+
+    def test_fractions(self):
+        self.assertAlmostEqual(self.mds.fractions['dataset_0'], 10000 / (10000 + 1000))
+        self.assertAlmostEqual(self.mds.fractions['dataset_1'], 1000 / (10000 + 1000))
+
+    def test_batch(self):
+        x = self.mds[0]
