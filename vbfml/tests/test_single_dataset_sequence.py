@@ -40,20 +40,30 @@ class TestSingleDataseSequence(TestCase):
         )
 
     def test_file_list(self):
+        """Test that the file list is propagated correctly"""
         expected_keys = list(sorted(self.files))
         observed_keys = list(sorted(self.sds.files))
         self.assertTrue(expected_keys == observed_keys)
     
     def test_nevents(self):
+        """Test that the number of events is calculated correctly"""
         self.assertTrue(len(self.sds.nevents_per_file))
         for file_index, nevents in self.sds.nevents_per_file.items():
             filepath = self.sds._file_path(file_index)
             self.assertTrue(filepath in self.files)
             self.assertTrue(nevents == self.nevents_per_file)
 
+    def test_index_into_file(self):
+        """Translation of global event index to file index + local event index"""
+        for global_event_index in range(self.total_events):
+            file_index, local_event_index = self.sds._index_into_file(global_event_index)
+            expected_file_index = global_event_index // self.nevents_per_file
+            expected_local_event_index =  global_event_index % self.nevents_per_file
+            self.assertEqual(file_index, expected_file_index)
+            self.assertEqual(local_event_index,expected_local_event_index)
 
     def test_read_event_features_single_file(self):
-        """Read without crossing file boundaries"""
+        """Read event features without crossing file boundaries, test output shape & content"""
         start = 0
         stop = 5
 
@@ -65,13 +75,10 @@ class TestSingleDataseSequence(TestCase):
             self.assertEqual(len(df.columns), self.n_features)
 
             for column in df.columns:
-                print(file_index, df[column])
                 self.assertTrue(np.all(df[column]==file_index))
 
-
-
-    def test_readevents_dimensions(self):
-        """   """
+    def test_readevents(self):
+        """Read features + labels across file boundaries, test output shape & content"""
         for start in range(self.total_events):
             for stop in range(start, self.total_events):
                 x, y = self.sds.read_events(start=start, stop=stop)
@@ -84,18 +91,5 @@ class TestSingleDataseSequence(TestCase):
                 for i in range(x.shape[1]):
                     obs = x[0,i]
                     exp = (start + i)// self.nevents_per_file
-                    print(x)
                     self.assertEqual(exp, obs, msg=f'start={start}, stop={stop}, i={i}')
-                    # self.assertEqual(x[1,i], start // self.nevents_per_file)
-                    # self.assertEqual(y[0,i], self.dataset)
-            
 
-
-    def test_index_into_file(self):
-        """Translation of global event index to file index + local event index"""
-        for global_event_index in range(self.total_events):
-            file_index, local_event_index = self.sds._index_into_file(global_event_index)
-            expected_file_index = global_event_index // self.nevents_per_file
-            expected_local_event_index =  global_event_index % self.nevents_per_file
-            self.assertEqual(file_index, expected_file_index)
-            self.assertEqual(local_event_index,expected_local_event_index)
