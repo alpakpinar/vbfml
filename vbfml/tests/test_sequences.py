@@ -54,6 +54,12 @@ class TestMultiDatasetSequence(TestCase):
         self.assertAlmostEqual(self.mds.fractions["dataset_0"], 10000 / (10000 + 1000))
         self.assertAlmostEqual(self.mds.fractions["dataset_1"], 1000 / (10000 + 1000))
 
+    def test_add_dataset_guard(self):
+        """Test that add_dataset is guarded against incorrect usage"""
+        # Try to add existing data set again
+        with self.assertRaises(IndexError):
+            self.mds.add_dataset(name="dataset_0", files=[], n_events=0)
+
     def test_batch_shapes(self):
         """Test that the individual batches are shaped correctly."""
         batch_indices = [0, len(self.mds) - 1]

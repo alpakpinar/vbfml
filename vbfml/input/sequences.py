@@ -32,7 +32,8 @@ class MultiDatasetSequence(Sequence):
     def shuffle(self, shuffle: bool) -> None:
         self._shuffle = shuffle
 
-    def _read_dataframes_for_batch(self, idx) -> list:
+    def _read_dataframes_for_batch(self, idx: int) -> list:
+        """Reads and returns data for a given batch and all datasets"""
         dataframes = []
         for name in self.datasets.keys():
             df = self._read_single_dataframe_for_batch_(idx, name)
@@ -40,11 +41,13 @@ class MultiDatasetSequence(Sequence):
         return dataframes
 
     def _get_start_stop_for_single_read(self, idx: int, dataset_name: str) -> tuple:
+        """Returns the start and stop coordinates for reading a given batch of data from one dataset"""
         start = np.floor(idx * self.batch_size * self.fractions[dataset_name])
         stop = np.floor((idx + 1) * self.batch_size * self.fractions[dataset_name]) - 1
         return start, stop
 
     def _read_single_dataframe_for_batch_(self, idx: int, dataset_name: str):
+        """Reads and returns data for a given batch and single data"""
         start, stop = self._get_start_stop_for_single_read(idx, dataset_name)
         if not dataset_name in self.readers:
             self._initialize_reader(dataset_name)
@@ -53,6 +56,7 @@ class MultiDatasetSequence(Sequence):
         return df
 
     def __getitem__(self, idx: int) -> tuple:
+        """Returns a single batch of data"""
         dataframes = self._read_dataframes_for_batch(idx)
 
         df = pd.concat(dataframes)
@@ -66,16 +70,27 @@ class MultiDatasetSequence(Sequence):
         return (features, labels)
 
     def total_events(self) -> int:
+        """Total number of events of all data sets"""
         return sum(dataset.n_events for dataset in self.datasets.values())
 
     def add_dataset(
         self, name: str, files: "list[str]", n_events: int, treename="tree"
     ) -> None:
+        """Add a new data set to the Sequence."""
+        if name in self.datasets:
+            raise IndexError(f"Dataset already exists: '{name}'.")
         info = DatasetInfo(name=name, files=files, n_events=n_events, treename=treename)
         self.datasets[name] = info
         self._calculate_fractions()
 
     def _initialize_reader(self, dataset_name) -> None:
+        """
+        Initializes file readers for a given data set.
+
+        Note that this operation may be slow as the reader
+        will open all files associated to it to determine
+        event counts.
+        """
         info = self.datasets[dataset_name]
         reader = UprootReaderMultiFile(
             files=info.files,
@@ -86,10 +101,12 @@ class MultiDatasetSequence(Sequence):
         self.readers[dataset_name] = reader
 
     def _initialize_readers(self) -> None:
+        """Initializes file readers for all data sets"""
         for dataset_name in self.datasets.keys():
             self._initialize_reader(dataset_name)
 
     def _calculate_fractions(self) -> None:
+        """Determine what fraction of the total events is from a given data set"""
         total = self.total_events()
         self.fractions = {
             name: info.n_events / total for name, info in self.datasets.items()
