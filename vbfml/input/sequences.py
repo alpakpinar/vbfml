@@ -5,7 +5,9 @@ from tensorflow.keras.utils import Sequence
 
 
 class SingleDatasetSequence(Sequence):
-    def __init__(self, files: 'list[str]', branches: 'list[str]', treename:str, dataset:str)->None:
+    def __init__(
+        self, files: "list[str]", branches: "list[str]", treename: str, dataset: str
+    ) -> None:
         self.files = files
         self.branches = branches
         self.n_files = len(self.files)
@@ -23,10 +25,10 @@ class SingleDatasetSequence(Sequence):
         """Current tree to read from."""
         return self._open_file(file_index)[self.treename]
 
-    def _file_path(self,file_index):
+    def _file_path(self, file_index):
         """Translate file index to file path"""
         return self.files[file_index]
-    
+
     def _update_nevents_dict_single_file(self, file_index):
         """Save number of events in this file into the cache"""
         self.nevents_per_file[file_index] = self._get_tree(file_index).num_entries
@@ -39,9 +41,9 @@ class SingleDatasetSequence(Sequence):
     def _index_into_file(self, global_event_index):
         """
         Translate global file index to tuple of (file index, local event index).
-        
+
         A global event index is just the index of the desired events in the list of all events in all files (between 0 and total event number)
-        
+
         The file index is the index of the file that contains this event, and the local event index is the index of the given event counting from the beginning of the file.
         """
         events_before = 0
@@ -51,8 +53,8 @@ class SingleDatasetSequence(Sequence):
 
         for file_index in range(self.n_files):
             nevents = self.nevents_per_file[file_index]
-        
-            right_file =  global_event_index < events_before + nevents
+
+            right_file = global_event_index < events_before + nevents
             if right_file:
                 target_file_index = file_index
                 local_event_index = global_event_index - events_before
@@ -64,24 +66,23 @@ class SingleDatasetSequence(Sequence):
     def read_event_features_single_file(self, file_index, local_start, local_stop):
         tree = self._get_tree(file_index)
         df = tree.arrays(
-                expressions=self.branches,
-                entry_start=local_start,
-                entry_stop=local_stop,
-                library='pandas'
-            )
+            expressions=self.branches,
+            entry_start=local_start,
+            entry_stop=local_stop,
+            library="pandas",
+        )
         return df
-
 
     def read_events(self, start, stop):
         file_index_start, local_event_index_start = self._index_into_file(start)
         file_index_stop, local_event_index_stop = self._index_into_file(stop)
 
-        assert(file_index_start is not None)
-        assert(file_index_stop is not None)
-        assert(local_event_index_start is not None)
-        assert(local_event_index_stop is not None)
+        assert file_index_start is not None
+        assert file_index_stop is not None
+        assert local_event_index_start is not None
+        assert local_event_index_stop is not None
         dataframes = []
-        for file_index in range(file_index_start, file_index_stop+1):
+        for file_index in range(file_index_start, file_index_stop + 1):
             # Read from start except in first file
             local_start = 0
             if file_index == file_index_start:
@@ -91,11 +92,13 @@ class SingleDatasetSequence(Sequence):
             local_stop = None
             if file_index == file_index_stop:
                 local_stop = local_event_index_stop
-            
-            df = self.read_event_features_single_file(file_index, local_start, local_stop)
+
+            df = self.read_event_features_single_file(
+                file_index, local_start, local_stop
+            )
 
             dataframes.append(df)
-        
+
         df = pd.concat(dataframes)
         features = df.to_numpy().T
         labels = np.array([[self.dataset] * features.shape[1]])

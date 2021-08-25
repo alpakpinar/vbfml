@@ -5,11 +5,14 @@ import pandas as pd
 import uproot
 
 
-class SingleDatasetGeneratorUproot():
+class SingleDatasetGeneratorUproot:
     """
     Generates data from a series of files.
     """
-    def __init__(self, files: 'list[str]', branches: 'list[str]', treename:str, dataset:str)->None:
+
+    def __init__(
+        self, files: "list[str]", branches: "list[str]", treename: str, dataset: str
+    ) -> None:
         self.files = files
         self.branches = branches
         self.n_files = len(self.files)
@@ -26,7 +29,7 @@ class SingleDatasetGeneratorUproot():
         self.event_index = 0
 
     def has_events_left(self) -> bool:
-        return  self.file_index < len(self.files)
+        return self.file_index < len(self.files)
 
     def _get_file(self) -> str:
         """Current file path to read from."""
@@ -72,14 +75,14 @@ class SingleDatasetGeneratorUproot():
                 expressions=self.branches,
                 entry_start=start,
                 entry_stop=stop,
-                library='pandas'
+                library="pandas",
             )
 
             dataframes.append(df)
 
             # How much more do we need to read
             n_events_read = stop - start
-            assert(len(df) == n_events_read)
+            assert len(df) == n_events_read
             n_events_left_to_read = n_events_left_to_read - n_events_read
 
         df = pd.concat(dataframes)
@@ -93,28 +96,30 @@ class SingleDatasetGeneratorUproot():
 
         return x, y
 
+
 @dataclass
-class DatasetInfo():
+class DatasetInfo:
     name: str
     xs: float
     files: list
     nevents: int
 
-class MultiDatasetGeneratorUproot():
+
+class MultiDatasetGeneratorUproot:
     def __init__(self) -> None:
         self.datasets = {}
         self.generators = {}
         self.fractions = {}
 
         self._batch_size = 100
-    
+
     @property
     def batch_size(self):
         return self._batch_size
 
     @batch_size.setter
     def batch_size(self, new_batch_size: int) -> None:
-        assert(new_batch_size > 0)
+        assert new_batch_size > 0
         self._batch_size = new_batch_size
 
     def get_total_events(self) -> int:
@@ -122,7 +127,9 @@ class MultiDatasetGeneratorUproot():
 
     def add_dataset(self, dataset: DatasetInfo, kwargs) -> None:
         self.datasets[dataset.name] = dataset
-        self.generators[dataset.name] = SingleDatasetGeneratorUproot(files=dataset.files, dataset=dataset, **kwargs)
+        self.generators[dataset.name] = SingleDatasetGeneratorUproot(
+            files=dataset.files, dataset=dataset, **kwargs
+        )
 
     def reset(self) -> None:
         for generator in self.generators.values():

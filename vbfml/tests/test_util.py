@@ -8,14 +8,13 @@ from .util import create_test_tree
 
 
 class TestCreateTestTree(TestCase):
-
     def setUp(self):
         self.treename = "tree"
-        self.branches = ["a","b"]
+        self.branches = ["a", "b"]
         self.nevents_per_file = 10
         self.n_file = 1
         self.n_features = len(self.branches)
-        self.values =[1337]
+        self.values = [1337]
         self.total_events = self.nevents_per_file * self.n_file
         self.dataset = "dataset"
         self.files = []
@@ -28,7 +27,7 @@ class TestCreateTestTree(TestCase):
                 branches=self.branches,
                 n_events=self.nevents_per_file,
                 value=self.values[i],
-                max_instances=1
+                max_instances=1,
             )
             self.files.append(fname)
             # self.addCleanup(os.remove, fname)
@@ -48,15 +47,12 @@ class TestCreateTestTree(TestCase):
             tree = f[self.treename]
             for branch in self.branches:
                 self.assertTrue(branch in tree)
-        
+
     def test_branch_content(self):
         for i, file in enumerate(self.files):
             f = uproot.open(file)
-            tree =  f[self.treename]
-            df = tree.arrays(
-                    expressions = self.branches,
-                    library='pandas'
-                )
+            tree = f[self.treename]
+            df = tree.arrays(expressions=self.branches, library="pandas")
             for branch in self.branches:
                 observed_values = list(df[branch])
                 expected_values = [self.values[i]] * self.nevents_per_file

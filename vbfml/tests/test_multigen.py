@@ -8,4 +8,3 @@
 #         self.mdg = MultiDatasetGeneratorUproot()
 
 #         self.datasets = []
-
