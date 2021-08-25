@@ -34,3 +34,10 @@ jobs:
           run: |
             source root/bin/thisroot.sh
             python3 -m pytest
+
+        - name: Upload coverage data to coveralls.io
+          run: |
+            python -m pip install coveralls==2.2
+            coveralls --service=github
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
