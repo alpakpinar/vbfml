@@ -11,7 +11,7 @@ def create_test_tree(
     arrays = {}
 
     n_instances = array("i", [0])
-    t.Branch("n", n_instances, f"n/I")
+    t.Branch("n", n_instances, "n/I")
     for branch in branches:
         arrays[branch] = array("d", max_instances * [0])
         t.Branch(branch, arrays[branch], f"{branch}[n]/D")

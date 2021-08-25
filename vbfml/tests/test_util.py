@@ -1,11 +1,9 @@
 import os
 from unittest import TestCase
 
-import numpy as np
 import uproot
 
 from .util import create_test_tree
-
 
 class TestCreateTestTree(TestCase):
     def setUp(self):

@@ -1,10 +1,8 @@
 import os
 from unittest import TestCase
 
-import numpy as np
 from vbfml.tests.util import create_test_tree
 from vbfml.input.sequences import MultiDatasetSequence
-
 
 class TestMultiDatasetSequence(TestCase):
     def setUp(self):
