@@ -41,14 +41,14 @@ class TestMultiDatasetSequenceNoShuffle(TestCase):
             )
 
     def test_n_dataset(self):
-        self.assertEqual(len(self.mds.datasets),self.n_file)
+        self.assertEqual(len(self.mds.datasets), self.n_file)
 
     def test_total_events(self):
-        self.assertEqual(self.mds.total_events(),11000)
+        self.assertEqual(self.mds.total_events(), 11000)
 
     def test_fractions(self):
-        self.assertAlmostEqual(self.mds.fractions['dataset_0'], 10000 / (10000 + 1000))
-        self.assertAlmostEqual(self.mds.fractions['dataset_1'], 1000 / (10000 + 1000))
+        self.assertAlmostEqual(self.mds.fractions["dataset_0"], 10000 / (10000 + 1000))
+        self.assertAlmostEqual(self.mds.fractions["dataset_1"], 1000 / (10000 + 1000))
 
     def test_batch(self):
         x = self.mds[0]

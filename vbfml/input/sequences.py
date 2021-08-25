@@ -47,7 +47,9 @@ class MultiDatasetSequence(Sequence):
     def total_events(self) -> int:
         return sum(dataset.n_events for dataset in self.datasets.values())
 
-    def add_dataset(self, name: str, files: "list[str]", n_events: int, treename="tree") -> None:
+    def add_dataset(
+        self, name: str, files: "list[str]", n_events: int, treename="tree"
+    ) -> None:
         info = DatasetInfo(name=name, files=files, n_events=n_events, treename=treename)
         self.datasets[name] = info
         self._calculate_fractions()
@@ -55,14 +57,16 @@ class MultiDatasetSequence(Sequence):
     def _initialize_reader(self, dataset_name) -> None:
         info = self.datasets[dataset_name]
         reader = UprootReaderMultiFile(
-            files=info.files, branches=self.branches, treename=info.treename, dataset=dataset_name,
+            files=info.files,
+            branches=self.branches,
+            treename=info.treename,
+            dataset=dataset_name,
         )
         self.readers[dataset_name] = reader
 
     def _initialize_readers(self) -> None:
         for dataset_name in self.datasets.keys():
             self._initialize_reader(dataset_name)
-    
 
     def _calculate_fractions(self) -> None:
         total = self.total_events()
