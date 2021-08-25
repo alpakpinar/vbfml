@@ -2,15 +2,17 @@ import numpy as np
 import pandas as pd
 import uproot
 
-class UprootReaderMultiFile():
+
+class UprootReaderMultiFile:
     """
     Wrapper class for reading data from multiple consecutive ROOT files.
-    
-    The implementation hides the multi-file nature of the input data from 
+
+    The implementation hides the multi-file nature of the input data from
     the user. Data is treated as a continuous stream of events without
-    file boundaries, and arbitrary continuous sequences of events can be 
+    file boundaries, and arbitrary continuous sequences of events can be
     read.
     """
+
     def __init__(
         self, files: "list[str]", branches: "list[str]", treename: str, dataset: str
     ) -> None:
@@ -113,7 +115,7 @@ class UprootReaderMultiFile():
 
         return df
 
-    def read_events_continuous(self, n_events_to_read:int) -> pd.DataFrame:
+    def read_events_continuous(self, n_events_to_read: int) -> pd.DataFrame:
         """Read and return the next N events"""
         start = int(self.continuous_read_position)
         stop = start + n_events_to_read

@@ -2,7 +2,7 @@ import os
 from unittest import TestCase
 
 import numpy as np
-from vbfml.input import UprootReaderMultiFile
+from vbfml.input.uproot import UprootReaderMultiFile
 from vbfml.tests.util import create_test_tree
 
 
@@ -102,40 +102,40 @@ class TestUprootReaderMultiFile(TestCase):
 
     def test_read_continuous(self):
         def value_list(value_index, length):
-            return [self.values[value_index] * length]
+            return [self.values[value_index]] * length
 
         def compare(df, expected):
             for branch in self.branches:
-                self.assertListEqual(list(df[branch], expected))
+                self.assertListEqual(list(df[branch]), expected)
 
         # Part of first file
         n_read = self.nevents_per_file // 2
         df = self.reader.read_events_continuous(n_read)
-        expected = value_list(0,n_read)
+        expected = value_list(0, n_read)
         compare(df, expected)
 
         # Rest of first file
         n_read = self.nevents_per_file - n_read
         df = self.reader.read_events_continuous(n_read)
-        expected = value_list(0,n_read)
+        expected = value_list(0, n_read)
         compare(df, expected)
 
         # Entire second file
         n_read = self.nevents_per_file
         df = self.reader.read_events_continuous(n_read)
-        expected = value_list(1,n_read)
+        expected = value_list(1, n_read)
         compare(df, expected)
 
         # Third file + part of fourth
         n_read = self.nevents_per_file + 3
         df = self.reader.read_events_continuous(n_read)
-        expected = value_list(2,self.nevents_per_file) + value_list(3,3)
+        expected = value_list(2, self.nevents_per_file) + value_list(3, 3)
         compare(df, expected)
 
         # Rest of fourth + part of fifth
         n_read = self.nevents_per_file
         df = self.reader.read_events_continuous(n_read)
-        expected = value_list(3,self.nevents_per_file-3) + value_list(4, 3)
+        expected = value_list(3, self.nevents_per_file - 3) + value_list(4, 3)
         compare(df, expected)
 
         # Reset and make sure we come out at the start again
