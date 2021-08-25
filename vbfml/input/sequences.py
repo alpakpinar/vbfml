@@ -19,28 +19,37 @@ class MultiDatasetSequence(Sequence):
         self.readers = {}
         self.branches = branches
         self.batch_size = batch_size
-        self.shuffle = shuffle
+        self._shuffle = shuffle
 
     def __len__(self) -> int:
-        return self.total_events // self.batch_size
+        return self.total_events() // self.batch_size
+    
+    @property
+    def shuffle(self) -> bool:
+        return self._shuffle
+
+    @shuffle.setter
+    def shuffle(self, shuffle: bool) -> None:
+        self._shuffle = shuffle
 
     def __getitem__(self, idx: int) -> tuple:
         dataframes = []
         for name in self.datasets.keys():
-            start = idx * self.batch_size * self.fractions[name]
-            stop = (idx + 1) * self.batch_size * self.fractions[name]
+            start = np.floor(idx * self.batch_size * self.fractions[name])
+            stop = np.floor((idx + 1) * self.batch_size * self.fractions[name])-1
             if not name in self.readers:
                 self._initialize_reader(name)
             df = self.readers[name].read_events(start, stop)
             df["label"] = name
             dataframes.append(df)
 
+        df = pd.concat(dataframes)
+
         if self.shuffle:
-            df = pd.concat(dataframes)
-        df = df.sample(frac=1)
+            df = df.sample(frac=1)
 
         features = df.drop(columns="label").to_numpy().T
-        labels = df["label"]
+        labels = np.array(df["label"]).reshape((1,len(df['label'])))
 
         return (features, labels)
 
