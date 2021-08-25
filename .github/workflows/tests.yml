@@ -33,7 +33,8 @@ jobs:
         - name: pytest
           run: |
             source root/bin/thisroot.sh
-            python3 -m pytest
+            pip install pytest-cov
+            python3 -m pytest --cov=vbfml/
 
         - name: Upload coverage data to coveralls.io
           run: |
