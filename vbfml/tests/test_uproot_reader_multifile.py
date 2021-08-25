@@ -6,7 +6,7 @@ from vbfml.input import UprootReaderMultiFile
 from vbfml.tests.util import create_test_tree
 
 
-class TestSingleDataseSequence(TestCase):
+class TestUprootReaderMultiFile(TestCase):
     def setUp(self):
         self.treename = "tree"
         self.branches = ["a", "b"]
