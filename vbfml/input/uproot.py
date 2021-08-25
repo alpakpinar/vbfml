@@ -1,10 +1,8 @@
 import numpy as np
 import pandas as pd
 import uproot
-from tensorflow.keras.utils import Sequence
 
-
-class UprootReaderMultiFile(Sequence):
+class UprootReaderMultiFile():
     """
     Wrapper class for reading data from multiple consecutive ROOT files.
     
@@ -23,6 +21,7 @@ class UprootReaderMultiFile(Sequence):
         self.dataset = dataset
         self.nevents_per_file = {}
         self._update_nevents_dict_all_files()
+        self.reset_continuous_read()
 
     def _open_file(self, file_index):
         """Open and return file object for given index."""
@@ -114,5 +113,14 @@ class UprootReaderMultiFile(Sequence):
 
         return df
 
-    def reset(self):
-        pass
+    def read_events_continuous(self, n_events_to_read:int) -> pd.DataFrame:
+        """Read and return the next N events"""
+        start = int(self.continuous_read_position)
+        stop = start + n_events_to_read
+        df = self.read_events(start, stop)
+        self.continuous_read_position += n_events_to_read
+        return df
+
+    def reset_continuous_read(self):
+        """Move read position back to start"""
+        self.continuous_read_position = 0
