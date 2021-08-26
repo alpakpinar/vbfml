@@ -64,6 +64,9 @@ class MultiDatasetSequence(Sequence):
         df["label"] = self.encode_label(self.datasets[dataset_name].label)
         return df
 
+    def dataset_labels(self):
+        return [dataset.label for dataset in self.datasets.values()]
+
     def encode_label(self, label):
         return self.label_encoding[label]
 
@@ -79,7 +82,7 @@ class MultiDatasetSequence(Sequence):
         features = df.drop(columns="label").to_numpy()
         labels = np.array(df["label"]).reshape((len(df["label"]), 1))
 
-        return (features, to_categorical(labels))
+        return (features, to_categorical(labels, num_classes=len(self.dataset_labels())))
 
     def total_events(self) -> int:
         """Total number of events of all data sets"""

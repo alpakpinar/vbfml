@@ -92,9 +92,8 @@ class TestMultiDatasetSequence(TestCase):
         (N_batch, N_feature) for features
         (N_batch, 1) for labels
         """
-        batch_indices = [0, len(self.mds) - 1]
 
-        for idx in batch_indices:
+        for idx in range(len(self.mds)):
             features, labels = self.mds[idx]
             # First index must agree between labels, features
             self.assertEqual(labels.shape[0], features.shape[0])
