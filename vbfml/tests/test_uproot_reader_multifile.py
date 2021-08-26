@@ -15,7 +15,6 @@ class TestUprootReaderMultiFile(TestCase):
         self.n_features = len(self.branches)
         self.values = list(range(self.n_file))
         self.total_events = self.nevents_per_file * self.n_file
-        self.dataset = "dataset"
         self.files = []
         for i in range(self.n_file):
             fname = os.path.abspath(f"test_single_{i}.root")
@@ -35,7 +34,6 @@ class TestUprootReaderMultiFile(TestCase):
             files=self.files,
             branches=self.branches,
             treename=self.treename,
-            dataset=self.dataset,
         )
 
     def test_file_list(self):

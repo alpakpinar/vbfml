@@ -13,13 +13,12 @@ class UprootReaderMultiFile:
     """
 
     def __init__(
-        self, files: "list[str]", branches: "list[str]", treename: str, dataset: str
+        self, files: "list[str]", branches: "list[str]", treename: str
     ) -> None:
         self.files = files
         self.branches = branches
         self.n_files = len(self.files)
         self.treename = treename
-        self.dataset = dataset
         self.nevents_per_file = {}
         self._update_nevents_dict_all_files()
         self.reset_continuous_read()

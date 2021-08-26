@@ -6,6 +6,7 @@ import numpy as np
 import tensorflow as tf
 from keras.layers import Dense
 from keras.models import Sequential
+from tensorflow.keras.utils import to_categorical
 from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
 from vbfml.tests.util import create_test_tree
 
@@ -103,7 +104,7 @@ class TestMultiDatasetSequence(TestCase):
             self.assertTrue(features.shape[0] > self.batch_size / 1.25)
 
             # Second index differs
-            self.assertEqual(labels.shape[1], 1)
+            self.assertEqual(labels.shape[1], len(self.mds.datasets))
             self.assertEqual(features.shape[1], len(self.branches))
 
     def test_batch_content_noshuffle(self):
@@ -111,25 +112,34 @@ class TestMultiDatasetSequence(TestCase):
         features, labels = self.mds[0]
 
         first_dataset = True
-        for f1, label in zip(features[:, 0], labels[:, 0]):
+
+        for i_batch in range(features.shape[0]):
+        
+            x = features[i_batch, :]
+            y = labels[i_batch, :]
+
+            label_0 = to_categorical(self.mds.encode_label("dataset_0"), num_classes=self.n_datasets)
+            label_1 = to_categorical(self.mds.encode_label("dataset_1"), num_classes=self.n_datasets)
 
             # Check that values and labels agree
             valid = False
-            valid |= (f1 == 0) and (label == self.mds.encode_label("dataset_0"))
-            valid |= (f1 == 1) and (label == self.mds.encode_label("dataset_1"))
+            valid |= (x[0] == 0) and np.all(y == label_0)
+            valid |= (x[0] == 1) and np.all(y == label_1)
             self.assertTrue(valid)
 
             # Since we did not shuffle, can check
             # that we never see dataset 0 again
             # after once seeing dataset 1
-            if f1 == 1:
+            if x[0] == 1:
                 first_dataset = False
             if not first_dataset:
-                self.assertEqual(f1, 1)
+                self.assertEqual(x[0], 1)
 
     def test_batch_content_custom_dataset_label(self):
         self.mds.shuffle = False
-
+    
+        # Add two new datasets with different names
+        # but same label
         info = deepcopy(self.mds.get_dataset("dataset_0"))
         info.name = "dataset_0_copy_1"
         info.label = "some_label"
@@ -140,12 +150,19 @@ class TestMultiDatasetSequence(TestCase):
         info.label = "some_label"
         self.mds.add_dataset(info)
 
+        # Remove original data sets for simplicity
         self.mds.remove_dataset("dataset_0")
         self.mds.remove_dataset("dataset_1")
 
+
         _, y = self.mds[0]
+        # Check that we have exactly two data sets
         self.assertEqual(len(self.mds.datasets), 2)
-        self.assertEqual(len(np.unique(y)), 1)
+
+        # But only one label
+        # the construction with argmax is needed to undo
+        # the one-hot encoding
+        self.assertEqual(len(np.unique(np.argmax(y, axis=1))), 1)
 
     def test_keras(self):
         """

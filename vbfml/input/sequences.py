@@ -1,9 +1,11 @@
 from dataclasses import dataclass
-from vbfml.input.uproot import UprootReaderMultiFile
-from tensorflow.keras.utils import Sequence
+
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.utils import Sequence, to_categorical
+
+from vbfml.input.uproot import UprootReaderMultiFile
 
 
 @dataclass
@@ -77,7 +79,7 @@ class MultiDatasetSequence(Sequence):
         features = df.drop(columns="label").to_numpy()
         labels = np.array(df["label"]).reshape((len(df["label"]), 1))
 
-        return (features, labels)
+        return (features, to_categorical(labels))
 
     def total_events(self) -> int:
         """Total number of events of all data sets"""
@@ -123,7 +125,6 @@ class MultiDatasetSequence(Sequence):
             files=info.files,
             branches=self.branches,
             treename=info.treename,
-            dataset=dataset_name,
         )
         self.readers[dataset_name] = reader
 
