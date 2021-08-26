@@ -1,8 +1,12 @@
 import os
 from unittest import TestCase
 
-from vbfml.tests.util import create_test_tree
+import tensorflow as tf
+from keras.layers import Dense
+from keras.models import Sequential
 from vbfml.input.sequences import MultiDatasetSequence
+from vbfml.tests.util import create_test_tree
+
 
 class TestMultiDatasetSequence(TestCase):
     def setUp(self):
@@ -59,17 +63,28 @@ class TestMultiDatasetSequence(TestCase):
             self.mds.add_dataset(name="dataset_0", files=[], n_events=0)
 
     def test_batch_shapes(self):
-        """Test that the individual batches are shaped correctly."""
+        """
+        Test that the individual batches are shaped correctly.
+        
+        The expected shape is 
+        (N_batch, N_feature) for features
+        (N_batch, 1) for labels
+        """
         batch_indices = [0, len(self.mds) - 1]
 
         for idx in batch_indices:
             features, labels = self.mds[idx]
-            self.assertEqual(labels.shape[1], features.shape[1])
-            self.assertEqual(labels.shape[0], 1)
-            self.assertEqual(features.shape[0], len(self.branches))
+            # First index must agree between labels, features
+            self.assertEqual(labels.shape[0], features.shape[0])
 
-            self.assertTrue(features.shape[1] < self.batch_size * 1.25)
-            self.assertTrue(features.shape[1] > self.batch_size / 1.25)
+            # Batch size might vary slightly
+            self.assertTrue(features.shape[0] < self.batch_size * 1.25)
+            self.assertTrue(features.shape[0] > self.batch_size / 1.25)
+
+            # Second index differs
+            self.assertEqual(labels.shape[1], 1)
+            self.assertEqual(features.shape[1], len(self.branches))
+
 
     def test_batch_content_noshuffle(self):
         self.mds.shuffle = False
@@ -80,8 +95,8 @@ class TestMultiDatasetSequence(TestCase):
 
             # Check that values and labels agree
             valid = False
-            valid |= (f1 == 0) and (label == "dataset_0")
-            valid |= (f1 == 1) and (label == "dataset_1")
+            valid |= (f1 == 0) and (label == self.mds.encode_label("dataset_0"))
+            valid |= (f1 == 1) and (label == self.mds.encode_label("dataset_1"))
             self.assertTrue(valid)
 
             # Since we did not shuffle, can check
@@ -91,3 +106,15 @@ class TestMultiDatasetSequence(TestCase):
                 first_dataset = False
             if not first_dataset:
                 self.assertEqual(f1, 1)
+
+    def test_keras(self):
+        """
+        Ensure that our output does not make keras crash. No validation of result!
+        """
+        model = Sequential()
+        model.add(Dense(2, input_dim=len(self.branches,), activation='relu'))
+        model.add(Dense(1, activation='sigmoid'))
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        model.summary()
+        model.fit(self.mds, epochs=1)
+

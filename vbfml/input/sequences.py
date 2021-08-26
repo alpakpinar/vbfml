@@ -3,7 +3,8 @@ from vbfml.input.uproot import UprootReaderMultiFile
 from tensorflow.keras.utils import Sequence
 import numpy as np
 import pandas as pd
-
+from tensorflow.keras.utils import to_categorical
+from sklearn.preprocessing import LabelEncoder
 
 @dataclass
 class DatasetInfo:
@@ -20,6 +21,7 @@ class MultiDatasetSequence(Sequence):
         self.branches = branches
         self.batch_size = batch_size
         self._shuffle = shuffle
+        self.encoder = LabelEncoder()
 
     def __len__(self) -> int:
         return self.total_events() // self.batch_size
@@ -52,8 +54,11 @@ class MultiDatasetSequence(Sequence):
         if not dataset_name in self.readers:
             self._initialize_reader(dataset_name)
         df = self.readers[dataset_name].read_events(start, stop)
-        df["label"] = dataset_name
+        df["label"] = self.encode_label(dataset_name)
         return df
+
+    def encode_label(self,label):
+        return self.label_encoding[label]
 
     def __getitem__(self, idx: int) -> tuple:
         """Returns a single batch of data"""
@@ -64,14 +69,20 @@ class MultiDatasetSequence(Sequence):
         if self.shuffle:
             df = df.sample(frac=1)
 
-        features = df.drop(columns="label").to_numpy().T
-        labels = np.array(df["label"]).reshape((1, len(df["label"])))
+        features = df.drop(columns="label").to_numpy()
+        labels = np.array(df["label"]).reshape((len(df["label"]),1))
 
         return (features, labels)
 
     def total_events(self) -> int:
         """Total number of events of all data sets"""
         return sum(dataset.n_events for dataset in self.datasets.values())
+
+    def _init_dataset_encoding(self) -> None:
+        names = list(sorted(map(str,self.datasets.keys())))
+        label_encoding = dict(enumerate(names))
+        label_encoding.update({v : k for k,v in label_encoding.items()})
+        self.label_encoding = label_encoding
 
     def add_dataset(
         self, name: str, files: "list[str]", n_events: int, treename="tree"
@@ -82,6 +93,7 @@ class MultiDatasetSequence(Sequence):
         info = DatasetInfo(name=name, files=files, n_events=n_events, treename=treename)
         self.datasets[name] = info
         self._calculate_fractions()
+        self._init_dataset_encoding()
 
     def _initialize_reader(self, dataset_name) -> None:
         """
