@@ -3,7 +3,6 @@ from vbfml.input.uproot import UprootReaderMultiFile
 from tensorflow.keras.utils import Sequence
 import numpy as np
 import pandas as pd
-from tensorflow.keras.utils import to_categorical
 from sklearn.preprocessing import LabelEncoder
 
 
@@ -13,7 +12,11 @@ class DatasetInfo:
     files: list
     n_events: int
     treename: str
+    label: str = ''
 
+    def __post_init__(self):
+        if not self.label:
+            self.label = self.name
 
 class MultiDatasetSequence(Sequence):
     def __init__(self, batch_size: int, branches: "list[str]", shuffle=True) -> None:
@@ -55,7 +58,7 @@ class MultiDatasetSequence(Sequence):
         if not dataset_name in self.readers:
             self._initialize_reader(dataset_name)
         df = self.readers[dataset_name].read_events(start, stop)
-        df["label"] = self.encode_label(dataset_name)
+        df["label"] = self.encode_label(self.datasets[dataset_name].label)
         return df
 
     def encode_label(self, label):
@@ -80,21 +83,31 @@ class MultiDatasetSequence(Sequence):
         return sum(dataset.n_events for dataset in self.datasets.values())
 
     def _init_dataset_encoding(self) -> None:
-        names = list(sorted(map(str, self.datasets.keys())))
-        label_encoding = dict(enumerate(names))
+        labels = sorted([dataset.label for dataset in self.datasets.values()])
+        label_encoding = dict(enumerate(labels))
         label_encoding.update({v: k for k, v in label_encoding.items()})
         self.label_encoding = label_encoding
 
-    def add_dataset(
-        self, name: str, files: "list[str]", n_events: int, treename="tree"
-    ) -> None:
-        """Add a new data set to the Sequence."""
-        if name in self.datasets:
-            raise IndexError(f"Dataset already exists: '{name}'.")
-        info = DatasetInfo(name=name, files=files, n_events=n_events, treename=treename)
-        self.datasets[name] = info
+    def _datasets_update(self):
+        """Perform all updates needed after a change in data sets"""
         self._calculate_fractions()
         self._init_dataset_encoding()
+
+    def add_dataset(self, dataset : DatasetInfo) -> None:
+        """Add a new data set to the Sequence."""
+        if dataset.name in self.datasets:
+            raise IndexError(f"Dataset already exists: '{dataset.name}'.")
+        self.datasets[dataset.name] = dataset
+        self._datasets_update()
+    
+    def remove_dataset(self, dataset_name : str) -> DatasetInfo:
+        """Remove dataset from this Sequence and return its DatasetInfo object"""
+        info = self.datasets.pop(dataset_name)
+        self._datasets_update()
+        return info
+
+    def get_dataset(self, dataset_name : str) -> DatasetInfo:
+        return self.datasets[dataset_name]
 
     def _initialize_reader(self, dataset_name) -> None:
         """
