@@ -1,6 +1,7 @@
 import pandas as pd
 import uproot
 
+
 class UprootReaderMultiFile:
     """
     Wrapper class for reading data from multiple consecutive ROOT files.

@@ -6,6 +6,7 @@ import pandas as pd
 from tensorflow.keras.utils import to_categorical
 from sklearn.preprocessing import LabelEncoder
 
+
 @dataclass
 class DatasetInfo:
     name: str
@@ -57,7 +58,7 @@ class MultiDatasetSequence(Sequence):
         df["label"] = self.encode_label(dataset_name)
         return df
 
-    def encode_label(self,label):
+    def encode_label(self, label):
         return self.label_encoding[label]
 
     def __getitem__(self, idx: int) -> tuple:
@@ -70,7 +71,7 @@ class MultiDatasetSequence(Sequence):
             df = df.sample(frac=1)
 
         features = df.drop(columns="label").to_numpy()
-        labels = np.array(df["label"]).reshape((len(df["label"]),1))
+        labels = np.array(df["label"]).reshape((len(df["label"]), 1))
 
         return (features, labels)
 
@@ -79,9 +80,9 @@ class MultiDatasetSequence(Sequence):
         return sum(dataset.n_events for dataset in self.datasets.values())
 
     def _init_dataset_encoding(self) -> None:
-        names = list(sorted(map(str,self.datasets.keys())))
+        names = list(sorted(map(str, self.datasets.keys())))
         label_encoding = dict(enumerate(names))
-        label_encoding.update({v : k for k,v in label_encoding.items()})
+        label_encoding.update({v: k for k, v in label_encoding.items()})
         self.label_encoding = label_encoding
 
     def add_dataset(

@@ -65,8 +65,8 @@ class TestMultiDatasetSequence(TestCase):
     def test_batch_shapes(self):
         """
         Test that the individual batches are shaped correctly.
-        
-        The expected shape is 
+
+        The expected shape is
         (N_batch, N_feature) for features
         (N_batch, 1) for labels
         """
@@ -84,7 +84,6 @@ class TestMultiDatasetSequence(TestCase):
             # Second index differs
             self.assertEqual(labels.shape[1], 1)
             self.assertEqual(features.shape[1], len(self.branches))
-
 
     def test_batch_content_noshuffle(self):
         self.mds.shuffle = False
@@ -112,9 +111,18 @@ class TestMultiDatasetSequence(TestCase):
         Ensure that our output does not make keras crash. No validation of result!
         """
         model = Sequential()
-        model.add(Dense(2, input_dim=len(self.branches,), activation='relu'))
-        model.add(Dense(1, activation='sigmoid'))
-        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        model.add(
+            Dense(
+                2,
+                input_dim=len(
+                    self.branches,
+                ),
+                activation="relu",
+            )
+        )
+        model.add(Dense(1, activation="sigmoid"))
+        model.compile(
+            loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"]
+        )
         model.summary()
         model.fit(self.mds, epochs=1)
-

@@ -5,6 +5,7 @@ import uproot
 
 from .util import create_test_tree
 
+
 class TestCreateTestTree(TestCase):
     def setUp(self):
         self.treename = "tree"
