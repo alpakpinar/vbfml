@@ -12,11 +12,12 @@ class DatasetInfo:
     files: list
     n_events: int
     treename: str
-    label: str = ''
+    label: str = ""
 
     def __post_init__(self):
         if not self.label:
             self.label = self.name
+
 
 class MultiDatasetSequence(Sequence):
     def __init__(self, batch_size: int, branches: "list[str]", shuffle=True) -> None:
@@ -93,20 +94,20 @@ class MultiDatasetSequence(Sequence):
         self._calculate_fractions()
         self._init_dataset_encoding()
 
-    def add_dataset(self, dataset : DatasetInfo) -> None:
+    def add_dataset(self, dataset: DatasetInfo) -> None:
         """Add a new data set to the Sequence."""
         if dataset.name in self.datasets:
             raise IndexError(f"Dataset already exists: '{dataset.name}'.")
         self.datasets[dataset.name] = dataset
         self._datasets_update()
-    
-    def remove_dataset(self, dataset_name : str) -> DatasetInfo:
+
+    def remove_dataset(self, dataset_name: str) -> DatasetInfo:
         """Remove dataset from this Sequence and return its DatasetInfo object"""
         info = self.datasets.pop(dataset_name)
         self._datasets_update()
         return info
 
-    def get_dataset(self, dataset_name : str) -> DatasetInfo:
+    def get_dataset(self, dataset_name: str) -> DatasetInfo:
         return self.datasets[dataset_name]
 
     def _initialize_reader(self, dataset_name) -> None:

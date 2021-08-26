@@ -40,12 +40,12 @@ class TestMultiDatasetSequence(TestCase):
             )
             self.files.append(fname)
             self.addCleanup(os.remove, fname)
-            
+
             dataset = DatasetInfo(
                 name=name,
                 files=[fname],
                 n_events=10000 if i == 0 else 1000,
-                treename=self.treename
+                treename=self.treename,
             )
             self.mds.add_dataset(dataset)
 
@@ -69,7 +69,6 @@ class TestMultiDatasetSequence(TestCase):
         with self.assertRaises(IndexError):
             self.mds.add_dataset(dataset)
 
-
     def test_remove_dataset(self):
         """Test removing a data set from the Sequence"""
         info = self.mds.remove_dataset("dataset_0")
@@ -80,7 +79,7 @@ class TestMultiDatasetSequence(TestCase):
         # The label_encoding dict stores two entries per data set
         # 1. data set name -> integer identifier
         # 2. integer identifier -> data set name
-        self.assertEqual(len(self.mds.label_encoding), 2*new_n_datasets)
+        self.assertEqual(len(self.mds.label_encoding), 2 * new_n_datasets)
 
         self.assertEqual(info.name, "dataset_0")
 
@@ -135,19 +134,18 @@ class TestMultiDatasetSequence(TestCase):
         info.name = "dataset_0_copy_1"
         info.label = "some_label"
         self.mds.add_dataset(info)
-        
+
         info = deepcopy(self.mds.get_dataset("dataset_0"))
         info.name = "dataset_0_copy_2"
         info.label = "some_label"
         self.mds.add_dataset(info)
-        
+
         self.mds.remove_dataset("dataset_0")
         self.mds.remove_dataset("dataset_1")
 
         _, y = self.mds[0]
         self.assertEqual(len(self.mds.datasets), 2)
         self.assertEqual(len(np.unique(y)), 1)
-
 
     def test_keras(self):
         """
@@ -169,4 +167,3 @@ class TestMultiDatasetSequence(TestCase):
         )
         model.summary()
         model.fit(self.mds, epochs=1)
-
