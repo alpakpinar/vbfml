@@ -114,12 +114,16 @@ class TestMultiDatasetSequence(TestCase):
         first_dataset = True
 
         for i_batch in range(features.shape[0]):
-        
+
             x = features[i_batch, :]
             y = labels[i_batch, :]
 
-            label_0 = to_categorical(self.mds.encode_label("dataset_0"), num_classes=self.n_datasets)
-            label_1 = to_categorical(self.mds.encode_label("dataset_1"), num_classes=self.n_datasets)
+            label_0 = to_categorical(
+                self.mds.encode_label("dataset_0"), num_classes=self.n_datasets
+            )
+            label_1 = to_categorical(
+                self.mds.encode_label("dataset_1"), num_classes=self.n_datasets
+            )
 
             # Check that values and labels agree
             valid = False
@@ -137,7 +141,7 @@ class TestMultiDatasetSequence(TestCase):
 
     def test_batch_content_custom_dataset_label(self):
         self.mds.shuffle = False
-    
+
         # Add two new datasets with different names
         # but same label
         info = deepcopy(self.mds.get_dataset("dataset_0"))
@@ -153,7 +157,6 @@ class TestMultiDatasetSequence(TestCase):
         # Remove original data sets for simplicity
         self.mds.remove_dataset("dataset_0")
         self.mds.remove_dataset("dataset_1")
-
 
         _, y = self.mds[0]
         # Check that we have exactly two data sets
