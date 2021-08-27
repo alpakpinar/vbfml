@@ -8,9 +8,8 @@ def sequential_dense_model(
     model = Sequential()
 
     assert (
-        len(n_nodes) == n_layers,
-        "Inconsistent number of layers and node specification!",
-    )
+        len(n_nodes) == n_layers
+    ), "Inconsistent number of layers and node specification!"
 
     model.add(
         Dense(

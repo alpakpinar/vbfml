@@ -3,9 +3,6 @@ from copy import deepcopy
 from unittest import TestCase
 
 import numpy as np
-import tensorflow as tf
-from keras.layers import Dense
-from keras.models import Sequential
 from tensorflow.keras.utils import to_categorical
 from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
 from vbfml.tests.util import create_test_tree
