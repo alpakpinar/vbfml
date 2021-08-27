@@ -1,10 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from tensorflow.keras.utils import Sequence, to_categorical
 
+from collections import defaultdict
 from vbfml.input.uproot import UprootReaderMultiFile
 
 
@@ -21,14 +22,51 @@ class DatasetInfo:
             self.label = self.name
 
 
+@dataclass
+class Buffer:
+    buffer: dict = field(default_factory=dict)
+    buffer_size: int = 10
+    forget_mode: str = "forget_oldest_key"
+
+    def insert(self, key, value):
+        self.buffer[key] = value
+        if len(self.buffer) > self.buffer_size:
+            self.forget()
+
+    def forget_min_key(self):
+        self.buffer.pop(min(self.buffer.keys()))
+
+    def forget_oldest_key(self):
+        self.buffer.pop(next(iter(self.buffer)))
+
+    def forget(self):
+        if self.forget_mode == "forget_min_key":
+            self.forget_min_key()
+        elif self.forget_mode == "forget_oldest_key":
+            self.forget_oldest_key()
+        else:
+            raise NotImplementedError
+
+    def __getitem__(self, key):
+        return self.buffer[key]
+
+    def __contains__(self, key):
+        return key in self.buffer
+
+
 class MultiDatasetSequence(Sequence):
-    def __init__(self, batch_size: int, branches: "list[str]", shuffle=True) -> None:
+    def __init__(
+        self, batch_size: int, branches: "list[str]", shuffle=True, batch_buffer_size=1
+    ) -> None:
         self.datasets = {}
         self.readers = {}
         self.branches = branches
         self.batch_size = batch_size
         self._shuffle = shuffle
         self.encoder = LabelEncoder()
+
+        self.batch_buffer_size = batch_buffer_size
+        self.batch_buffer = Buffer(buffer_size=self.batch_buffer_size)
 
     def __len__(self) -> int:
         return self.total_events() // self.batch_size
@@ -41,48 +79,82 @@ class MultiDatasetSequence(Sequence):
     def shuffle(self, shuffle: bool) -> None:
         self._shuffle = shuffle
 
-    def _read_dataframes_for_batch(self, idx: int) -> list:
+    def _read_dataframes_for_batch_range(
+        self, batch_start: int, batch_stop: int
+    ) -> list:
         """Reads and returns data for a given batch and all datasets"""
         dataframes = []
         for name in self.datasets.keys():
-            df = self._read_single_dataframe_for_batch_(idx, name)
+            df = self._read_single_dataframe_for_batch_range(
+                batch_start, batch_stop, name
+            )
             dataframes.append(df)
         return dataframes
 
-    def _get_start_stop_for_single_read(self, idx: int, dataset_name: str) -> tuple:
-        """Returns the start and stop coordinates for reading a given batch of data from one dataset"""
-        start = np.floor(idx * self.batch_size * self.fractions[dataset_name])
-        stop = np.floor((idx + 1) * self.batch_size * self.fractions[dataset_name]) - 1
-        return start, stop
-
-    def _read_single_dataframe_for_batch_(self, idx: int, dataset_name: str):
+    def _read_single_dataframe_for_batch_range(
+        self, batch_start: int, batch_stop: int, dataset_name: str
+    ):
         """Reads and returns data for a given batch and single data"""
-        start, stop = self._get_start_stop_for_single_read(idx, dataset_name)
+        start, stop = self._get_start_stop_for_single_read(
+            batch_start, batch_stop, dataset_name
+        )
         if not dataset_name in self.readers:
             self._initialize_reader(dataset_name)
         df = self.readers[dataset_name].read_events(start, stop)
         df["label"] = self.encode_label(self.datasets[dataset_name].label)
         return df
 
+    def _get_start_stop_for_single_read(
+        self, batch_start: int, batch_stop: int, dataset_name: str
+    ) -> tuple:
+        """Returns the start and stop coordinates for reading a given batch of data from one dataset"""
+        start = np.floor(batch_start * self.batch_size * self.fractions[dataset_name])
+        stop = np.floor(batch_stop * self.batch_size * self.fractions[dataset_name]) - 1
+        return start, stop
+
     def dataset_labels(self):
         return [dataset.label for dataset in self.datasets.values()]
+
+    def dataset_names(self):
+        return [dataset.name for dataset in self.datasets.values()]
 
     def encode_label(self, label):
         return self.label_encoding[label]
 
+    def _split_multibatch(self, dfs: "list[pd.DataFrame]", index_offset=0) -> dict:
+        split_dfs = defaultdict(list)
+        for df in dfs:
+            for ibatch, df_batch in enumerate(
+                np.array_split(df, self.batch_buffer_size)
+            ):
+                split_dfs[index_offset + ibatch].append(df_batch)
+        return dict(split_dfs)
+
+    def fill_batch_buffer(self, batch_start: int, batch_stop: int) -> None:
+        multibatch_dfs = self._read_dataframes_for_batch_range(batch_start, batch_stop)
+        batched_dfs = self._split_multibatch(multibatch_dfs, index_offset=batch_start)
+
+        for ibatch, df in batched_dfs.items():
+            if ibatch in self.batch_buffer:
+                continue
+            df = pd.concat(df)
+
+            if self.shuffle:
+                df = df.sample(frac=1)
+
+            features = df.drop(columns="label").to_numpy()
+            labels = to_categorical(
+                np.array(df["label"]).reshape((len(df["label"]), 1)),
+                num_classes=len(self.dataset_labels()),
+            )
+
+            self.batch_buffer.insert(ibatch, (features, labels))
+
     def __getitem__(self, idx: int) -> tuple:
         """Returns a single batch of data"""
-        dataframes = self._read_dataframes_for_batch(idx)
-
-        df = pd.concat(dataframes)
-
-        if self.shuffle:
-            df = df.sample(frac=1)
-
-        features = df.drop(columns="label").to_numpy()
-        labels = np.array(df["label"]).reshape((len(df["label"]), 1))
-
-        return (features, to_categorical(labels, num_classes=len(self.dataset_labels())))
+        if idx not in self.batch_buffer:
+            self.fill_batch_buffer(idx, min(idx + self.batch_buffer_size, len(self)))
+        return self.batch_buffer[idx]
 
     def total_events(self) -> int:
         """Total number of events of all data sets"""

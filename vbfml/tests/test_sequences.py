@@ -9,6 +9,7 @@ from keras.models import Sequential
 from tensorflow.keras.utils import to_categorical
 from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
 from vbfml.tests.util import create_test_tree
+from vbfml.models import sequential_dense_model
 
 
 class TestMultiDatasetSequence(TestCase):
@@ -170,19 +171,12 @@ class TestMultiDatasetSequence(TestCase):
         """
         Ensure that our output does not make keras crash. No validation of result!
         """
-        model = Sequential()
-        model.add(
-            Dense(
-                2,
-                input_dim=len(
-                    self.branches,
-                ),
-                activation="relu",
-            )
+        model = sequential_dense_model(
+            n_features=len(self.branches),
+            n_layers=1,
+            n_nodes=[2],
+            n_classes=len(self.mds.dataset_labels()),
         )
-        model.add(Dense(1, activation="sigmoid"))
-        model.compile(
-            loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"]
-        )
+
         model.summary()
         model.fit(self.mds, epochs=1)
