@@ -99,7 +99,7 @@ class MultiDatasetSequence(Sequence):
             batch_start, batch_stop, dataset_name
         )
         if not dataset_name in self.readers:
-            self._initialize_reader(dataset_name)
+            self._init_reader(dataset_name)
         df = self.readers[dataset_name].read_events(start, stop)
         df["label"] = self.encode_label(self.datasets[dataset_name].label)
         return df
@@ -118,6 +118,10 @@ class MultiDatasetSequence(Sequence):
     def dataset_names(self):
         return [dataset.name for dataset in self.datasets.values()]
 
+    def total_events(self) -> int:
+        """Total number of events of all data sets"""
+        return sum(dataset.n_events for dataset in self.datasets.values())
+
     def encode_label(self, label):
         return self.label_encoding[label]
 
@@ -130,7 +134,7 @@ class MultiDatasetSequence(Sequence):
                 split_dfs[index_offset + ibatch].append(df_batch)
         return dict(split_dfs)
 
-    def fill_batch_buffer(self, batch_start: int, batch_stop: int) -> None:
+    def _fill_batch_buffer(self, batch_start: int, batch_stop: int) -> None:
         multibatch_dfs = self._read_dataframes_for_batch_range(batch_start, batch_stop)
         batched_dfs = self._split_multibatch(multibatch_dfs, index_offset=batch_start)
 
@@ -150,44 +154,30 @@ class MultiDatasetSequence(Sequence):
 
             self.batch_buffer.insert(ibatch, (features, labels))
 
-    def __getitem__(self, idx: int) -> tuple:
+    def __getitem__(self, batch: int) -> tuple:
         """Returns a single batch of data"""
-        if idx not in self.batch_buffer:
-            self.fill_batch_buffer(idx, min(idx + self.batch_buffer_size, len(self)))
-        return self.batch_buffer[idx]
-
-    def total_events(self) -> int:
-        """Total number of events of all data sets"""
-        return sum(dataset.n_events for dataset in self.datasets.values())
-
-    def _init_dataset_encoding(self) -> None:
-        labels = sorted([dataset.label for dataset in self.datasets.values()])
-        label_encoding = dict(enumerate(labels))
-        label_encoding.update({v: k for k, v in label_encoding.items()})
-        self.label_encoding = label_encoding
-
-    def _datasets_update(self):
-        """Perform all updates needed after a change in data sets"""
-        self._calculate_fractions()
-        self._init_dataset_encoding()
+        if batch not in self.batch_buffer:
+            max_batch_to_buffer = min(batch + self.batch_buffer_size, len(self))
+            self._fill_batch_buffer(batch, max_batch_to_buffer)
+        return self.batch_buffer[batch]
 
     def add_dataset(self, dataset: DatasetInfo) -> None:
         """Add a new data set to the Sequence."""
         if dataset.name in self.datasets:
             raise IndexError(f"Dataset already exists: '{dataset.name}'.")
         self.datasets[dataset.name] = dataset
-        self._datasets_update()
+        self._datasets_changed()
 
     def remove_dataset(self, dataset_name: str) -> DatasetInfo:
         """Remove dataset from this Sequence and return its DatasetInfo object"""
         info = self.datasets.pop(dataset_name)
-        self._datasets_update()
+        self._datasets_changed()
         return info
 
     def get_dataset(self, dataset_name: str) -> DatasetInfo:
         return self.datasets[dataset_name]
 
-    def _initialize_reader(self, dataset_name) -> None:
+    def _init_reader(self, dataset_name) -> None:
         """
         Initializes file readers for a given data set.
 
@@ -203,12 +193,24 @@ class MultiDatasetSequence(Sequence):
         )
         self.readers[dataset_name] = reader
 
-    def _initialize_readers(self) -> None:
+    def _init_readers(self) -> None:
         """Initializes file readers for all data sets"""
         for dataset_name in self.datasets.keys():
-            self._initialize_reader(dataset_name)
+            self._init_reader(dataset_name)
 
-    def _calculate_fractions(self) -> None:
+    def _init_label_encoding(self) -> None:
+        """Create encoding of string labels <-> integer class indices"""
+        labels = sorted([dataset.label for dataset in self.datasets.values()])
+        label_encoding = dict(enumerate(labels))
+        label_encoding.update({v: k for k, v in label_encoding.items()})
+        self.label_encoding = label_encoding
+
+    def _datasets_changed(self):
+        """Perform all updates needed after a change in data sets"""
+        self._init_dataset_fractions()
+        self._init_label_encoding()
+
+    def _init_dataset_fractions(self) -> None:
         """Determine what fraction of the total events is from a given data set"""
         total = self.total_events()
         self.fractions = {
