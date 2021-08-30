@@ -35,7 +35,6 @@ class TestMultiDatasetSequence(TestCase):
                 branches=self.branches,
                 n_events=self.nevents_per_file,
                 value=self.values[i],
-                max_instances=1,
             )
             self.files.append(fname)
             self.addCleanup(os.remove, fname)
@@ -177,6 +176,49 @@ class TestMultiDatasetSequence(TestCase):
 
         model.summary()
         model.fit(self.mds, epochs=1)
+
+class TestMultiDatasetSequenceSplit(TestCase):
+    def setUp(self):
+        self.treename = "tree"
+        self.branches = ["a", "b"]
+        self.nevents_per_file = 10000
+        self.n_datasets = 2
+        self.n_features = len(self.branches)
+        self.values = list(range(self.n_datasets))
+        self.total_events = self.nevents_per_file * self.n_datasets
+        self.dataset = "dataset"
+        self.files = []
+        self.batch_size = 50
+
+        self.mds = MultiDatasetSequence(
+            batch_size=self.batch_size, branches=self.branches, shuffle=False
+        )
+
+        for i in range(self.n_datasets):
+            name = f"dataset_{i}"
+            fname = os.path.abspath(f"test_{name}.root")
+            create_test_tree(
+                filename=fname,
+                treename=self.treename,
+                branches=self.branches,
+                n_events=self.nevents_per_file,
+                value=self.values[i],
+            )
+            self.files.append(fname)
+            self.addCleanup(os.remove, fname)
+
+            dataset = DatasetInfo(
+                name=name,
+                files=[fname],
+                n_events=10000 if i == 0 else 1000,
+                treename=self.treename,
+            )
+            self.mds.add_dataset(dataset)
+
+    def test_read_range(self):
+        # Ignore first and last 10%
+        # == read from 10% to 90%
+        self.mds.read_range = (0.1,0.9)
 
 
 class TestLRIDictBuffer(TestCase):
