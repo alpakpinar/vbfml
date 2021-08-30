@@ -17,7 +17,7 @@ class DatasetInfo:
     n_events: int
     treename: str
     label: str = ""
-    weight: float = 1.
+    weight: float = 1.0
 
     def __post_init__(self):
         if not self.label:
@@ -95,7 +95,7 @@ class MultiDatasetSequence(Sequence):
     def _format_weights(self, df: pd.DataFrame, dataset_name: str) -> None:
         dataset_weight = self.datasets[dataset_name].weight
         if self.weight_expression:
-            df.rename(columns={self.weight_expression:"weight"}, inplace=True)
+            df.rename(columns={self.weight_expression: "weight"}, inplace=True)
             df["weight"] = df["weight"] * dataset_weight
         else:
             df["weight"] = dataset_weight
