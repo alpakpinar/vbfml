@@ -21,6 +21,9 @@ class DatasetInfo:
         if not self.label:
             self.label = self.name
 
+def row_vector(branch):
+    return np.array(branch).reshape((len(branch), 1))
+
 class MultiDatasetSequence(Sequence):
     def __init__(
         self,
@@ -29,6 +32,7 @@ class MultiDatasetSequence(Sequence):
         shuffle=True,
         batch_buffer_size=1,
         read_range=(0.0, 1.0),
+        weight_expression=None
     ) -> None:
         self.datasets = {}
         self.readers = {}
@@ -41,10 +45,19 @@ class MultiDatasetSequence(Sequence):
         self.batch_buffer = LRIDictBuffer(buffer_size=self.batch_buffer_size)
 
         self._read_range = read_range
+        self._weight_expression = weight_expression
 
     def __len__(self) -> int:
         read_fraction = self.read_range[1] - self.read_range[0]
         return int(self.total_events() * read_fraction // self.batch_size)
+
+    @property
+    def weight_expression(self) -> str:
+        return self._weight_expression
+
+    @weight_expression.setter
+    def weight_expression(self, weight_expression: str) -> None:
+        self._weight_expression = weight_expression
 
     @property
     def shuffle(self) -> bool:
@@ -148,13 +161,23 @@ class MultiDatasetSequence(Sequence):
             if self.shuffle:
                 df = df.sample(frac=1)
 
-            features = df.drop(columns="label").to_numpy()
+            non_feature_columns = ["label"]
+            if self.weight_expression:
+                non_feature_columns.append(self.weight_expression)
+            features = df.drop(columns=non_feature_columns).to_numpy()
+
             labels = to_categorical(
-                np.array(df["label"]).reshape((len(df["label"]), 1)),
+                row_vector(df["label"]),
                 num_classes=len(self.dataset_labels()),
             )
 
-            self.batch_buffer[ibatch] = (features, labels)
+            if self.weight_expression:
+                weights = row_vector(df[self.weight_expression])
+                batch = (features, labels, weights)
+            else:
+                batch = (features, labels)
+            
+            self.batch_buffer[ibatch] = batch
 
     def __getitem__(self, batch: int) -> tuple:
         """Returns a single batch of data"""
@@ -188,9 +211,14 @@ class MultiDatasetSequence(Sequence):
         event counts.
         """
         info = self.datasets[dataset_name]
+
+        branches_to_read = self.branches.copy()
+        if self.weight_expression:
+            branches_to_read.append(self.weight_expression)
+
         reader = UprootReaderMultiFile(
             files=info.files,
-            branches=self.branches,
+            branches=branches_to_read,
             treename=info.treename,
         )
         self.readers[dataset_name] = reader

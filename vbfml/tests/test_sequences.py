@@ -244,22 +244,27 @@ class TestMultiDatasetSequenceSplit(TestCase):
 class TestMultiDatasetSequenceWeight(TestCase):
     def setUp(self):
         self.treename = "tree"
-        self.branches = ["a"]
+        self.feature_branches = ["a"]
+        self.weight_branch = "b"
         self.weight_expression = "2*b"
         self.nevents_per_file = 103
+        self.all_branches = self.feature_branches + [self.weight_branch]
         self.values = list(range(self.nevents_per_file))
         self.total_events = self.nevents_per_file
         self.files = []
 
         self.mds = MultiDatasetSequence(
-            batch_size=37, branches=self.branches, shuffle=False
+            batch_size=37, 
+            branches=self.feature_branches,
+            shuffle=False,
+            weight_expression=self.weight_expression
         )
 
         fname = os.path.abspath(f"test.root")
         create_test_tree(
             filename=fname,
             treename=self.treename,
-            branches=self.branches + [self.weight_expression],
+            branches=self.all_branches,
             n_events=self.nevents_per_file,
             value=self.values,
         )
@@ -270,8 +275,7 @@ class TestMultiDatasetSequenceWeight(TestCase):
             name="dataset",
             files=[fname],
             n_events=self.nevents_per_file,
-            treename=self.treename,
-            weight_expression = self.weight_expression
+            treename=self.treename
         )
         self.mds.add_dataset(dataset)
 
@@ -299,14 +303,10 @@ class TestMultiDatasetSequenceWeight(TestCase):
 
             # Second index
             self.assertEqual(labels.shape[1], len(self.mds.datasets))
-            self.assertEqual(features.shape[1], len(self.branches))
-            self.assertEqual(weights.shape[1], len(self.branches))
-
-            # Batch size might vary slightly
-            self.assertTrue(features.shape[0] < self.batch_size * 1.25)
-            self.assertTrue(features.shape[0] > self.batch_size / 1.25)
+            self.assertEqual(features.shape[1], len(self.feature_branches))
+            self.assertEqual(weights.shape[1], 1)
 
     def test_batch_content_weighted(self):
         self.mds.shuffle = False
         features, _, weights = self.mds[0]
-        self.addListEqual(list(features.flatten()), list(2*weights.flatten()))
+        self.assertListEqual(list(2*features.flatten()), list(weights.flatten()))
