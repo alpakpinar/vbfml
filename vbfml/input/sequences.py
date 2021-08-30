@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -23,35 +23,27 @@ class DatasetInfo:
 
 
 @dataclass
-class Buffer:
-    buffer: dict = field(default_factory=dict)
+class LRIDictBuffer(dict):
+    """
+    Least-recently-inserted buffered dictionary.
+
+    A dictionary with fixed maximum size. If the maximum
+    size is reached and another insertion is made,
+    the oldest item is removed.
+
+    Implementation relies on dict insertion ordering,
+    which is guaranteed since python 3.7.
+    """
+
     buffer_size: int = 10
-    forget_mode: str = "forget_oldest_key"
 
-    def insert(self, key, value):
-        self.buffer[key] = value
-        if len(self.buffer) > self.buffer_size:
-            self.forget()
+    def __setitem__(self, key, value):
+        dict.__setitem__(self, key, value)
+        if len(self) > self.buffer_size:
+            self.forget_oldest()
 
-    def forget_min_key(self):
-        self.buffer.pop(min(self.buffer.keys()))
-
-    def forget_oldest_key(self):
-        self.buffer.pop(next(iter(self.buffer)))
-
-    def forget(self):
-        if self.forget_mode == "forget_min_key":
-            self.forget_min_key()
-        elif self.forget_mode == "forget_oldest_key":
-            self.forget_oldest_key()
-        else:
-            raise NotImplementedError
-
-    def __getitem__(self, key):
-        return self.buffer[key]
-
-    def __contains__(self, key):
-        return key in self.buffer
+    def forget_oldest(self):
+        self.pop(next(iter(self)))
 
 
 class MultiDatasetSequence(Sequence):
@@ -66,7 +58,7 @@ class MultiDatasetSequence(Sequence):
         self.encoder = LabelEncoder()
 
         self.batch_buffer_size = batch_buffer_size
-        self.batch_buffer = Buffer(buffer_size=self.batch_buffer_size)
+        self.batch_buffer = LRIDictBuffer(buffer_size=self.batch_buffer_size)
 
     def __len__(self) -> int:
         return self.total_events() // self.batch_size
@@ -152,7 +144,7 @@ class MultiDatasetSequence(Sequence):
                 num_classes=len(self.dataset_labels()),
             )
 
-            self.batch_buffer.insert(ibatch, (features, labels))
+            self.batch_buffer[ibatch] = (features, labels)
 
     def __getitem__(self, batch: int) -> tuple:
         """Returns a single batch of data"""
