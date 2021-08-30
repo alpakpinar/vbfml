@@ -99,7 +99,7 @@ class TestMultiDatasetSequence(TestCase):
             batch = self.mds[idx]
 
             # In unweighted readout, batch should be a tuple of two
-            self.assertEqual(len(batch),2)
+            self.assertEqual(len(batch), 2)
             features, labels = batch
 
             # First index must agree between labels, features
@@ -240,7 +240,6 @@ class TestMultiDatasetSequenceSplit(TestCase):
             self._test_read_range(irange)
 
 
-
 class TestMultiDatasetSequenceWeight(TestCase):
     def setUp(self):
         self.treename = "tree"
@@ -254,10 +253,10 @@ class TestMultiDatasetSequenceWeight(TestCase):
         self.files = []
 
         self.mds = MultiDatasetSequence(
-            batch_size=37, 
+            batch_size=37,
             branches=self.feature_branches,
             shuffle=False,
-            weight_expression=self.weight_expression
+            weight_expression=self.weight_expression,
         )
 
         fname = os.path.abspath(f"test.root")
@@ -275,7 +274,7 @@ class TestMultiDatasetSequenceWeight(TestCase):
             name="dataset",
             files=[fname],
             n_events=self.nevents_per_file,
-            treename=self.treename
+            treename=self.treename,
         )
         self.mds.add_dataset(dataset)
 
@@ -307,6 +306,29 @@ class TestMultiDatasetSequenceWeight(TestCase):
             self.assertEqual(weights.shape[1], 1)
 
     def test_batch_content_weighted(self):
+        """Test that weights are loaded correctly"""
         self.mds.shuffle = False
         features, _, weights = self.mds[0]
-        self.assertListEqual(list(2*features.flatten()), list(weights.flatten()))
+
+        if self.weight_expression == "2*b":
+            expected_weights = list(2 * features.flatten())
+        else:
+            raise NotImplementedError(
+                "Test for weight expressions other than '2*b' not implemented!"
+            )
+
+        self.assertListEqual(expected_weights, list(weights.flatten()))
+
+    def test_keras(self):
+        """
+        Ensure that our output does not make keras crash. No validation of result!
+        """
+        model = sequential_dense_model(
+            n_features=len(self.feature_branches),
+            n_layers=1,
+            n_nodes=[2],
+            n_classes=len(self.mds.dataset_labels()),
+        )
+
+        model.summary()
+        model.fit(self.mds, epochs=1)

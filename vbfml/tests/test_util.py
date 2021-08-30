@@ -1,6 +1,7 @@
 from unittest import TestCase
 from vbfml.util import LRIDictBuffer
 
+
 class TestLRIDictBuffer(TestCase):
     def setUp(self):
         self.buffer_size = 5
