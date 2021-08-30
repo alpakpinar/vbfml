@@ -177,6 +177,7 @@ class TestMultiDatasetSequence(TestCase):
         model.summary()
         model.fit(self.mds, epochs=1)
 
+
 class TestMultiDatasetSequenceSplit(TestCase):
     def setUp(self):
         self.treename = "tree"
@@ -218,7 +219,7 @@ class TestMultiDatasetSequenceSplit(TestCase):
     def test_read_range(self):
         # Ignore first and last 10%
         # == read from 10% to 90%
-        self.mds.read_range = (0.1,0.9)
+        self.mds.read_range = (0.1, 0.9)
 
 
 class TestLRIDictBuffer(TestCase):

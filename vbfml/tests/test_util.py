@@ -55,6 +55,7 @@ class TestCreateTestTree(TestCase):
                 expected_values = [self.values[i]] * self.nevents_per_file
                 self.assertListEqual(expected_values, observed_values)
 
+
 class TestCreateTestTreeWithIteration(TestCase):
     def setUp(self):
         self.treename = "tree"

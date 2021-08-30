@@ -3,30 +3,36 @@ from array import array
 import numpy as np
 
 
-def create_test_tree(
-    filename, treename, branches, n_events, value=None, max_instances=1
-):
+def create_test_tree(filename, treename, branches, n_events, value=None):
     f = r.TFile(filename, "RECREATE")
     t = r.TTree(treename, treename)
     arrays = {}
 
-    n_instances = array("i", [0])
-    t.Branch("n", n_instances, "n/I")
+    # Branch creation
     for branch in branches:
-        arrays[branch] = array("d", max_instances * [0])
-        t.Branch(branch, arrays[branch], f"{branch}[n]/D")
+        arrays[branch] = array("d", [0])
+        t.Branch(branch, arrays[branch], f"{branch}/D")
 
-    for _ in range(n_events):
-        if max_instances > 1:
-            n_instances[0] = int(np.random.randint(low=1, high=max_instances))
-        else:
-            n_instances[0] = 1
-        for i in range(int(n_instances[0])):
-            for branch in branches:
-                if value is None:
-                    arrays[branch][i] = np.random.randn()
-                else:
-                    arrays[branch][i] = value
+    # Determine if values are to be iterated
+    iterable = True
+    try:
+        iter(value)
+    except TypeError:
+        iterable = False
+    if iterable:
+        assert n_events == len(value)
+
+    # Branch filling
+    for i_event in range(n_events):
+        for branch in branches:
+            if value is None:
+                value_out = np.random.randn()
+            elif iterable:
+                value_out = value[i_event]
+            else:
+                value_out = value
+
+            arrays[branch][0] = value_out
         t.Fill()
     f.Write()
     f.Close()
