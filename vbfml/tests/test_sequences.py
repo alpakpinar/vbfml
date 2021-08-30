@@ -13,7 +13,8 @@ class TestMultiDatasetSequence(TestCase):
     def setUp(self):
         self.treename = "tree"
         self.branches = ["a", "b"]
-        self.nevents_per_file = 10000
+        self.nevents_per_file = 500
+        self.nevents_per_dataset = [100, 500]
         self.n_datasets = 2
         self.n_features = len(self.branches)
         self.values = list(range(self.n_datasets))
@@ -42,7 +43,7 @@ class TestMultiDatasetSequence(TestCase):
             dataset = DatasetInfo(
                 name=name,
                 files=[fname],
-                n_events=10000 if i == 0 else 1000,
+                n_events=self.nevents_per_dataset[i],
                 treename=self.treename,
             )
             self.mds.add_dataset(dataset)
@@ -53,12 +54,16 @@ class TestMultiDatasetSequence(TestCase):
 
     def test_total_events(self):
         """Test that the number of total events is as expected"""
-        self.assertEqual(self.mds.total_events(), 11000)
+        self.assertEqual(self.mds.total_events(), sum(self.nevents_per_dataset))
 
     def test_fractions(self):
         """Test that the fraction of each dataset relative to the total events is correct."""
-        self.assertAlmostEqual(self.mds.fractions["dataset_0"], 10000 / (10000 + 1000))
-        self.assertAlmostEqual(self.mds.fractions["dataset_1"], 1000 / (10000 + 1000))
+        total_dataset_events = sum(self.nevents_per_dataset)
+        for i in range(len(self.nevents_per_dataset)):
+            self.assertAlmostEqual(
+                self.mds.fractions[f"dataset_{i}"],
+                self.nevents_per_dataset[i] / total_dataset_events,
+            )
 
     def test_add_dataset_guard(self):
         """Test that add_dataset is guarded against incorrect usage"""
@@ -181,45 +186,53 @@ class TestMultiDatasetSequence(TestCase):
 class TestMultiDatasetSequenceSplit(TestCase):
     def setUp(self):
         self.treename = "tree"
-        self.branches = ["a", "b"]
-        self.nevents_per_file = 10000
-        self.n_datasets = 2
-        self.n_features = len(self.branches)
-        self.values = list(range(self.n_datasets))
-        self.total_events = self.nevents_per_file * self.n_datasets
-        self.dataset = "dataset"
+        self.branches = ["a"]
+        self.nevents_per_file = 103
+        self.values = list(range(self.nevents_per_file))
+        self.total_events = self.nevents_per_file
         self.files = []
-        self.batch_size = 50
 
         self.mds = MultiDatasetSequence(
-            batch_size=self.batch_size, branches=self.branches, shuffle=False
+            batch_size=37, branches=self.branches, shuffle=False
         )
 
-        for i in range(self.n_datasets):
-            name = f"dataset_{i}"
-            fname = os.path.abspath(f"test_{name}.root")
-            create_test_tree(
-                filename=fname,
-                treename=self.treename,
-                branches=self.branches,
-                n_events=self.nevents_per_file,
-                value=self.values[i],
-            )
-            self.files.append(fname)
-            self.addCleanup(os.remove, fname)
+        fname = os.path.abspath(f"test.root")
+        create_test_tree(
+            filename=fname,
+            treename=self.treename,
+            branches=self.branches,
+            n_events=self.nevents_per_file,
+            value=self.values,
+        )
+        self.files.append(fname)
+        self.addCleanup(os.remove, fname)
 
-            dataset = DatasetInfo(
-                name=name,
-                files=[fname],
-                n_events=10000 if i == 0 else 1000,
-                treename=self.treename,
-            )
-            self.mds.add_dataset(dataset)
+        dataset = DatasetInfo(
+            name="dataset",
+            files=[fname],
+            n_events=self.nevents_per_file,
+            treename=self.treename,
+        )
+        self.mds.add_dataset(dataset)
+
+    def _test_read_range(self, read_range):
+        self.mds.read_range = read_range
+
+        def in_range(x):
+            n_values = len(self.values)
+            fraction = x / n_values
+            return read_range[0] <= fraction <= read_range[1]
+
+        valid_values = set(filter(in_range, self.values))
+
+        for features, _ in self.mds:
+            all_valid = all([x in valid_values for x in features.flatten()])
+            self.assertTrue(all_valid)
 
     def test_read_range(self):
-        # Ignore first and last 10%
-        # == read from 10% to 90%
-        self.mds.read_range = (0.1, 0.9)
+        ranges = [(0.1, 0.9), (0.25, 0.75), (0.3, 1.0), (0.0, 0.7)]
+        for irange in ranges:
+            self._test_read_range(irange)
 
 
 class TestLRIDictBuffer(TestCase):

@@ -25,7 +25,6 @@ class TestUprootReaderMultiFile(TestCase):
                 branches=self.branches,
                 n_events=self.nevents_per_file,
                 value=self.values[i],
-                max_instances=1,
             )
             self.files.append(fname)
             self.addCleanup(os.remove, fname)

@@ -48,7 +48,12 @@ class LRIDictBuffer(dict):
 
 class MultiDatasetSequence(Sequence):
     def __init__(
-        self, batch_size: int, branches: "list[str]", shuffle=True, batch_buffer_size=1
+        self,
+        batch_size: int,
+        branches: "list[str]",
+        shuffle=True,
+        batch_buffer_size=1,
+        read_range=(0.0, 1.0),
     ) -> None:
         self.datasets = {}
         self.readers = {}
@@ -60,8 +65,11 @@ class MultiDatasetSequence(Sequence):
         self.batch_buffer_size = batch_buffer_size
         self.batch_buffer = LRIDictBuffer(buffer_size=self.batch_buffer_size)
 
+        self._read_range = read_range
+
     def __len__(self) -> int:
-        return self.total_events() // self.batch_size
+        read_fraction = self.read_range[1] - self.read_range[0]
+        return int(self.total_events() * read_fraction // self.batch_size)
 
     @property
     def shuffle(self) -> bool:
@@ -70,6 +78,27 @@ class MultiDatasetSequence(Sequence):
     @shuffle.setter
     def shuffle(self, shuffle: bool) -> None:
         self._shuffle = shuffle
+
+    @property
+    def read_range(self) -> tuple:
+        return self._read_range
+
+    @read_range.setter
+    def read_range(self, read_range: tuple) -> None:
+        assert len(read_range) == 2, "Read range must be a tuple of length two."
+        assert all(
+            0 <= x <= 1 for x in read_range
+        ), "Read range bounds must be between 0 and 1."
+        assert (
+            read_range[0] < read_range[1]
+        ), "Read range bounds must be in increasing order."
+
+        # Buffered batches must be thrown out
+        # if read range changes
+        if read_range != self.read_range:
+            self.batch_buffer.clear()
+
+        self._read_range = read_range
 
     def _read_dataframes_for_batch_range(
         self, batch_start: int, batch_stop: int
@@ -100,7 +129,13 @@ class MultiDatasetSequence(Sequence):
         self, batch_start: int, batch_stop: int, dataset_name: str
     ) -> tuple:
         """Returns the start and stop coordinates for reading a given batch of data from one dataset"""
-        start = np.floor(batch_start * self.batch_size * self.fractions[dataset_name])
+
+        dataset_events = self.datasets[dataset_name].n_events
+
+        offset = np.ceil(dataset_events * self.read_range[0])
+        start = offset + np.floor(
+            batch_start * self.batch_size * self.fractions[dataset_name]
+        )
         stop = np.floor(batch_stop * self.batch_size * self.fractions[dataset_name]) - 1
         return start, stop
 
