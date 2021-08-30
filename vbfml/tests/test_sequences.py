@@ -4,7 +4,7 @@ from unittest import TestCase
 
 import numpy as np
 from tensorflow.keras.utils import to_categorical
-from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence, LRIDictBuffer
+from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
 from vbfml.tests.util import create_test_tree
 from vbfml.models import sequential_dense_model
 
@@ -96,7 +96,12 @@ class TestMultiDatasetSequence(TestCase):
         """
 
         for idx in range(len(self.mds)):
-            features, labels = self.mds[idx]
+            batch = self.mds[idx]
+
+            # In unweighted readout, batch should be a tuple of two
+            self.assertEqual(len(batch), 2)
+            features, labels = batch
+
             # First index must agree between labels, features
             self.assertEqual(labels.shape[0], features.shape[0])
 
@@ -235,37 +240,95 @@ class TestMultiDatasetSequenceSplit(TestCase):
             self._test_read_range(irange)
 
 
-class TestLRIDictBuffer(TestCase):
+class TestMultiDatasetSequenceWeight(TestCase):
     def setUp(self):
-        self.buffer_size = 5
-        self.buffer = LRIDictBuffer(buffer_size=self.buffer_size)
-        self.test_items = {
-            "a": "b",
-            1: "c",
-            3: 4.5,
-            7: 8,
-            121231231: 129381023,
-            "sdajsld": 0,
-            -1: -0.5,
-        }
+        self.treename = "tree"
+        self.feature_branches = ["a"]
+        self.weight_branch = "b"
+        self.weight_expression = "2*b"
+        self.nevents_per_file = 103
+        self.all_branches = self.feature_branches + [self.weight_branch]
+        self.values = list(range(self.nevents_per_file))
+        self.total_events = self.nevents_per_file
+        self.files = []
 
-    def test_buffer(self):
-        # Buffer initalizes empty
-        self.assertEqual(len(self.buffer), 0)
+        self.mds = MultiDatasetSequence(
+            batch_size=37,
+            branches=self.feature_branches,
+            shuffle=False,
+            weight_expression=self.weight_expression,
+        )
 
-        forgotten_keys = []
-        for i, (key, value) in enumerate(self.test_items.items()):
+        fname = os.path.abspath(f"test.root")
+        create_test_tree(
+            filename=fname,
+            treename=self.treename,
+            branches=self.all_branches,
+            n_events=self.nevents_per_file,
+            value=self.values,
+        )
+        self.files.append(fname)
+        self.addCleanup(os.remove, fname)
 
-            # Test insertion and read back
-            self.buffer[key] = value
-            expected_length = min(i + 1, self.buffer_size)
-            self.assertEqual(len(self.buffer), expected_length)
-            self.assertEqual(self.buffer[key], value)
+        dataset = DatasetInfo(
+            name="dataset",
+            files=[fname],
+            n_events=self.nevents_per_file,
+            treename=self.treename,
+        )
+        self.mds.add_dataset(dataset)
 
-            # Store keys that will have been removed after loop
-            if i < len(self.test_items) - self.buffer_size:
-                forgotten_keys.append(key)
+    def test_weighted_batch_shapes(self):
+        """
+        Test that the individual batches are shaped correctly.
 
-        # Test that early keys have really been removed
-        for key in forgotten_keys:
-            self.assertFalse(key in self.buffer)
+        The expected shape is
+        (N_batch, N_feature) for features
+        (N_batch, 1) for labels
+        (N_batch, 1) for weights
+        """
+
+        for idx in range(len(self.mds)):
+            batch = self.mds[idx]
+
+            # For weighted readout, batch should be a tuple of three
+            self.assertEqual(len(batch), 3)
+            features, labels, weights = batch
+
+            # First index must agree between labels, features
+            self.assertEqual(labels.shape[0], features.shape[0])
+            self.assertEqual(labels.shape[0], weights.shape[0])
+            self.assertEqual(labels.shape[1], weights.shape[1])
+
+            # Second index
+            self.assertEqual(labels.shape[1], len(self.mds.datasets))
+            self.assertEqual(features.shape[1], len(self.feature_branches))
+            self.assertEqual(weights.shape[1], 1)
+
+    def test_batch_content_weighted(self):
+        """Test that weights are loaded correctly"""
+        self.mds.shuffle = False
+        features, _, weights = self.mds[0]
+
+        if self.weight_expression == "2*b":
+            expected_weights = list(2 * features.flatten())
+        else:
+            raise NotImplementedError(
+                "Test for weight expressions other than '2*b' not implemented!"
+            )
+
+        self.assertListEqual(expected_weights, list(weights.flatten()))
+
+    def test_keras(self):
+        """
+        Ensure that our output does not make keras crash. No validation of result!
+        """
+        model = sequential_dense_model(
+            n_features=len(self.feature_branches),
+            n_layers=1,
+            n_nodes=[2],
+            n_classes=len(self.mds.dataset_labels()),
+        )
+
+        model.summary()
+        model.fit(self.mds, epochs=1)

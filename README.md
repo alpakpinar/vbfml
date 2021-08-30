@@ -11,5 +11,5 @@
 | Multi-file reading | done |
 | Keras conformant output | done |
 | Train / validation / test splitting | done |
-| Per-event weights from input tree | todo |
-| Per-dataset weight modifiers (xs, sumw) | todo |
+| Per-event weights from input tree | done |
+| Per-dataset weight modifiers (xs, sumw) | done |
