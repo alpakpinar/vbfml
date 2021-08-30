@@ -187,7 +187,7 @@ class MultiDatasetSequence(Sequence):
                 df = df.sample(frac=1)
 
             non_feature_columns = ["label"]
-            if self.is_weighted:
+            if self.is_weighted():
                 non_feature_columns.append("weight")
             features = df.drop(columns=non_feature_columns).to_numpy()
 
@@ -196,7 +196,7 @@ class MultiDatasetSequence(Sequence):
                 num_classes=len(self.dataset_labels()),
             )
 
-            if self.is_weighted:
+            if self.is_weighted():
                 weights = row_vector(df["weight"])
                 batch = (features, labels, weights)
             else:
