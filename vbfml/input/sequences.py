@@ -7,7 +7,7 @@ from tensorflow.keras.utils import Sequence, to_categorical
 
 from collections import defaultdict
 from vbfml.input.uproot import UprootReaderMultiFile
-
+from vbfml.util import LRIDictBuffer
 
 @dataclass
 class DatasetInfo:
@@ -20,31 +20,6 @@ class DatasetInfo:
     def __post_init__(self):
         if not self.label:
             self.label = self.name
-
-
-@dataclass
-class LRIDictBuffer(dict):
-    """
-    Least-recently-inserted buffered dictionary.
-
-    A dictionary with fixed maximum size. If the maximum
-    size is reached and another insertion is made,
-    the oldest item is removed.
-
-    Implementation relies on dict insertion ordering,
-    which is guaranteed since python 3.7.
-    """
-
-    buffer_size: int = 10
-
-    def __setitem__(self, key, value):
-        dict.__setitem__(self, key, value)
-        if len(self) > self.buffer_size:
-            self.forget_oldest()
-
-    def forget_oldest(self):
-        self.pop(next(iter(self)))
-
 
 class MultiDatasetSequence(Sequence):
     def __init__(
