@@ -96,7 +96,12 @@ class TestMultiDatasetSequence(TestCase):
         """
 
         for idx in range(len(self.mds)):
-            features, labels = self.mds[idx]
+            batch = self.mds[idx]
+
+            # In unweighted readout, batch should be a tuple of two
+            self.assertEqual(len(batch),2)
+            features, labels = batch
+
             # First index must agree between labels, features
             self.assertEqual(labels.shape[0], features.shape[0])
 
@@ -233,3 +238,75 @@ class TestMultiDatasetSequenceSplit(TestCase):
         ranges = [(0.1, 0.9), (0.25, 0.75), (0.3, 1.0), (0.0, 0.7)]
         for irange in ranges:
             self._test_read_range(irange)
+
+
+
+class TestMultiDatasetSequenceWeight(TestCase):
+    def setUp(self):
+        self.treename = "tree"
+        self.branches = ["a"]
+        self.weight_expression = "2*b"
+        self.nevents_per_file = 103
+        self.values = list(range(self.nevents_per_file))
+        self.total_events = self.nevents_per_file
+        self.files = []
+
+        self.mds = MultiDatasetSequence(
+            batch_size=37, branches=self.branches, shuffle=False
+        )
+
+        fname = os.path.abspath(f"test.root")
+        create_test_tree(
+            filename=fname,
+            treename=self.treename,
+            branches=self.branches + [self.weight_expression],
+            n_events=self.nevents_per_file,
+            value=self.values,
+        )
+        self.files.append(fname)
+        self.addCleanup(os.remove, fname)
+
+        dataset = DatasetInfo(
+            name="dataset",
+            files=[fname],
+            n_events=self.nevents_per_file,
+            treename=self.treename,
+            weight_expression = self.weight_expression
+        )
+        self.mds.add_dataset(dataset)
+
+    def test_weighted_batch_shapes(self):
+        """
+        Test that the individual batches are shaped correctly.
+
+        The expected shape is
+        (N_batch, N_feature) for features
+        (N_batch, 1) for labels
+        (N_batch, 1) for weights
+        """
+
+        for idx in range(len(self.mds)):
+            batch = self.mds[idx]
+
+            # For weighted readout, batch should be a tuple of three
+            self.assertEqual(len(batch), 3)
+            features, labels, weights = batch
+
+            # First index must agree between labels, features
+            self.assertEqual(labels.shape[0], features.shape[0])
+            self.assertEqual(labels.shape[0], weights.shape[0])
+            self.assertEqual(labels.shape[1], weights.shape[1])
+
+            # Second index
+            self.assertEqual(labels.shape[1], len(self.mds.datasets))
+            self.assertEqual(features.shape[1], len(self.branches))
+            self.assertEqual(weights.shape[1], len(self.branches))
+
+            # Batch size might vary slightly
+            self.assertTrue(features.shape[0] < self.batch_size * 1.25)
+            self.assertTrue(features.shape[0] > self.batch_size / 1.25)
+
+    def test_batch_content_weighted(self):
+        self.mds.shuffle = False
+        features, _, weights = self.mds[0]
+        self.addListEqual(list(features.flatten()), list(2*weights.flatten()))
