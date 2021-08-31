@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from tensorflow.keras.utils import Sequence, to_categorical
 
 from vbfml.input.uproot import UprootReaderMultiFile
@@ -37,6 +37,7 @@ class MultiDatasetSequence(Sequence):
         batch_buffer_size=1,
         read_range=(0.0, 1.0),
         weight_expression=None,
+        scale_features=False,
     ) -> None:
         self.datasets = {}
         self.readers = {}
@@ -51,6 +52,9 @@ class MultiDatasetSequence(Sequence):
         self._read_range = read_range
         self._weight_expression = weight_expression
 
+        self._scale_features = scale_features
+        self._feature_scaler = None
+
     def __len__(self) -> int:
         read_fraction = self.read_range[1] - self.read_range[0]
         return int(self.total_events() * read_fraction // self.batch_size)
@@ -62,6 +66,16 @@ class MultiDatasetSequence(Sequence):
     @weight_expression.setter
     def weight_expression(self, weight_expression: str) -> None:
         self._weight_expression = weight_expression
+
+    @property
+    def scale_features(self) -> bool:
+        return self._scale_features
+
+    @scale_features.setter
+    def scale_features(self, scale_features: bool) -> None:
+        if scale_features != self.scale_features:
+            self.batch_buffer.clear()
+        self._scale_features = scale_features
 
     @property
     def shuffle(self) -> bool:
@@ -91,6 +105,14 @@ class MultiDatasetSequence(Sequence):
             self.batch_buffer.clear()
 
         self._read_range = read_range
+
+    def _init_feature_scaler(self, features: np.ndarray) -> None:
+        self._feature_scaler = StandardScaler().fit(features)
+
+    def apply_feature_scaling(self, features: np.ndarray) -> np.ndarray:
+        if not self._feature_scaler:
+            self._init_feature_scaler(features)
+        return self._feature_scaler.transform(features)
 
     def _format_weights(self, df: pd.DataFrame, dataset_name: str) -> None:
         dataset_weight = self.datasets[dataset_name].weight
@@ -190,6 +212,9 @@ class MultiDatasetSequence(Sequence):
             if self.is_weighted():
                 non_feature_columns.append("weight")
             features = df.drop(columns=non_feature_columns).to_numpy()
+
+            if self.scale_features:
+                features = self.apply_feature_scaling(features)
 
             labels = to_categorical(
                 row_vector(df["label"]),
