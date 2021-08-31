@@ -332,3 +332,74 @@ class TestMultiDatasetSequenceWeight(TestCase):
 
         model.summary()
         model.fit(self.mds, epochs=1)
+
+
+class TestMultiDatasetSequenceFeatureScaling(TestCase):
+    def setUp(self):
+        self.treename = "tree"
+        self.feature_branches = ["a"]
+        self.weight_branch = "b"
+        self.weight_expression = "b"
+        self.nevents_per_file = int(1e4)
+        self.all_branches = self.feature_branches + [self.weight_branch]
+
+        self.feature_mean = 2
+        self.feature_std = 5
+        self.values = (
+            self.feature_std * np.random.randn(self.nevents_per_file)
+            + self.feature_mean
+        )
+        self.total_events = self.nevents_per_file
+        self.files = []
+
+        self.mds = MultiDatasetSequence(
+            batch_size=int(1e3),
+            branches=self.feature_branches,
+            shuffle=False,
+            weight_expression=self.weight_expression,
+        )
+
+        fname = os.path.abspath(f"test.root")
+        create_test_tree(
+            filename=fname,
+            treename=self.treename,
+            branches=self.all_branches,
+            n_events=self.nevents_per_file,
+            value=self.values,
+        )
+        self.files.append(fname)
+        self.addCleanup(os.remove, fname)
+
+        dataset = DatasetInfo(
+            name="dataset",
+            files=[fname],
+            n_events=self.nevents_per_file,
+            treename=self.treename,
+        )
+        self.mds.add_dataset(dataset)
+
+    def test_feature_scaling(self):
+        def deviation_from_target(features):
+            """
+            Mean is supposed to be ~=0, std dev ~=1
+            -> Calculate and return the absolute differences
+            """
+            deviation_mean = np.max(np.abs(np.mean(features, axis=0)))
+            deviation_std = np.max(np.abs(np.std(features, axis=0) - 1))
+            return deviation_mean, deviation_std
+
+        # Read without feature scaling
+        self.mds.scale_features = False
+        features, _, weights = self.mds[0]
+        dev_mean, dev_std = deviation_from_target(features)
+        self.assertNotAlmostEqual(dev_mean, self.feature_mean)
+        self.assertNotAlmostEqual(dev_std, self.feature_std - 1)
+        self.assertTrue(np.all(features == weights))
+
+        # Read with feature scaling
+        self.mds.scale_features = True
+        features, _, weights = self.mds[0]
+        dev_mean, dev_std = deviation_from_target(features)
+        self.assertAlmostEqual(dev_mean, 0)
+        self.assertAlmostEqual(dev_std, 0)
+        self.assertTrue(np.all(features != weights))
