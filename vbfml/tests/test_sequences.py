@@ -96,7 +96,12 @@ class TestMultiDatasetSequence(TestCase):
         """
 
         for idx in range(len(self.mds)):
-            features, labels = self.mds[idx]
+            batch = self.mds[idx]
+
+            # In unweighted readout, batch should be a tuple of two
+            self.assertEqual(len(batch), 2)
+            features, labels = batch
+
             # First index must agree between labels, features
             self.assertEqual(labels.shape[0], features.shape[0])
 

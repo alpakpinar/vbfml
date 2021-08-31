@@ -5,6 +5,7 @@ import uproot
 
 from .util import create_test_tree
 
+
 class TestCreateTestTree(TestCase):
     def setUp(self):
         self.treename = "tree"
@@ -87,5 +88,3 @@ class TestCreateTestTreeWithIteration(TestCase):
                 observed_values = list(df[branch])
                 expected_values = self.values
                 self.assertListEqual(expected_values, observed_values)
-
-

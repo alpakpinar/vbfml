@@ -79,8 +79,8 @@ class TestUprootReaderMultiFile(TestCase):
 
     def test_readevents(self):
         """Read data across file boundaries, test output shape & content"""
-        for start in range(self.total_events):
-            for stop in range(start, self.total_events):
+        for start in range(0, self.total_events, 13):
+            for stop in range(start, self.total_events, 19):
                 df = self.reader.read_events(start=start, stop=stop)
 
                 # Test shape

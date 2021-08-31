@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import dataclass
 
 import numpy as np
@@ -5,9 +6,9 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from tensorflow.keras.utils import Sequence, to_categorical
 
-from collections import defaultdict
 from vbfml.input.uproot import UprootReaderMultiFile
 from vbfml.util import LRIDictBuffer
+
 
 @dataclass
 class DatasetInfo:
@@ -16,10 +17,16 @@ class DatasetInfo:
     n_events: int
     treename: str
     label: str = ""
+    weight: float = 1.0
 
     def __post_init__(self):
         if not self.label:
             self.label = self.name
+
+
+def row_vector(branch):
+    return np.array(branch).reshape((len(branch), 1))
+
 
 class MultiDatasetSequence(Sequence):
     def __init__(
@@ -124,6 +131,8 @@ class MultiDatasetSequence(Sequence):
             df = self._read_single_dataframe_for_batch_range(
                 batch_start, batch_stop, name
             )
+            if self.is_weighted():
+                self._format_weights(df, name)
             dataframes.append(df)
         return dataframes
 
@@ -154,20 +163,28 @@ class MultiDatasetSequence(Sequence):
         stop = np.floor(batch_stop * self.batch_size * self.fractions[dataset_name]) - 1
         return start, stop
 
-    def dataset_labels(self):
+    def dataset_labels(self) -> "list[str]":
+        """Return list of labels of all data sets in this Sequence."""
         return [dataset.label for dataset in self.datasets.values()]
 
-    def dataset_names(self):
+    def dataset_names(self) -> "list[str]":
+        """Return list of names of all data sets in this Sequence."""
         return [dataset.name for dataset in self.datasets.values()]
 
     def total_events(self) -> int:
         """Total number of events of all data sets"""
         return sum(dataset.n_events for dataset in self.datasets.values())
 
-    def encode_label(self, label):
+    def encode_label(self, label: str) -> np.ndarray:
+        """
+        Encode string-values labels into one-hot vectors.
+        """
         return self.label_encoding[label]
 
     def _split_multibatch(self, dfs: "list[pd.DataFrame]", index_offset=0) -> dict:
+        """
+        Convert a dataframe containing multiple batches into per-batch frames
+        """
         split_dfs = defaultdict(list)
         for df in dfs:
             for ibatch, df_batch in enumerate(
@@ -177,13 +194,16 @@ class MultiDatasetSequence(Sequence):
         return dict(split_dfs)
 
     def _fill_batch_buffer(self, batch_start: int, batch_stop: int) -> None:
+        """
+        Read batches from file and save them into the buffer for future use.
+        """
         multibatch_dfs = self._read_dataframes_for_batch_range(batch_start, batch_stop)
         batched_dfs = self._split_multibatch(multibatch_dfs, index_offset=batch_start)
 
-        for ibatch, df in batched_dfs.items():
+        for ibatch, dfs in batched_dfs.items():
             if ibatch in self.batch_buffer:
                 continue
-            df = pd.concat(df)
+            df = pd.concat(dfs)
 
             if self.shuffle:
                 df = df.sample(frac=1)
@@ -197,11 +217,17 @@ class MultiDatasetSequence(Sequence):
                 features = self.apply_feature_scaling(features)
 
             labels = to_categorical(
-                np.array(df["label"]).reshape((len(df["label"]), 1)),
+                row_vector(df["label"]),
                 num_classes=len(self.dataset_labels()),
             )
 
-            self.batch_buffer[ibatch] = (features, labels)
+            if self.is_weighted():
+                weights = row_vector(df["weight"])
+                batch = (features, labels, weights)
+            else:
+                batch = (features, labels)
+
+            self.batch_buffer[ibatch] = batch
 
     def __getitem__(self, batch: int) -> tuple:
         """Returns a single batch of data"""
@@ -235,9 +261,14 @@ class MultiDatasetSequence(Sequence):
         event counts.
         """
         info = self.datasets[dataset_name]
+
+        branches_to_read = self.branches.copy()
+        if self.weight_expression:
+            branches_to_read.append(self.weight_expression)
+
         reader = UprootReaderMultiFile(
             files=info.files,
-            branches=self.branches,
+            branches=branches_to_read,
             treename=info.treename,
         )
         self.readers[dataset_name] = reader
@@ -265,3 +296,13 @@ class MultiDatasetSequence(Sequence):
         self.fractions = {
             name: info.n_events / total for name, info in self.datasets.items()
         }
+
+    def is_weighted(self):
+        """
+        Weights are needed if a per-event expression is used OR any data set has a weight.
+        """
+        if self.weight_expression:
+            return True
+        if any([dataset.weight != 1 for dataset in self.datasets.values()]):
+            return True
+        return False
