@@ -233,3 +233,168 @@ class TestMultiDatasetSequenceSplit(TestCase):
         ranges = [(0.1, 0.9), (0.25, 0.75), (0.3, 1.0), (0.0, 0.7)]
         for irange in ranges:
             self._test_read_range(irange)
+
+
+class TestMultiDatasetSequenceWeight(TestCase):
+    def setUp(self):
+        self.treename = "tree"
+        self.feature_branches = ["a"]
+        self.weight_branch = "b"
+        self.weight_expression = "2*b"
+        self.nevents_per_file = 103
+        self.all_branches = self.feature_branches + [self.weight_branch]
+        self.values = list(range(self.nevents_per_file))
+        self.total_events = self.nevents_per_file
+        self.files = []
+
+        self.mds = MultiDatasetSequence(
+            batch_size=37,
+            branches=self.feature_branches,
+            shuffle=False,
+            weight_expression=self.weight_expression,
+        )
+
+        fname = os.path.abspath(f"test.root")
+        create_test_tree(
+            filename=fname,
+            treename=self.treename,
+            branches=self.all_branches,
+            n_events=self.nevents_per_file,
+            value=self.values,
+        )
+        self.files.append(fname)
+        self.addCleanup(os.remove, fname)
+
+        dataset = DatasetInfo(
+            name="dataset",
+            files=[fname],
+            n_events=self.nevents_per_file,
+            treename=self.treename,
+        )
+        self.mds.add_dataset(dataset)
+
+    def test_weighted_batch_shapes(self):
+        """
+        Test that the individual batches are shaped correctly.
+
+        The expected shape is
+        (N_batch, N_feature) for features
+        (N_batch, 1) for labels
+        (N_batch, 1) for weights
+        """
+
+        for idx in range(len(self.mds)):
+            batch = self.mds[idx]
+
+            # For weighted readout, batch should be a tuple of three
+            self.assertEqual(len(batch), 3)
+            features, labels, weights = batch
+
+            # First index must agree between labels, features
+            self.assertEqual(labels.shape[0], features.shape[0])
+            self.assertEqual(labels.shape[0], weights.shape[0])
+            self.assertEqual(labels.shape[1], weights.shape[1])
+
+            # Second index
+            self.assertEqual(labels.shape[1], len(self.mds.datasets))
+            self.assertEqual(features.shape[1], len(self.feature_branches))
+            self.assertEqual(weights.shape[1], 1)
+
+    def test_batch_content_weighted(self):
+        """Test that weights are loaded correctly"""
+        self.mds.shuffle = False
+        features, _, weights = self.mds[0]
+
+        if self.weight_expression == "2*b":
+            expected_weights = list(2 * features.flatten())
+        else:
+            raise NotImplementedError(
+                "Test for weight expressions other than '2*b' not implemented!"
+            )
+
+        self.assertListEqual(expected_weights, list(weights.flatten()))
+
+    def test_keras(self):
+        """
+        Ensure that our output does not make keras crash. No validation of result!
+        """
+        model = sequential_dense_model(
+            n_features=len(self.feature_branches),
+            n_layers=1,
+            n_nodes=[2],
+            n_classes=len(self.mds.dataset_labels()),
+        )
+
+        model.summary()
+        model.fit(self.mds, epochs=1)
+
+
+class TestMultiDatasetSequenceFeatureScaling(TestCase):
+    def setUp(self):
+        self.treename = "tree"
+        self.feature_branches = ["a"]
+        self.weight_branch = "b"
+        self.weight_expression = "b"
+        self.nevents_per_file = int(1e4)
+        self.all_branches = self.feature_branches + [self.weight_branch]
+
+        self.feature_mean = 2
+        self.feature_std = 5
+        self.values = (
+            self.feature_std * np.random.randn(self.nevents_per_file)
+            + self.feature_mean
+        )
+        self.total_events = self.nevents_per_file
+        self.files = []
+
+        self.mds = MultiDatasetSequence(
+            batch_size=int(1e3),
+            branches=self.feature_branches,
+            shuffle=False,
+            weight_expression=self.weight_expression,
+        )
+
+        fname = os.path.abspath(f"test.root")
+        create_test_tree(
+            filename=fname,
+            treename=self.treename,
+            branches=self.all_branches,
+            n_events=self.nevents_per_file,
+            value=self.values,
+        )
+        self.files.append(fname)
+        self.addCleanup(os.remove, fname)
+
+        dataset = DatasetInfo(
+            name="dataset",
+            files=[fname],
+            n_events=self.nevents_per_file,
+            treename=self.treename,
+        )
+        self.mds.add_dataset(dataset)
+
+    def test_feature_scaling(self):
+        def deviation_from_target(features):
+            """
+            Mean is supposed to be ~=0, std dev ~=1
+            -> Calculate and return the absolute differences
+            """
+            deviation_mean = np.max(np.abs(np.mean(features, axis=0)))
+            deviation_std = np.max(np.abs(np.std(features, axis=0) - 1))
+            return deviation_mean, deviation_std
+
+        # Read without feature scaling
+        self.mds.scale_features = False
+        features, _, weights = self.mds[0]
+        dev_mean, dev_std = deviation_from_target(features)
+        self.assertNotAlmostEqual(dev_mean, self.feature_mean)
+        self.assertNotAlmostEqual(dev_std, self.feature_std - 1)
+        self.assertTrue(np.all(features == weights))
+
+        # Read with feature scaling
+        self.mds.scale_features = True
+        features, _, weights = self.mds[0]
+        dev_mean, dev_std = deviation_from_target(features)
+        self.assertAlmostEqual(dev_mean, 0)
+        self.assertAlmostEqual(dev_std, 0)
+        self.assertTrue(np.all(features != weights))
