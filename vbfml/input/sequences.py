@@ -106,12 +106,26 @@ class MultiDatasetSequence(Sequence):
 
         self._read_range = read_range
 
-    def _init_feature_scaler(self, features: np.ndarray) -> None:
+    def _init_feature_scaler_from_features(self, features: np.ndarray) -> None:
+        """
+        Initialize the feature scaler object based on a feature tensor.
+        """
         self._feature_scaler = StandardScaler().fit(features)
 
+    def _init_feature_scaler_from_multibatch(self, dfs: "list[pd.DataFrame]") -> None:
+        """
+        Initialize the feature scaler object based on a list of DataFrames
+
+        Used to initialize the scaler based on data corresponding to a multi-batch
+        (i.e. many batches) rather than just a single batch. Higher
+        statistiscal accuracy will result in better scaling performance.
+        """
+        df = pd.concat(dfs)
+        features = df.drop(columns=self._non_feature_columns()).to_numpy()
+        self._init_feature_scaler_from_features(features)
+
     def apply_feature_scaling(self, features: np.ndarray) -> np.ndarray:
-        if not self._feature_scaler:
-            self._init_feature_scaler(features)
+        assert self._feature_scaler, "Feature scaler has not been initalized."
         return self._feature_scaler.transform(features)
 
     def _format_weights(self, df: pd.DataFrame, dataset_name: str) -> None:
@@ -193,11 +207,21 @@ class MultiDatasetSequence(Sequence):
                 split_dfs[index_offset + ibatch].append(df_batch)
         return dict(split_dfs)
 
+    def _non_feature_columns(self) -> "list[str]":
+        columns = ["label"]
+        if self.is_weighted():
+            columns.append("weight")
+        return columns
+
     def _fill_batch_buffer(self, batch_start: int, batch_stop: int) -> None:
         """
         Read batches from file and save them into the buffer for future use.
         """
         multibatch_dfs = self._read_dataframes_for_batch_range(batch_start, batch_stop)
+
+        if self.scale_features and not self._feature_scaler:
+            self._init_feature_scaler_from_multibatch(multibatch_dfs)
+
         batched_dfs = self._split_multibatch(multibatch_dfs, index_offset=batch_start)
 
         for ibatch, dfs in batched_dfs.items():
@@ -208,11 +232,7 @@ class MultiDatasetSequence(Sequence):
             if self.shuffle:
                 df = df.sample(frac=1)
 
-            non_feature_columns = ["label"]
-            if self.is_weighted():
-                non_feature_columns.append("weight")
-            features = df.drop(columns=non_feature_columns).to_numpy()
-
+            features = df.drop(columns=self._non_feature_columns()).to_numpy()
             if self.scale_features:
                 features = self.apply_feature_scaling(features)
 
