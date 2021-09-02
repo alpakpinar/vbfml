@@ -7,3 +7,5 @@ vbfml.egg-info/
 *pdf
 bkp*
 .coverage
+output/
+logs/
