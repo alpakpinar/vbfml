@@ -53,10 +53,15 @@ class MultiDatasetSequence(Sequence):
 
         self._scale_features = scale_features
         self._feature_scaler = None
+        self._float_dtype = np.float16
 
     def __len__(self) -> int:
         read_fraction = self.read_range[1] - self.read_range[0]
         return int(np.ceil(self.total_events() * read_fraction / self.batch_size))
+
+    def __iter__(self):
+        for item in (self[i] for i in range(len(self))):
+            yield item
 
     @property
     def weight_expression(self) -> str:
@@ -126,7 +131,14 @@ class MultiDatasetSequence(Sequence):
         assert self._feature_scaler, "Feature scaler has not been initalized."
         return self._feature_scaler.transform(features)
 
-    def _format_weights(self, df: pd.DataFrame, dataset_name: str) -> None:
+    def _create_weight_column(self, df: pd.DataFrame, dataset_name: str) -> None:
+        """
+        Creates a column called 'weight' in the data frame
+
+        The weight column includes the contributions from both the
+        per-event weight (if weight_expression is specified),
+        and the per-dataset normalization weight.
+        """
         dataset_weight = self.datasets[dataset_name].weight
         if self.weight_expression:
             df.rename(columns={self.weight_expression: "weight"}, inplace=True)
@@ -144,7 +156,7 @@ class MultiDatasetSequence(Sequence):
                 batch_start, batch_stop, name
             )
             if self.is_weighted():
-                self._format_weights(df, name)
+                self._create_weight_column(df, name)
             dataframes.append(df)
         return dataframes
 
@@ -235,6 +247,7 @@ class MultiDatasetSequence(Sequence):
         """Convert from a batch from pd.DataFrame to a tuple of np.ndarray for keras"""
 
         features = df.drop(columns=self._non_feature_columns()).to_numpy()
+        features = features.astype(self._float_dtype)
         if self.scale_features:
             features = self.apply_feature_scaling(features)
 
@@ -244,7 +257,8 @@ class MultiDatasetSequence(Sequence):
         )
 
         if self.is_weighted():
-            weights = row_vector(df["weight"])
+            weights = np.abs(row_vector(df["weight"]).astype(np.float16))
+            weights = weights.astype(self._float_dtype)
             batch = (features, labels, weights)
         else:
             batch = (features, labels)
