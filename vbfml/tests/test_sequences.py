@@ -420,12 +420,12 @@ class TestMultiDatasetSequenceFeatureScaling(TestCase):
         dev_mean, dev_std = deviation_from_target(features)
         self.assertNotAlmostEqual(dev_mean, self.feature_mean)
         self.assertNotAlmostEqual(dev_std, self.feature_std - 1)
-        self.assertTrue(np.all(features == weights))
+        self.assertTrue(np.all(np.abs(features) == weights))
 
         # Read with feature scaling
         self.mds.scale_features = True
         features, _, weights = self.mds[0]
         dev_mean, dev_std = deviation_from_target(features)
-        self.assertAlmostEqual(dev_mean, 0)
-        self.assertAlmostEqual(dev_std, 0)
+        self.assertAlmostEqual(dev_mean, 0, places=2)
+        self.assertAlmostEqual(dev_std, 0, places=2)
         self.assertTrue(np.all(features != weights))
