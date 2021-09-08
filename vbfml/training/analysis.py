@@ -38,8 +38,9 @@ class TrainingAnalyzer:
     """
     Analyzer to make histograms based on
     training / validation / test data sets.
-    
+
     """
+
     directory: str
     cache: str = "analyzer_cache.pkl"
 
@@ -56,7 +57,7 @@ class TrainingAnalyzer:
         histogram = hist.Hist(
             hist.axis.Variable(bins, name=quantity_name, label=quantity_name),
             hist.axis.IntCategory(range(10), name="label", label="label"),
-            storage=hist.storage.Weight()
+            storage=hist.storage.Weight(),
         )
 
         return histogram
@@ -77,7 +78,7 @@ class TrainingAnalyzer:
 
     def write_to_cache(self):
         with open(self.cache, "wb") as f:
-            return pickle.dump(self.histograms,f)
+            return pickle.dump(self.histograms, f)
 
     def analyze(self):
         """
@@ -98,7 +99,7 @@ class TrainingAnalyzer:
     ) -> "dict[str:hist.Hist]":
         """
         Analyzes a specific sequence.
-        
+
         Loop over batches, make and return histograms.
         """
         histograms = {}

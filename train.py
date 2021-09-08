@@ -1,92 +1,102 @@
+from datetime import datetime
 import os
-import uproot
-from vbfml.models import sequential_dense_model
 from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
-import re
-import glob
+import tensorflow as tf
+import copy
+from datetime import datetime
+from vbfml.models import sequential_dense_model
+from vbfml.training.input import build_sequence, load_datasets_bucoffea, select_and_label_datasets
+from vbfml.training.util import normalize_classes
+from vbfml.training.data import save
 
+    features = [
+        "mjj",
+        "dphijj",
+        "detajj",
+        "recoil_pt",
+        "dphi_ak40_met",
+        "dphi_ak41_met",
+        "ht",
+        "leadak4_pt",
+        "leadak4_phi",
+        "leadak4_eta",
+        "trailak4_pt",
+        "trailak4_phi",
+        "trailak4_eta",
+    ]
+all_datasets = load_datasets_bucoffea(directory='/data/cms/vbfml/2021-08-25_treesForML/')
 
-def get_n_events(filename, treename):
-    try:
-        return uproot.open(filename)[treename].num_entries
-    except uproot.exceptions.KeyInFileError:
-        return 0
-
-
-labels = {
-    "VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017": "signal_17",
-    "EWKWPlus2Jets_WToLNu_M-50_withDipoleRecoil-mg_2017" : "ewk_w_17",
-    "EWKWMinus2Jets_WToLNu_M-50_withDipoleRecoil-mg_2017" : "ewk_w_17",
-    "EWKZ2Jets_ZToLL_M-50_withDipoleRecoil-mg_2017": "ewk_zll_17",
-    "EWKZ2Jets_ZToNuNu_M-50_withDipoleRecoil-mg_2017": "ewk_znn_17",
-    "WJetsToLNu_HT-100To200-MLM_2017": "qcd_w_lo_17",
-    "WJetsToLNu_HT-1200To2500-MLM_2017": "qcd_w_lo_17",
-    "WJetsToLNu_HT-200To400-MLM_2017": "qcd_w_lo_17",
-    "WJetsToLNu_HT-2500ToInf-MLM_2017": "qcd_w_lo_17",
-    "WJetsToLNu_HT-400To600-MLM_2017": "qcd_w_lo_17",
-    "WJetsToLNu_HT-600To800-MLM_2017": "qcd_w_lo_17",
-    "WJetsToLNu_HT-800To1200-MLM_2017": "qcd_w_lo_17",
-    "WJetsToLNu_Pt-100To250_MatchEWPDG20-amcatnloFXFX_2017": "qcd_w_nlo_17",
-    "WJetsToLNu_Pt-250To400_MatchEWPDG20-amcatnloFXFX_2017": "qcd_w_nlo_17",
-    "WJetsToLNu_Pt-400To600_MatchEWPDG20-amcatnloFXFX_2017": "qcd_w_nlo_17",
-    "WJetsToLNu_Pt-600ToInf_MatchEWPDG20-amcatnloFXFX_2017": "qcd_w_nlo_17",
-    "Z1JetsToNuNu_M-50_LHEFilterPtZ-150To250_MatchEWPDG20-amcatnloFXFX_2017": "qcd_znn_nlo_17",
-    "Z1JetsToNuNu_M-50_LHEFilterPtZ-250To400_MatchEWPDG20-amcatnloFXFX_2017": "qcd_znn_nlo_17",
-    "Z1JetsToNuNu_M-50_LHEFilterPtZ-400ToInf_MatchEWPDG20-amcatnloFXFX_2017": "qcd_znn_nlo_17",
-    "Z1JetsToNuNu_M-50_LHEFilterPtZ-50To150_MatchEWPDG20-amcatnloFXFX_2017": "qcd_znn_nlo_17",
-    "Z2JetsToNuNu_M-50_LHEFilterPtZ-150To250_MatchEWPDG20-amcatnloFXFX_2017": "qcd_znn_nlo_17",
-    "Z2JetsToNuNu_M-50_LHEFilterPtZ-250To400_MatchEWPDG20-amcatnloFXFX_2017": "qcd_znn_nlo_17",
-    "Z2JetsToNuNu_M-50_LHEFilterPtZ-400ToInf_MatchEWPDG20-amcatnloFXFX_2017": "qcd_znn_nlo_17",
-    "Z2JetsToNuNu_M-50_LHEFilterPtZ-50To150_MatchEWPDG20-amcatnloFXFX_2017": "qcd_znn_nlo_17",
-    "ZJetsToNuNu_HT-100To200-MLM_2017": "qcd_znn_ht_lo_17",
-    "ZJetsToNuNu_HT-1200To2500-MLM_2017": "qcd_znn_ht_lo_17",
-    "ZJetsToNuNu_HT-200To400-MLM_2017": "qcd_znn_ht_lo_17",
-    "ZJetsToNuNu_HT-2500ToInf-MLM_2017": "qcd_znn_ht_lo_17",
-    "ZJetsToNuNu_HT-400To600-MLM_2017": "qcd_znn_ht_lo_17",
-    "ZJetsToNuNu_HT-600To800-MLM_2017": "qcd_znn_ht_lo_17",
-    "ZJetsToNuNu_HT-800To1200-MLM_2017": "qcd_znn_ht_lo_17",
+dataset_labels = {
+    'ewk_17' : 'EWK.*2017',
+    'v_qcd_nlo_17' : '(WJetsToLNu_Pt-\d+To.*|Z\dJetsToNuNu_M-50_LHEFilterPtZ-\d+To\d+)_MatchEWPDG20-amcatnloFXFX_2017)',
+    'signal_17' : 'VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017'
 }
+datasets = select_and_label_datasets(all_datasets, dataset_labels)
+normalize_classes(datasets)
+training_sequence = build_sequence(dataset=datasets, features=features)
 
 
-def get_datasets():
-    files = glob.glob("/media/nas/cms/vbfml/trees/*root")
-    datasets = []
-    for file in files:
-        m = re.match("tree_(.*_\d{4}).root", os.path.basename(file))
+# Training sequence = 90% of total
+training_sequence.read_range = (0.0, 0.9)
+training_sequence.scale_features = True
+training_sequence[0]
 
-        dataset_name = m.groups()[0]
-        if '2018' in dataset_name:
-            continue
+# Validation sequence = 10% of total
+validation_sequence = copy.deepcopy(training_sequence)
+validation_sequence.read_range = (0.9, 1.0)
 
-        n_events = get_n_events(file, "sr_vbf")
-        if not n_events:
-            continue
-        dataset = DatasetInfo(
-            name=dataset_name,
-            label=labels[dataset_name],
-            files=[file],
-            treename='sr_vbf',
-            n_events=int(0.1*n_events),
-        )
-        datasets.append(dataset)
-    return datasets
-
-
-features = ["mjj","dphijj"]
-mds = MultiDatasetSequence(batch_size=1000, branches=features, shuffle=True, batch_buffer_size=5000)
-for dataset in get_datasets():
-    if dataset.label in [
-        "signal_17",
-        "qcd_w_nlo_17",
-        "qcd_znn_nlo_17",
-        "ewk_znn_17",
-        "ewk_w_18",
-    ]:
-        mds.add_dataset(dataset)
-
-model = sequential_dense_model(n_layers=4, n_nodes=[16,16,16,16], n_features=len(features), n_classes=len(mds.dataset_labels()))
-
-model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+# Build model
+model = sequential_dense_model(
+    n_layers=6,
+    n_nodes=[13, 13, 8, 8, 4, 4],
+    n_features=len(features),
+    n_classes=len(training_sequence.dataset_labels()),
+)
+model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
 model.summary()
 
-model.fit(mds, epochs=1)
+
+steps_total = len(training_sequence)
+steps_per_epoch = 50000
+epochs = 5 * steps_total // steps_per_epoch
+
+model.fit(
+    x=training_sequence,
+    steps_per_epoch=steps_per_epoch,
+    epochs=epochs,
+    max_queue_size=0,
+    shuffle=False,
+    validation_data=validation_sequence,
+)
+
+
+
+
+# Save all kinds of output
+name = datetime.now().strftime("%Y-%m-%d_%H-%M")
+training_directory = os.path.join("./output", f"model_{name}")
+
+# The trained model
+model.save(training_directory)
+
+
+def prepend_path(fname):
+    return os.path.join(training_directory, fname)
+
+# Training history
+save(model.history.history, prepend_path("history.pkl"))
+
+# Feature scaling object for future evaluation
+save(training_sequence._feature_scaler, prepend_path("feature_scaler.pkl"))
+
+# List of features
+save(
+    features,
+    prepend_path(
+        "features.pkl",
+    ),
+)
+
+# Training and validation sequences
+save(training_sequence, prepend_path("training_sequence.pkl"))
+save(validation_sequence, prepend_path("validation_sequence.pkl"))

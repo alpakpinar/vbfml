@@ -66,7 +66,7 @@ class MultiDatasetSequence(Sequence):
     @weight_expression.setter
     def weight_expression(self, weight_expression: str) -> None:
         self._weight_expression = weight_expression
-    
+
     @property
     def batch_size(self) -> str:
         return self._batch_size
