@@ -42,7 +42,7 @@ class MultiDatasetSequence(Sequence):
         self.datasets = {}
         self.readers = {}
         self.branches = branches
-        self.batch_size = batch_size
+        self._batch_size = batch_size
         self._shuffle = shuffle
         self.encoder = LabelEncoder()
 
@@ -57,11 +57,7 @@ class MultiDatasetSequence(Sequence):
 
     def __len__(self) -> int:
         read_fraction = self.read_range[1] - self.read_range[0]
-        return int(np.ceil(self.total_events() * read_fraction / self.batch_size))
-
-    def __iter__(self):
-        for item in (self[i] for i in range(len(self))):
-            yield item
+        return int(np.floor(self.total_events() * read_fraction / self.batch_size))
 
     @property
     def weight_expression(self) -> str:
@@ -70,6 +66,16 @@ class MultiDatasetSequence(Sequence):
     @weight_expression.setter
     def weight_expression(self, weight_expression: str) -> None:
         self._weight_expression = weight_expression
+    
+    @property
+    def batch_size(self) -> str:
+        return self._batch_size
+
+    @batch_size.setter
+    def batch_size(self, batch_size: str) -> None:
+        self.buffer.clear()
+        self.buffer.batch_size = batch_size
+        self._batch_size = batch_size
 
     @property
     def scale_features(self) -> bool:
@@ -198,7 +204,7 @@ class MultiDatasetSequence(Sequence):
 
     def dataset_labels(self) -> "list[str]":
         """Return list of labels of all data sets in this Sequence."""
-        return [dataset.label for dataset in self.datasets.values()]
+        return sorted(list(set(dataset.label for dataset in self.datasets.values())))
 
     def dataset_names(self) -> "list[str]":
         """Return list of names of all data sets in this Sequence."""
@@ -319,7 +325,7 @@ class MultiDatasetSequence(Sequence):
 
     def _init_label_encoding(self) -> None:
         """Create encoding of string labels <-> integer class indices"""
-        labels = sorted([dataset.label for dataset in self.datasets.values()])
+        labels = self.dataset_labels()
         label_encoding = dict(enumerate(labels))
         label_encoding.update({v: k for k, v in label_encoding.items()})
         self.label_encoding = label_encoding
