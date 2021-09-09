@@ -57,7 +57,7 @@ class MultiDatasetSequence(Sequence):
 
     def __len__(self) -> int:
         read_fraction = self.read_range[1] - self.read_range[0]
-        return int(np.floor(self.total_events() * read_fraction / self.batch_size))
+        return int(np.ceil(self.total_events() * read_fraction / self.batch_size))
 
     @property
     def weight_expression(self) -> str:
