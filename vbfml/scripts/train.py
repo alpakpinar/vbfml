@@ -2,31 +2,37 @@ from datetime import datetime
 import os
 import copy
 from vbfml.models import sequential_dense_model
-from vbfml.training.input import build_sequence, load_datasets_bucoffea, select_and_label_datasets
+from vbfml.training.input import (
+    build_sequence,
+    load_datasets_bucoffea,
+    select_and_label_datasets,
+)
 from vbfml.training.util import normalize_classes
 from vbfml.training.data import save
 
 features = [
-        "mjj",
-        "dphijj",
-        "detajj",
-        "recoil_pt",
-        "dphi_ak40_met",
-        "dphi_ak41_met",
-        "ht",
-        "leadak4_pt",
-        "leadak4_phi",
-        "leadak4_eta",
-        "trailak4_pt",
-        "trailak4_phi",
-        "trailak4_eta",
-    ]
-all_datasets = load_datasets_bucoffea(directory='/data/cms/vbfml/2021-08-25_treesForML/')
+    "mjj",
+    "dphijj",
+    "detajj",
+    "recoil_pt",
+    "dphi_ak40_met",
+    "dphi_ak41_met",
+    "ht",
+    "leadak4_pt",
+    "leadak4_phi",
+    "leadak4_eta",
+    "trailak4_pt",
+    "trailak4_phi",
+    "trailak4_eta",
+]
+all_datasets = load_datasets_bucoffea(
+    directory="/data/cms/vbfml/2021-08-25_treesForML/"
+)
 
 dataset_labels = {
-    'ewk_17' : 'EWK.*2017',
-    'v_qcd_nlo_17' : '(WJetsToLNu_Pt-\d+To.*|Z\dJetsToNuNu_M-50_LHEFilterPtZ-\d+To\d+)_MatchEWPDG20-amcatnloFXFX_2017)',
-    'signal_17' : 'VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017'
+    "ewk_17": "EWK.*2017",
+    "v_qcd_nlo_17": "(WJetsToLNu_Pt-\d+To.*|Z\dJetsToNuNu_M-50_LHEFilterPtZ-\d+To\d+)_MatchEWPDG20-amcatnloFXFX_2017)",
+    "signal_17": "VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017",
 }
 datasets = select_and_label_datasets(all_datasets, dataset_labels)
 normalize_classes(datasets)
@@ -67,8 +73,6 @@ model.fit(
 )
 
 
-
-
 # Save all kinds of output
 name = datetime.now().strftime("%Y-%m-%d_%H-%M")
 training_directory = os.path.join("./output", f"model_{name}")
@@ -79,6 +83,7 @@ model.save(training_directory)
 
 def prepend_path(fname):
     return os.path.join(training_directory, fname)
+
 
 # Training history
 save(model.history.history, prepend_path("history.pkl"))
