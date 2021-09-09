@@ -1,15 +1,12 @@
 from datetime import datetime
 import os
-from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
-import tensorflow as tf
 import copy
-from datetime import datetime
 from vbfml.models import sequential_dense_model
 from vbfml.training.input import build_sequence, load_datasets_bucoffea, select_and_label_datasets
 from vbfml.training.util import normalize_classes
 from vbfml.training.data import save
 
-    features = [
+features = [
         "mjj",
         "dphijj",
         "detajj",

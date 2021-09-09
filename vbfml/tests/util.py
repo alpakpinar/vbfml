@@ -1,7 +1,6 @@
 import os
 import random
 import string
-from array import array
 import numpy as np
 import uproot
 

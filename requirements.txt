@@ -3,6 +3,8 @@ numpy
 pandas
 tensorflow
 uproot>=4.1.1
+tqdm
 pytest
 black
 sklearn
+hist
