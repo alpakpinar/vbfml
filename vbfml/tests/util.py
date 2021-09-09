@@ -1,44 +1,40 @@
 import os
 import random
 import string
-import ROOT as r
 from array import array
 import numpy as np
+import uproot
 
 
-def create_test_tree(filename, treename, branches, n_events, value=None):
-    f = r.TFile(filename, "RECREATE")
-    t = r.TTree(treename, treename)
-    arrays = {}
-
-    # Branch creation
-    for branch in branches:
-        arrays[branch] = array("d", [0])
-        t.Branch(branch, arrays[branch], f"{branch}/D")
-
-    # Determine if values are to be iterated
-    iterable = True
+def is_iterable(value):
     try:
         iter(value)
     except TypeError:
-        iterable = False
+        return False
+    return True
+
+
+def create_test_tree(filename, treename, branches, n_events, value=None):
+    # Determine if values are to be iterated
+    iterable = is_iterable(value)
     if iterable:
         assert n_events == len(value)
 
     # Branch filling
-    for i_event in range(n_events):
-        for branch in branches:
-            if value is None:
-                value_out = np.random.randn()
-            elif iterable:
-                value_out = value[i_event]
-            else:
-                value_out = value
+    tree_data = {}
+    for branch in branches:
+        if value is None:
+            value_out = np.random.randn((1, n_events))
+        elif iterable:
+            value_out = np.array(value).reshape((1, n_events))
+        else:
+            value_out = np.ones((1, n_events)) * value
 
-            arrays[branch][0] = value_out
-        t.Fill()
-    f.Write()
-    f.Close()
+        assert value_out.shape == (1, n_events)
+        tree_data[branch] = np.array(value_out).flatten()
+
+    with uproot.recreate(filename) as file:
+        file[treename] = tree_data
 
 
 def make_tmp_dir():

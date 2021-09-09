@@ -2,7 +2,7 @@ keras
 numpy
 pandas
 tensorflow
-uproot
+uproot>=4.1.1
 pytest
 black
 sklearn
