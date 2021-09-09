@@ -63,7 +63,7 @@ class TrainingHistogramPlotter:
     def plot_by_sequence_types(self) -> None:
         """
         Comparison plots between the training and validation sequences.
-        
+
         Generates plots for features + tagger scores.
         """
         output_subdir = "by_sequence"
