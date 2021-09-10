@@ -10,6 +10,8 @@ from vbfml.training.util import (
     load,
     normalize_classes,
     save,
+    select_and_label_datasets,
+    summarize_datasets,
 )
 
 from .util import create_test_tree, make_tmp_dir, random_id
@@ -35,7 +37,7 @@ class TestSimpleUtils(TestCase):
             self._test_load_save(object)
 
 
-class TestClassNormalization(TestCase):
+class TestSequenceUtils(TestCase):
     def setUp(self):
         self.treename = "tree"
         self.branches = ["a", "weight"]
@@ -133,3 +135,14 @@ class TestClassNormalization(TestCase):
         # Now they should agree to unity
         self.assertAlmostEqual(label_to_weight["dataset_0"], 1, places=1)
         self.assertAlmostEqual(label_to_weight["merged_label"], 1, places=1)
+
+    def test_summarize_datasets(self):
+        """Check that summary printing runs without error. No validation of stdout here."""
+        summarize_datasets(self.mds.datasets.values())
+
+    def test_label_and_select_datasets(self):
+        relabeling = {"new_label": "dataset_0"}
+        datasets = select_and_label_datasets(self.mds.datasets.values(), relabeling)
+        self.assertEqual(len(relabeling), len(datasets))
+        self.assertEqual(datasets[0].label, "new_label")
+        self.assertEqual(datasets[0].name, "dataset_0")

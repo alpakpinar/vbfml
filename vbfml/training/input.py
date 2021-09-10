@@ -8,21 +8,6 @@ from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
 from vbfml.training.util import get_n_events
 
 
-def summarize_datasets(datasets: "list[DatasetInfo]") -> None:
-    """
-    Prints a neat summary of a group of datasets to the terminal.
-    """
-    table = []
-    for dataset in datasets:
-        table.append((dataset.label, dataset.name, dataset.n_events))
-    print(
-        tabulate(
-            sorted(table),
-            headers=["Class label", "Physics data set name", "Number of events"],
-        )
-    )
-
-
 def build_sequence(
     datasets: "list[DatasetInfo]", features: "list[str]", absolute_weight=False
 ) -> MultiDatasetSequence:
@@ -83,25 +68,3 @@ def load_datasets_bucoffea(directory: str) -> "list[DatasetInfo]":
         )
         datasets.append(dataset)
     return datasets
-
-
-def select_and_label_datasets(
-    all_datasets: "list[DatasetInfo]", labels: "dict[str:str]"
-) -> "list[DatasetInfo]":
-    """
-    Slim down a list of datasets and apply labeling.
-
-    Labels is a dictionary that maps a new target label name to a regular
-    expression matching data set names. Only data sets matching one of the
-    regular expressions are returned. The labels of these data sets are
-    set to the corresponding key from the labels dict.
-    """
-    selected_datasets = []
-    for label, regex in labels.items():
-        matching_datasets = [
-            dataset for dataset in all_datasets if re.match(regex, dataset.name)
-        ]
-        for dataset in matching_datasets:
-            dataset.label = label
-        selected_datasets.extend(matching_datasets)
-    return selected_datasets
