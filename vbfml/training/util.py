@@ -24,7 +24,7 @@ def get_n_events(filename: str, treename: str) -> int:
         return 0
 
 
-def get_weight_integral(sequence) -> "dict[str:float]":
+def get_weight_integral_by_label(sequence) -> "dict[str:float]":
     # Save settings so we can restore later
     backup = {}
     for key in ["batch_size", "batch_buffer_size"]:
@@ -61,8 +61,8 @@ def get_weight_integral(sequence) -> "dict[str:float]":
 
 def normalize_classes(sequence: "MultiDatasetSequence") -> None:
     """Changes weights so that all classes have same integral."""
-    label_to_weight_dict = get_weight_integral(sequence)
-    for dataset_name, dataset_obj in sequence.datasets.items():
+    label_to_weight_dict = get_weight_integral_by_label(sequence)
+    for dataset_obj in sequence.datasets.values():
         weight = label_to_weight_dict[dataset_obj.label]
         dataset_obj.weight = dataset_obj.weight / weight
 

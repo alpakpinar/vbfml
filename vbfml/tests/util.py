@@ -6,6 +6,7 @@ import uproot
 
 
 def is_iterable(value):
+    """Helper to determine if an object is iterable"""
     try:
         iter(value)
     except TypeError:
@@ -14,6 +15,7 @@ def is_iterable(value):
 
 
 def create_test_tree(filename, treename, branches, n_events, value=None):
+    """Streamlined dummy tree creation as input to testing suite"""
     # Determine if values are to be iterated
     iterable = is_iterable(value)
     if iterable:
@@ -37,10 +39,12 @@ def create_test_tree(filename, treename, branches, n_events, value=None):
 
 
 def random_id(length=16):
+    """Random string ID for naming temporary files etc"""
     return "".join(random.choices(string.ascii_lowercase, k=length))
 
 
 def make_tmp_dir():
+    """Creation of randomly named working directories for tests"""
     wdir = "/tmp/tmp_" + random_id(32)
     if os.path.exists(wdir):
         return make_tmp_dir()
