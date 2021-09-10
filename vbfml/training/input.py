@@ -2,8 +2,6 @@ import glob
 import os
 import re
 
-from tabulate import tabulate
-
 from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
 from vbfml.training.util import get_n_events
 
