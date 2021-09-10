@@ -220,18 +220,6 @@ class MultiDatasetSequence(Sequence):
         """
         return self.label_encoding[label]
 
-    def _split_multibatch(self, dfs: "list[pd.DataFrame]", index_offset=0) -> dict:
-        """
-        Convert a dataframe containing multiple batches into per-batch frames
-        """
-        split_dfs = defaultdict(list)
-        for df in dfs:
-            for ibatch, df_batch in enumerate(
-                np.array_split(df, self.batch_buffer_size)
-            ):
-                split_dfs[index_offset + ibatch].append(df_batch)
-        return dict(split_dfs)
-
     def _non_feature_columns(self) -> "list[str]":
         columns = ["label"]
         if self.is_weighted():
@@ -317,11 +305,6 @@ class MultiDatasetSequence(Sequence):
             treename=info.treename,
         )
         self.readers[dataset_name] = reader
-
-    def _init_readers(self) -> None:
-        """Initializes file readers for all data sets"""
-        for dataset_name in self.datasets.keys():
-            self._init_reader(dataset_name)
 
     def _init_label_encoding(self) -> None:
         """Create encoding of string labels <-> integer class indices"""
