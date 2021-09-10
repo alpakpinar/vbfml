@@ -97,6 +97,9 @@ class TestClassNormalization(TestCase):
             readback = get_n_events(fname, self.treename)
             self.assertEqual(readback, len(values))
 
+            readback = get_n_events(fname, "non_existing_tree")
+            self.assertEqual(readback, 0)
+
     def test_get_weight_integral_by_label(self):
         """Test that the get_weight_integral_by_label function correctly calculates weight sums per data set label"""
         weight_integrals = get_weight_integral_by_label(self.mds)
