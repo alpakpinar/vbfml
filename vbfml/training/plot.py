@@ -70,9 +70,7 @@ class TrainingHistogramPlotter:
         output_subdir = "by_sequence"
         self.create_output_directory(output_subdir)
 
-        for ihist, name in tqdm(
-            enumerate(self.histogram_names), desc="Plotting histograms"
-        ):
+        for name in tqdm(self.histogram_names, desc="Plotting histograms"):
             fig, (ax, rax) = plt.subplots(
                 2,
                 1,

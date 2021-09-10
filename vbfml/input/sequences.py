@@ -1,9 +1,8 @@
-from collections import defaultdict
 from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import StandardScaler
 from tensorflow.keras.utils import Sequence, to_categorical
 
 from vbfml.input.uproot import UprootReaderMultiFile
@@ -44,7 +43,6 @@ class MultiDatasetSequence(Sequence):
         self.branches = branches
         self._batch_size = batch_size
         self._shuffle = shuffle
-        self.encoder = LabelEncoder()
 
         self.batch_buffer_size = batch_buffer_size
         self.buffer = MultiBatchBuffer(batch_size=self.batch_size)

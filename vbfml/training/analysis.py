@@ -63,9 +63,6 @@ class TrainingAnalyzer:
 
         return histogram
 
-    def _cache_exists(self):
-        return os.path.exists(self.cache)
-
     def load_from_cache(self):
         success = False
         try:
@@ -89,7 +86,6 @@ class TrainingAnalyzer:
         for sequence_type in ["training", "validation"]:
             sequence = self.loader.get_sequence(sequence_type)
             sequence.scale_features = False
-            sequence.absolute_weights = False
             sequence.batch_size = int(1e6)
             sequence.batch_buffer_size = 10
             histograms[sequence_type] = self._analyze_sequence(sequence, sequence_type)
