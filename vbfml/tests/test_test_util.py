@@ -3,7 +3,7 @@ from unittest import TestCase
 
 import uproot
 
-from .util import create_test_tree
+from .util import create_test_tree, make_tmp_dir
 
 
 class TestCreateTestTree(TestCase):
@@ -16,8 +16,11 @@ class TestCreateTestTree(TestCase):
         self.values = [1337]
         self.total_events = self.nevents_per_file * self.n_file
         self.files = []
+        self.wdir = make_tmp_dir()
+        self.addCleanup(os.rmdir, self.wdir)
+
         for i in range(self.n_file):
-            fname = os.path.abspath(f"test_util_{i}.root")
+            fname = os.path.join(self.wdir, f"test_util_{i}.root")
 
             create_test_tree(
                 filename=fname,
