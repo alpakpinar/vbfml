@@ -1,9 +1,11 @@
-import re
-import os
 import glob
-from vbfml.input.sequences import MultiDatasetSequence, DatasetInfo
-from vbfml.training.util import get_n_events
+import os
+import re
+
 from tabulate import tabulate
+
+from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
+from vbfml.training.util import get_n_events
 
 
 def summarize_datasets(datasets: "list[DatasetInfo]") -> None:

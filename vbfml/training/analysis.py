@@ -1,12 +1,13 @@
+import os
 import pickle
 from dataclasses import dataclass
+
+import hist
+import numpy as np
+from tqdm import tqdm
+
 from vbfml.input.sequences import MultiDatasetSequence
 from vbfml.training.data import TrainingLoader
-from tqdm import tqdm
-import numpy as np
-import hist
-import os
-
 
 # Hard coded sane default binnings
 # If it extends more, might warrant

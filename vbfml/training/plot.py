@@ -1,10 +1,11 @@
-from tqdm import tqdm
 import os
-from matplotlib import pyplot as plt
 from dataclasses import dataclass
-from hist import Hist
+
 import mplhep as hep
 import numpy as np
+from hist import Hist
+from matplotlib import pyplot as plt
+from tqdm import tqdm
 
 plt.style.use(hep.style.CMS)
 

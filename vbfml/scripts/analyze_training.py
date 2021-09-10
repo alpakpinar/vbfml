@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 import os
-from vbfml.training.plot import TrainingHistogramPlotter, history_plot
-from vbfml.training.data import TrainingLoader
+
 import click
 
 from vbfml.training.analysis import TrainingAnalyzer
+from vbfml.training.data import TrainingLoader
+from vbfml.training.plot import TrainingHistogramPlotter, history_plot
 
 
 @click.group()

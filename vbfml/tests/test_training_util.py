@@ -1,14 +1,15 @@
-import hist
-from vbfml.input.sequences import MultiDatasetSequence, DatasetInfo
-import numpy as np
 import os
 from unittest import TestCase
+
+import numpy as np
+
+from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
 from vbfml.training.util import (
-    load,
-    save,
     get_n_events,
     get_weight_integral_by_label,
+    load,
     normalize_classes,
+    save,
 )
 
 from .util import create_test_tree, make_tmp_dir, random_id

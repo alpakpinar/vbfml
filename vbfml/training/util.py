@@ -1,9 +1,10 @@
-import tensorflow as tf
+import pickle
 from datetime import datetime
+
+import boost_histogram as bh
+import tensorflow as tf
 import uproot
 from tqdm import tqdm
-import boost_histogram as bh
-import pickle
 
 
 def load(fpath: str) -> object:

@@ -1,5 +1,7 @@
 import os
+
 import tensorflow as tf
+
 from vbfml.training.util import load
 
 
