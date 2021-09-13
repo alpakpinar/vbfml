@@ -1,6 +1,6 @@
 import os
 import pickle
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import hist
 import numpy as np
@@ -44,6 +44,7 @@ class TrainingAnalyzer:
 
     directory: str
     cache: str = "analyzer_cache.pkl"
+    histograms: "dict" = field(default_factory=dict)
 
     def __post_init__(self):
         self.loader = TrainingLoader(self.directory)
@@ -70,7 +71,7 @@ class TrainingAnalyzer:
                 histograms = pickle.load(f)
             success = True
         except:
-            histograms = None
+            histograms = {}
         self.histograms = histograms
         return success
 
