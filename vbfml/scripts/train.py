@@ -1,15 +1,14 @@
+#!/usr/bin/env python3
 import copy
 import os
 from datetime import datetime
 
 from vbfml.models import sequential_dense_model
-from vbfml.training.data import save
 from vbfml.training.input import (
     build_sequence,
     load_datasets_bucoffea,
-    select_and_label_datasets,
 )
-from vbfml.training.util import normalize_classes
+from vbfml.training.util import normalize_classes, save, select_and_label_datasets
 
 features = [
     "mjj",
@@ -32,12 +31,12 @@ all_datasets = load_datasets_bucoffea(
 
 dataset_labels = {
     "ewk_17": "EWK.*2017",
-    "v_qcd_nlo_17": "(WJetsToLNu_Pt-\d+To.*|Z\dJetsToNuNu_M-50_LHEFilterPtZ-\d+To\d+)_MatchEWPDG20-amcatnloFXFX_2017)",
+    "v_qcd_nlo_17": "(WJetsToLNu_Pt-\d+To.*|Z\dJetsToNuNu_M-50_LHEFilterPtZ-\d+To\d+)_MatchEWPDG20-amcatnloFXFX_2017",
     "signal_17": "VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017",
 }
 datasets = select_and_label_datasets(all_datasets, dataset_labels)
-normalize_classes(datasets)
-training_sequence = build_sequence(dataset=datasets, features=features)
+training_sequence = build_sequence(datasets=datasets, features=features)
+normalize_classes(training_sequence)
 
 
 # Training sequence = 90% of total
