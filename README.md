@@ -46,4 +46,4 @@ black vbfml
 
 ## Usage example
 
-Check out the train.py script for an example training work flow.
+Check out the scripts/train.py script for an example training work flow. The scripts/analyze_training.py script can be used to create typical postprocessing plots, such as variable distributions. It can be extended with further postprocessing.
