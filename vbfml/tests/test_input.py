@@ -1,8 +1,13 @@
 import os
 from unittest import TestCase
 
-from vbfml.tests.util import make_tmp_dir, create_test_tree
-from vbfml.training.input import dataset_from_file_name_bucoffea, load_datasets_bucoffea
+import numpy as np
+from vbfml.tests.util import create_test_tree, make_tmp_dir
+from vbfml.training.input import (
+    build_sequence,
+    dataset_from_file_name_bucoffea,
+    load_datasets_bucoffea,
+)
 
 
 class TestInput(TestCase):
@@ -42,12 +47,26 @@ class TestLoadDatasetsBucoffea(TestCase):
             create_test_tree(
                 filename=file,
                 treename="sr_vbf",
-                branches=["a", "b"],
+                branches=["a", "b", "weight_total", "xs", "sumw"],
                 n_events=10,
-                value=1,
+                value=2,
             )
             self.addCleanup(os.remove, file)
 
     def test_load_datasets_bucoffea(self):
+        """Test creation of DatasetInfo objects from a directory of ROOT files"""
         datasets = load_datasets_bucoffea(self.wdir)
         self.assertEqual(len(datasets), 2)
+        dataset_names = sorted([x.name for x in datasets])
+        self.assertEqual(dataset_names[0], "firstdataset_2017")
+        self.assertEqual(dataset_names[1], "seconddataset_2017")
+        self.assertEqual(datasets[0].n_events, 10)
+        self.assertEqual(datasets[1].n_events, 10)
+
+    def test_build_sequence(self):
+        """Test automated sequence generation from data sets"""
+        datasets = load_datasets_bucoffea(self.wdir)
+        sequence = build_sequence(datasets, features=["a", "b"])
+        features, labels, weights = sequence[0]
+        self.assertEqual(features.shape[1], 2)
+        self.assertTrue(np.all(weights == 2))
