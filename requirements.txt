@@ -1,8 +1,12 @@
+black
+hist
 keras
+mplhep
 numpy
 pandas
-tensorflow
-uproot
 pytest
-black
 sklearn
+tabulate
+tensorflow
+tqdm
+uproot>=4.1.1

@@ -175,6 +175,13 @@ class TestMultiDatasetSequence(TestCase):
         # the one-hot encoding
         self.assertEqual(len(np.unique(np.argmax(y, axis=1))), 1)
 
+    def test_iteration(self):
+        """Test that iterating over the sequence yields correct number of events"""
+        n_events = 0
+        for batch in self.mds:
+            n_events += batch[0].shape[0]
+        self.assertTrue(n_events, sum(self.nevents_per_dataset))
+
     def test_keras(self):
         """
         Ensure that our output does not make keras crash. No validation of result!

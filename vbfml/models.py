@@ -26,5 +26,7 @@ def sequential_dense_model(
             )
         )
     model.add(Dense(n_classes, activation="softmax"))
-    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+    model.compile(
+        loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"]
+    )
     return model

@@ -2,6 +2,7 @@ import os
 from unittest import TestCase
 
 import numpy as np
+
 from vbfml.input.uproot import UprootReaderMultiFile
 from vbfml.tests.util import create_test_tree, make_tmp_dir
 

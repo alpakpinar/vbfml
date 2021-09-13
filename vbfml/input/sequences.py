@@ -1,9 +1,8 @@
-from collections import defaultdict
 from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import StandardScaler
 from tensorflow.keras.utils import Sequence, to_categorical
 
 from vbfml.input.uproot import UprootReaderMultiFile
@@ -42,9 +41,8 @@ class MultiDatasetSequence(Sequence):
         self.datasets = {}
         self.readers = {}
         self.branches = branches
-        self.batch_size = batch_size
+        self._batch_size = batch_size
         self._shuffle = shuffle
-        self.encoder = LabelEncoder()
 
         self.batch_buffer_size = batch_buffer_size
         self.buffer = MultiBatchBuffer(batch_size=self.batch_size)
@@ -59,10 +57,6 @@ class MultiDatasetSequence(Sequence):
         read_fraction = self.read_range[1] - self.read_range[0]
         return int(np.ceil(self.total_events() * read_fraction / self.batch_size))
 
-    def __iter__(self):
-        for item in (self[i] for i in range(len(self))):
-            yield item
-
     @property
     def weight_expression(self) -> str:
         return self._weight_expression
@@ -70,6 +64,16 @@ class MultiDatasetSequence(Sequence):
     @weight_expression.setter
     def weight_expression(self, weight_expression: str) -> None:
         self._weight_expression = weight_expression
+
+    @property
+    def batch_size(self) -> str:
+        return self._batch_size
+
+    @batch_size.setter
+    def batch_size(self, batch_size: str) -> None:
+        self.buffer.clear()
+        self.buffer.batch_size = batch_size
+        self._batch_size = batch_size
 
     @property
     def scale_features(self) -> bool:
@@ -198,7 +202,7 @@ class MultiDatasetSequence(Sequence):
 
     def dataset_labels(self) -> "list[str]":
         """Return list of labels of all data sets in this Sequence."""
-        return [dataset.label for dataset in self.datasets.values()]
+        return sorted(list(set(dataset.label for dataset in self.datasets.values())))
 
     def dataset_names(self) -> "list[str]":
         """Return list of names of all data sets in this Sequence."""
@@ -213,18 +217,6 @@ class MultiDatasetSequence(Sequence):
         Encode string-values labels into one-hot vectors.
         """
         return self.label_encoding[label]
-
-    def _split_multibatch(self, dfs: "list[pd.DataFrame]", index_offset=0) -> dict:
-        """
-        Convert a dataframe containing multiple batches into per-batch frames
-        """
-        split_dfs = defaultdict(list)
-        for df in dfs:
-            for ibatch, df_batch in enumerate(
-                np.array_split(df, self.batch_buffer_size)
-            ):
-                split_dfs[index_offset + ibatch].append(df_batch)
-        return dict(split_dfs)
 
     def _non_feature_columns(self) -> "list[str]":
         columns = ["label"]
@@ -312,14 +304,9 @@ class MultiDatasetSequence(Sequence):
         )
         self.readers[dataset_name] = reader
 
-    def _init_readers(self) -> None:
-        """Initializes file readers for all data sets"""
-        for dataset_name in self.datasets.keys():
-            self._init_reader(dataset_name)
-
     def _init_label_encoding(self) -> None:
         """Create encoding of string labels <-> integer class indices"""
-        labels = sorted([dataset.label for dataset in self.datasets.values()])
+        labels = self.dataset_labels()
         label_encoding = dict(enumerate(labels))
         label_encoding.update({v: k for k, v in label_encoding.items()})
         self.label_encoding = label_encoding
