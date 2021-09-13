@@ -8,6 +8,7 @@ from vbfml.tests.util import create_test_tree, make_tmp_dir
 from vbfml.training.analysis import TrainingAnalyzer
 from vbfml.training.data import TrainingLoader
 from vbfml.training.input import build_sequence, load_datasets_bucoffea
+from vbfml.training.plot import TrainingHistogramPlotter, plot_history
 from vbfml.training.util import save
 
 
@@ -96,7 +97,11 @@ class TestTrainingAnalysisAndPlot(TestCase):
             n_classes=2,
         )
 
-        self.model.fit(self.training_sequence, shuffle=False)
+        self.model.fit(
+            self.training_sequence,
+            shuffle=False,
+            validation_data=self.validation_sequence,
+        )
 
         self.model.save(self.wdir)
         save(self.training_sequence, self.training_sequence_file)
@@ -128,3 +133,10 @@ class TestTrainingAnalysisAndPlot(TestCase):
                 self.assertTrue(feature in self.analyzer.histograms[sequence])
                 self.assertTrue("score_0" in self.analyzer.histograms[sequence])
                 self.assertTrue("score_1" in self.analyzer.histograms[sequence])
+
+    def test_plot(self):
+        """Test that plotting runs -- no verification of output"""
+        self.analyzer.analyze()
+        plotter = TrainingHistogramPlotter(self.analyzer.histograms)
+        plotter.plot_by_sequence_types()
+        plot_history(self.model.history.history, outdir=self.wdir)

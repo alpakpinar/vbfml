@@ -132,7 +132,7 @@ class TrainingHistogramPlotter:
         self.plot_by_sequence_types()
 
 
-def history_plot(history, outdir):
+def plot_history(history, outdir):
 
     fig = plt.figure(figsize=(12, 10))
     ax = plt.gca()

@@ -1,6 +1,7 @@
 black
 hist
 keras
+mplhep
 numpy
 pandas
 pytest
