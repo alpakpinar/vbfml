@@ -34,6 +34,8 @@ def dataset_from_file_name_bucoffea(filepath: str) -> str:
     """
     base = os.path.basename(filepath)
     m = re.match("tree_(.*_\d{4}).root", base)
+    if not m:
+        raise ValueError(f"Could not parse input file name: {filepath}")
     dataset_name = m.groups()[0]
     return dataset_name
 
