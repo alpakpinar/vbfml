@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import uproot
 
@@ -23,28 +24,28 @@ class UprootReaderMultiFile:
         self._update_nevents_dict_all_files()
         self.reset_continuous_read()
 
-    def _open_file(self, file_index):
+    def _open_file(self, file_index) -> uproot.ReadOnlyDirectory:
         """Open and return file object for given index."""
         return uproot.open(self._file_path(file_index))
 
-    def _get_tree(self, file_index):
+    def _get_tree(self, file_index: int) -> uproot.TTree:
         """Open file and return tree object for given index."""
         return self._open_file(file_index)[self.treename]
 
-    def _file_path(self, file_index):
+    def _file_path(self, file_index: int) -> str:
         """Translate file index to file path"""
         return self.files[file_index]
 
-    def _update_nevents_dict_single_file(self, file_index):
+    def _update_nevents_dict_single_file(self, file_index: int) -> None:
         """Save number of events in this file into the cache"""
         self.nevents_per_file[file_index] = self._get_tree(file_index).num_entries
 
-    def _update_nevents_dict_all_files(self):
+    def _update_nevents_dict_all_files(self) -> None:
         """Save number of events in all files into the cache"""
         for file_index in range(self.n_files):
             self._update_nevents_dict_single_file(file_index)
 
-    def _index_into_file(self, global_event_index):
+    def _index_into_file(self, global_event_index: int) -> "tuple[int]":
         """
         Translate global file index to tuple of (file index, local event index).
 
@@ -69,7 +70,9 @@ class UprootReaderMultiFile:
 
         return (target_file_index, local_event_index)
 
-    def read_events_single_file(self, file_index, local_start, local_stop):
+    def read_events_single_file(
+        self, file_index: int, local_start: int, local_stop: int
+    ) -> pd.DataFrame:
         """
         Read and return event data, within in a given file.
         """
@@ -82,10 +85,16 @@ class UprootReaderMultiFile:
         )
         return df
 
-    def read_events(self, start, stop):
+    def _generate_empty_df(self) -> pd.DataFrame:
+        return pd.DataFrame({branch: np.array([]) for branch in self.branches})
+
+    def read_events(self, start: int, stop: int) -> pd.DataFrame:
         """
         Read and return event data, possibly across file boundaries.
         """
+        if start == stop:
+            return self._generate_empty_df()
+
         file_index_start, local_event_index_start = self._index_into_file(start)
         assert file_index_start is not None
         assert local_event_index_start is not None
