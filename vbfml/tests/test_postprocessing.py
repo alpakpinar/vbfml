@@ -9,7 +9,7 @@ from vbfml.training.analysis import TrainingAnalyzer
 from vbfml.training.data import TrainingLoader
 from vbfml.training.input import build_sequence, load_datasets_bucoffea
 from vbfml.training.plot import TrainingHistogramPlotter, plot_history
-from vbfml.training.util import save
+from vbfml.training.util import save, append_history
 
 
 def keras_model_compare(model1, model2):
@@ -38,7 +38,7 @@ class TestTrainingLoader(TestCase):
             n_classes=1,
         )
 
-        self.model.save(self.wdir)
+        self.model.save(os.path.join(self.wdir, "models/latest"))
         save("training_sequence", self.training_sequence_file)
         save("validation_sequence", self.validation_sequence_file)
         save("features", self.feature_file)
@@ -96,6 +96,11 @@ class TestTrainingAnalysisAndPlot(TestCase):
             n_nodes=[1],
             n_classes=2,
         )
+        self.model.compile(
+            loss="categorical_crossentropy",
+            optimizer="adam",
+            metrics=["categorical_accuracy"],
+        )
 
         self.model.fit(
             self.training_sequence,
@@ -103,14 +108,17 @@ class TestTrainingAnalysisAndPlot(TestCase):
             validation_data=self.validation_sequence,
         )
 
-        self.model.save(self.wdir)
+        self.model.save(os.path.join(self.wdir,'models','latest'))
         save(self.training_sequence, self.training_sequence_file)
         save(self.validation_sequence, self.validation_sequence_file)
         save(self.features, self.feature_file)
-        save(self.model.history.history, self.history_file)
+
+
+        save(append_history({}, self.model.history.history), self.history_file)
         save(self.training_sequence._feature_scaler, self.feature_scaler_file)
 
         self.analyzer = TrainingAnalyzer(self.wdir)
+        self.loader = TrainingLoader(self.wdir)
 
     def test_training_analyzer_cache(self):
         """Test cache mechanism"""
@@ -139,4 +147,4 @@ class TestTrainingAnalysisAndPlot(TestCase):
         self.analyzer.analyze()
         plotter = TrainingHistogramPlotter(self.analyzer.histograms)
         plotter.plot_by_sequence_types()
-        plot_history(self.model.history.history, outdir=self.wdir)
+        plot_history(self.loader.get_history(), outdir=self.wdir)
