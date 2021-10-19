@@ -25,7 +25,7 @@ def analyze(training_path):
 @cli.command()
 @click.argument("training_path")
 @click.option("--force-analyze", default=False, is_flag=True)
-def plot(training_path:str, force_analyze:bool=False):
+def plot(training_path: str, force_analyze: bool = False):
     # Redo the analysis if cache does not exist
     # analyzer = TrainingAnalyzer(training_path)
     # if force_analyze or not analyzer.load_from_cache():

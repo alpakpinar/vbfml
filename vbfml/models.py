@@ -3,7 +3,11 @@ from tensorflow.keras.models import Sequential
 
 
 def sequential_dense_model(
-    n_features: int, n_layers: int, n_nodes: "list[int]", n_classes: int, dropout: float=0
+    n_features: int,
+    n_layers: int,
+    n_nodes: "list[int]",
+    n_classes: int,
+    dropout: float = 0,
 ) -> Sequential:
     model = Sequential()
 
@@ -21,9 +25,7 @@ def sequential_dense_model(
 
     for ilayer in range(1, n_layers):
         if dropout:
-            model.add(
-                Dropout(rate=dropout)
-            )
+            model.add(Dropout(rate=dropout))
         model.add(
             Dense(
                 n_nodes[ilayer],

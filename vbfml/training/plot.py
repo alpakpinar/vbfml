@@ -137,16 +137,44 @@ def plot_history(history, outdir):
     fig = plt.figure(figsize=(12, 10))
     ax = plt.gca()
 
-    accuracy_types = [key for key in history.keys() if "acc" in key and not "val" in key]
-    accuracy_types = [x.replace("x_","").replace("y_","") for x in accuracy_types]
+    accuracy_types = [
+        key for key in history.keys() if "acc" in key and not "val" in key
+    ]
+    accuracy_types = [x.replace("x_", "").replace("y_", "") for x in accuracy_types]
 
     for accuracy_type in accuracy_types:
-        ax.plot(history["x_loss"], history["y_loss"], color="b", ls="--", marker="s", label="Training")
-        ax.plot(history["x_val_loss"], history["y_val_loss"], color="b", label="Validation", marker="o")
+        ax.plot(
+            history["x_loss"],
+            history["y_loss"],
+            color="b",
+            ls="--",
+            marker="s",
+            label="Training",
+        )
+        ax.plot(
+            history["x_val_loss"],
+            history["y_val_loss"],
+            color="b",
+            label="Validation",
+            marker="o",
+        )
 
         ax2 = ax.twinx()
-        ax2.plot(history[f"x_{accuracy_type}"], history[f"y_{accuracy_type}"], color="r", ls="--", marker="s", label="Training")
-        ax2.plot(history[f"x_val_{accuracy_type}"], history[f"y_val_{accuracy_type}"], color="r", label="Validation", marker="o")
+        ax2.plot(
+            history[f"x_{accuracy_type}"],
+            history[f"y_{accuracy_type}"],
+            color="r",
+            ls="--",
+            marker="s",
+            label="Training",
+        )
+        ax2.plot(
+            history[f"x_val_{accuracy_type}"],
+            history[f"y_val_{accuracy_type}"],
+            color="r",
+            label="Validation",
+            marker="o",
+        )
         ax.set_xlabel("Training time (a.u.)")
         ax.set_ylabel("Loss")
         ax.set_yscale("log")

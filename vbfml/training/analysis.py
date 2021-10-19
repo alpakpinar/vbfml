@@ -1,7 +1,7 @@
-from typing import Dict, Tuple, Optional
 import os
 import pickle
 from dataclasses import dataclass, field
+from typing import Dict, Optional, Tuple
 
 import hist
 import numpy as np
@@ -41,8 +41,8 @@ axis_bins = {
     "trailak4_mjjmax_phi": phi_bins,
     "trailak4_mjjmax_eta": eta_bins,
     "score": np.linspace(0, 1, 20),
-    "composition" : np.linspace(-0.5,4.5,5),
-    "transformed" : np.linspace(-5,5,20)
+    "composition": np.linspace(-0.5, 4.5, 5),
+    "transformed": np.linspace(-5, 5, 20),
 }
 
 
@@ -106,7 +106,14 @@ class TrainingAnalyzer:
             histograms[sequence_type] = self._analyze_sequence(sequence, sequence_type)
         self.histograms = histograms
 
-    def _fill_feature_histograms(self, histograms : Dict[str, hist.Hist], features: np.ndarray, labels: np.ndarray, weights : np.ndarray, feature_scaler : Optional['scaler']):
+    def _fill_feature_histograms(
+        self,
+        histograms: Dict[str, hist.Hist],
+        features: np.ndarray,
+        labels: np.ndarray,
+        weights: np.ndarray,
+        feature_scaler: Optional["scaler"],
+    ):
         feature_names = self.loader.get_features()
 
         if feature_scaler:
@@ -114,7 +121,7 @@ class TrainingAnalyzer:
 
         for ifeat, feature_name in enumerate(feature_names):
             if feature_scaler:
-                feature_name = f'{feature_name}_transform'
+                feature_name = f"{feature_name}_transform"
             if not feature_name in histograms:
                 histograms[feature_name] = self._make_histogram(feature_name)
             histograms[feature_name].fill(
@@ -124,21 +131,26 @@ class TrainingAnalyzer:
                     "weight": weights.flatten(),
                 }
             )
-    
-    def _fill_score_histograms(self,histograms: Dict[str,hist.Hist], scores: np.ndarray, labels: np.ndarray, weights : np.ndarray) -> None:
-            n_classes = scores.shape[1]
-            for scored_class in range(n_classes):
-                name = f"score_{scored_class}"
-                if not name in histograms:
-                    histograms[name] = self._make_histogram(name)
-                histograms[name].fill(
-                    **{
-                        name: scores[:, scored_class],
-                        "label": labels,
-                        "weight": weights,
-                    }
-                )
 
+    def _fill_score_histograms(
+        self,
+        histograms: Dict[str, hist.Hist],
+        scores: np.ndarray,
+        labels: np.ndarray,
+        weights: np.ndarray,
+    ) -> None:
+        n_classes = scores.shape[1]
+        for scored_class in range(n_classes):
+            name = f"score_{scored_class}"
+            if not name in histograms:
+                histograms[name] = self._make_histogram(name)
+            histograms[name].fill(
+                **{
+                    name: scores[:, scored_class],
+                    "label": labels,
+                    "weight": weights,
+                }
+            )
 
     def _analyze_sequence(
         self, sequence: MultiDatasetSequence, sequence_type: str
@@ -163,7 +175,9 @@ class TrainingAnalyzer:
             scores = model.predict(feature_scaler.transform(features))
 
             for scaler in feature_scaler, None:
-                self._fill_feature_histograms(histograms, features, labels, weights, feature_scaler=scaler)
+                self._fill_feature_histograms(
+                    histograms, features, labels, weights, feature_scaler=scaler
+                )
 
             self._fill_score_histograms(histograms, scores, labels, weights)
             # self._fill_composition_histograms(histograms, scores, labels, weights)
