@@ -192,7 +192,11 @@ class TestMultiDatasetSequence(TestCase):
             n_nodes=[2],
             n_classes=len(self.mds.dataset_labels()),
         )
-
+        model.compile(
+            loss="categorical_crossentropy",
+            optimizer="adam",
+            metrics=["categorical_accuracy"],
+        )
         model.summary()
         model.fit(self.mds, epochs=1)
 
@@ -360,7 +364,11 @@ class TestMultiDatasetSequenceWeight(TestCase):
             n_nodes=[2],
             n_classes=len(self.mds.dataset_labels()),
         )
-
+        model.compile(
+            loss="categorical_crossentropy",
+            optimizer="adam",
+            metrics=["categorical_accuracy"],
+        )
         model.summary()
         model.fit(self.mds, epochs=1)
 
@@ -427,7 +435,7 @@ class TestMultiDatasetSequenceFeatureScaling(TestCase):
         dev_mean, dev_std = deviation_from_target(features)
         self.assertNotAlmostEqual(dev_mean, self.feature_mean)
         self.assertNotAlmostEqual(dev_std, self.feature_std - 1)
-        self.assertTrue(np.all(np.abs(features) == weights))
+        self.assertTrue(np.allclose(np.abs(features), weights, rtol=0.01))
 
         # Read with feature scaling
         self.mds.scale_features = True

@@ -1,9 +1,13 @@
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.models import Sequential
 
 
 def sequential_dense_model(
-    n_features: int, n_layers: int, n_nodes: "list[int]", n_classes: int
+    n_features: int,
+    n_layers: int,
+    n_nodes: "list[int]",
+    n_classes: int,
+    dropout: float = 0,
 ) -> Sequential:
     model = Sequential()
 
@@ -18,7 +22,10 @@ def sequential_dense_model(
             activation="relu",
         )
     )
+
     for ilayer in range(1, n_layers):
+        if dropout:
+            model.add(Dropout(rate=dropout))
         model.add(
             Dense(
                 n_nodes[ilayer],
@@ -26,7 +33,5 @@ def sequential_dense_model(
             )
         )
     model.add(Dense(n_classes, activation="softmax"))
-    model.compile(
-        loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"]
-    )
+
     return model

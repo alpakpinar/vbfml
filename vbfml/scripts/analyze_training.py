@@ -6,7 +6,7 @@ import click
 
 from vbfml.training.analysis import TrainingAnalyzer
 from vbfml.training.data import TrainingLoader
-from vbfml.training.plot import TrainingHistogramPlotter, history_plot
+from vbfml.training.plot import plot_history
 
 
 @click.group()
@@ -24,21 +24,22 @@ def analyze(training_path):
 
 @cli.command()
 @click.argument("training_path")
-def plot(training_path):
+@click.option("--force-analyze", default=False, is_flag=True)
+def plot(training_path: str, force_analyze: bool = False):
     # Redo the analysis if cache does not exist
-    analyzer = TrainingAnalyzer(training_path)
-    if not analyzer.load_from_cache():
-        analyzer.analyze()
-        analyzer.write_to_cache()
+    # analyzer = TrainingAnalyzer(training_path)
+    # if force_analyze or not analyzer.load_from_cache():
+    #     analyzer.analyze()
+    #     analyzer.write_to_cache()
 
-    # Plot histograms
+    # # Plot histograms
     output_directory = os.path.join(training_path, "plots")
-    plotter = TrainingHistogramPlotter(analyzer.histograms, output_directory)
-    plotter.plot()
+    # plotter = TrainingHistogramPlotter(analyzer.histograms, output_directory)
+    # plotter.plot()
 
     # Plot training history
     loader = TrainingLoader(training_path)
-    history_plot(loader.get_history(), output_directory)
+    plot_history(loader.get_history(), output_directory)
 
 
 if __name__ == "__main__":

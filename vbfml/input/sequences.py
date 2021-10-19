@@ -70,7 +70,7 @@ class MultiDatasetSequence(Sequence):
         return self._batch_size
 
     @batch_size.setter
-    def batch_size(self, batch_size: str) -> None:
+    def batch_size(self, batch_size: int) -> None:
         self.buffer.clear()
         self.buffer.batch_size = batch_size
         self._batch_size = batch_size
