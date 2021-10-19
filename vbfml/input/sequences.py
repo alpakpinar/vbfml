@@ -51,7 +51,7 @@ class MultiDatasetSequence(Sequence):
 
         self._scale_features = scale_features
         self._feature_scaler = None
-        self._float_dtype = np.float16
+        self._float_dtype = np.float32
 
     def __len__(self) -> int:
         read_fraction = self.read_range[1] - self.read_range[0]
