@@ -6,7 +6,7 @@ import click
 
 from vbfml.training.analysis import TrainingAnalyzer
 from vbfml.training.data import TrainingLoader
-from vbfml.training.plot import TrainingHistogramPlotter, plot_history
+from vbfml.training.plot import plot_history
 
 
 @click.group()

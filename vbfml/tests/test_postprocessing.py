@@ -9,7 +9,7 @@ from vbfml.training.analysis import TrainingAnalyzer
 from vbfml.training.data import TrainingLoader
 from vbfml.training.input import build_sequence, load_datasets_bucoffea
 from vbfml.training.plot import TrainingHistogramPlotter, plot_history
-from vbfml.training.util import save, append_history
+from vbfml.training.util import append_history, save
 
 
 def keras_model_compare(model1, model2):
@@ -108,11 +108,10 @@ class TestTrainingAnalysisAndPlot(TestCase):
             validation_data=self.validation_sequence,
         )
 
-        self.model.save(os.path.join(self.wdir,'models','latest'))
+        self.model.save(os.path.join(self.wdir, "models", "latest"))
         save(self.training_sequence, self.training_sequence_file)
         save(self.validation_sequence, self.validation_sequence_file)
         save(self.features, self.feature_file)
-
 
         save(append_history({}, self.model.history.history), self.history_file)
         save(self.training_sequence._feature_scaler, self.feature_scaler_file)

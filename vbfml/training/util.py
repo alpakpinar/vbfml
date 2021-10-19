@@ -10,6 +10,8 @@ import uproot
 from tabulate import tabulate
 from tqdm import tqdm
 
+from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
+
 
 def load(fpath: str) -> object:
     with open(fpath, "rb") as f:
@@ -29,7 +31,10 @@ def get_n_events(filename: str, treename: str) -> int:
         return 0
 
 
-def get_weight_integral_by_label(sequence) -> "dict[str:float]":
+def get_weight_integral_by_label(sequence: MultiDatasetSequence) -> Dict[str, float]:
+    """
+    Integrate the weights of all samples, accumulate by their label.
+    """
     # Save settings so we can restore later
     backup = {}
     for key in ["batch_size", "batch_buffer_size"]:
@@ -64,15 +69,15 @@ def get_weight_integral_by_label(sequence) -> "dict[str:float]":
     return integrals
 
 
-def normalize_classes(sequence: "MultiDatasetSequence") -> None:
-    """Changes weights so that all classes have same integral."""
+def normalize_classes(sequence: MultiDatasetSequence) -> None:
+    """Changes data set weights in-place so that all classes have same integral."""
     label_to_weight_dict = get_weight_integral_by_label(sequence)
     for dataset_obj in sequence.datasets.values():
         weight = label_to_weight_dict[dataset_obj.label]
         dataset_obj.weight = dataset_obj.weight / weight
 
 
-def generate_callbacks_for_profiling():
+def generate_callbacks_for_profiling() -> None:
     """
     Callbacks for profiling of keras training.
 
@@ -89,7 +94,7 @@ def generate_callbacks_for_profiling():
     return callbacks
 
 
-def summarize_datasets(datasets: "list[DatasetInfo]") -> None:
+def summarize_datasets(datasets: List[DatasetInfo]) -> None:
     """
     Prints a neat summary of a group of datasets to the terminal.
     """
@@ -105,8 +110,8 @@ def summarize_datasets(datasets: "list[DatasetInfo]") -> None:
 
 
 def select_and_label_datasets(
-    all_datasets: "list[DatasetInfo]", labels: "dict[str:str]"
-) -> "list[DatasetInfo]":
+    all_datasets: List[DatasetInfo], labels: Dict[str, str]
+) -> List[DatasetInfo]:
     """
     Slim down a list of datasets and apply labeling.
 

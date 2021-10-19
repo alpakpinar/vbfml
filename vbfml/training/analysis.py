@@ -1,7 +1,7 @@
 import os
 import pickle
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 import hist
 import numpy as np
@@ -78,7 +78,8 @@ class TrainingAnalyzer:
 
         return histogram
 
-    def load_from_cache(self):
+    def load_from_cache(self) -> bool:
+        """Histograms loaded from disk cache."""
         success = False
         try:
             with open(self.cache, "rb") as f:
@@ -89,7 +90,8 @@ class TrainingAnalyzer:
         self.histograms = histograms
         return success
 
-    def write_to_cache(self):
+    def write_to_cache(self) -> bool:
+        """Cached histograms written to disk."""
         with open(self.cache, "wb") as f:
             return pickle.dump(self.histograms, f)
 
@@ -112,7 +114,7 @@ class TrainingAnalyzer:
         features: np.ndarray,
         labels: np.ndarray,
         weights: np.ndarray,
-        feature_scaler: Optional["scaler"],
+        feature_scaler: Optional,
     ):
         feature_names = self.loader.get_features()
 
@@ -154,7 +156,7 @@ class TrainingAnalyzer:
 
     def _analyze_sequence(
         self, sequence: MultiDatasetSequence, sequence_type: str
-    ) -> "dict[str:hist.Hist]":
+    ) -> Dict[str, hist.Hist]:
         """
         Analyzes a specific sequence.
 
@@ -162,7 +164,6 @@ class TrainingAnalyzer:
         """
         histograms = {}
         model = self.loader.get_model()
-        feature_names = self.loader.get_features()
 
         feature_scaler = self.loader.get_feature_scaler()
 
