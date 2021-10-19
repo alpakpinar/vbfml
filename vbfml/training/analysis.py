@@ -1,3 +1,4 @@
+from typing import Dict, Tuple, Optional
 import os
 import pickle
 from dataclasses import dataclass, field
@@ -20,6 +21,9 @@ axis_bins = {
     "mjj": np.logspace(2, 4, 20),
     "dphijj": dphi_bins,
     "detajj": np.linspace(0, 10, 20),
+    "mjj_maxmjj": np.logspace(2, 4, 20),
+    "dphijj_maxmjj": dphi_bins,
+    "detajj_maxmjj": np.linspace(0, 10, 20),
     "recoil_pt": pt_bins,
     "dphi_ak40_met": dphi_bins,
     "dphi_ak41_met": dphi_bins,
@@ -30,7 +34,15 @@ axis_bins = {
     "trailak4_pt": pt_bins,
     "trailak4_phi": phi_bins,
     "trailak4_eta": eta_bins,
+    "leadak4_mjjmax_pt": pt_bins,
+    "leadak4_mjjmax_phi": phi_bins,
+    "leadak4_mjjmax_eta": eta_bins,
+    "trailak4_mjjmax_pt": pt_bins,
+    "trailak4_mjjmax_phi": phi_bins,
+    "trailak4_mjjmax_eta": eta_bins,
     "score": np.linspace(0, 1, 20),
+    "composition" : np.linspace(-0.5,4.5,5),
+    "transformed" : np.linspace(-5,5,20)
 }
 
 
@@ -54,6 +66,8 @@ class TrainingAnalyzer:
         """Creates an empty histogram for a given quantity (feature or score)"""
         if "score" in quantity_name:
             bins = axis_bins["score"]
+        elif "transform" in quantity_name:
+            bins = axis_bins["transformed"]
         else:
             bins = axis_bins[quantity_name]
         histogram = hist.Hist(
@@ -92,6 +106,40 @@ class TrainingAnalyzer:
             histograms[sequence_type] = self._analyze_sequence(sequence, sequence_type)
         self.histograms = histograms
 
+    def _fill_feature_histograms(self, histograms : Dict[str, hist.Hist], features: np.ndarray, labels: np.ndarray, weights : np.ndarray, feature_scaler : Optional['scaler']):
+        feature_names = self.loader.get_features()
+
+        if feature_scaler:
+            features = feature_scaler.transform(features)
+
+        for ifeat, feature_name in enumerate(feature_names):
+            if feature_scaler:
+                feature_name = f'{feature_name}_transform'
+            if not feature_name in histograms:
+                histograms[feature_name] = self._make_histogram(feature_name)
+            histograms[feature_name].fill(
+                **{
+                    feature_name: features[:, ifeat].flatten(),
+                    "label": labels,
+                    "weight": weights.flatten(),
+                }
+            )
+    
+    def _fill_score_histograms(self,histograms: Dict[str,hist.Hist], scores: np.ndarray, labels: np.ndarray, weights : np.ndarray) -> None:
+            n_classes = scores.shape[1]
+            for scored_class in range(n_classes):
+                name = f"score_{scored_class}"
+                if not name in histograms:
+                    histograms[name] = self._make_histogram(name)
+                histograms[name].fill(
+                    **{
+                        name: scores[:, scored_class],
+                        "label": labels,
+                        "weight": weights,
+                    }
+                )
+
+
     def _analyze_sequence(
         self, sequence: MultiDatasetSequence, sequence_type: str
     ) -> "dict[str:hist.Hist]":
@@ -114,29 +162,10 @@ class TrainingAnalyzer:
 
             scores = model.predict(feature_scaler.transform(features))
 
-            # Histogramming of features
-            for ifeat, feature_name in enumerate(feature_names):
-                if not feature_name in histograms:
-                    histograms[feature_name] = self._make_histogram(feature_name)
-                histograms[feature_name].fill(
-                    **{
-                        feature_name: features[:, ifeat].flatten(),
-                        "label": labels,
-                        "weight": weights.flatten(),
-                    }
-                )
+            for scaler in feature_scaler, None:
+                self._fill_feature_histograms(histograms, features, labels, weights, feature_scaler=scaler)
 
-            # Histogramming of NN scores
-            n_classes = labels_onehot.shape[1]
-            for scored_class in range(n_classes):
-                name = f"score_{scored_class}"
-                if not name in histograms:
-                    histograms[name] = self._make_histogram(name)
-                histograms[name].fill(
-                    **{
-                        name: scores[:, scored_class],
-                        "label": labels,
-                        "weight": weights,
-                    }
-                )
+            self._fill_score_histograms(histograms, scores, labels, weights)
+            # self._fill_composition_histograms(histograms, scores, labels, weights)
+
         return histograms
