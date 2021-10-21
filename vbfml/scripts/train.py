@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from tabulate import tabulate
+from tqdm import tqdm
 import copy
 import os
 import re
@@ -58,16 +60,16 @@ def setup(ctx, learning_rate: float):
         "dphi_ak41_met",
         "ht",
         "leadak4_pt",
-        "leadak4_phi",
+        # "leadak4_phi",
         "leadak4_eta",
         "trailak4_pt",
-        "trailak4_phi",
+        # "trailak4_phi",
         "trailak4_eta",
         "leadak4_mjjmax_pt",
-        "leadak4_mjjmax_phi",
+        # "leadak4_mjjmax_phi",
         "leadak4_mjjmax_eta",
         "trailak4_mjjmax_pt",
-        "trailak4_mjjmax_phi",
+        # "trailak4_mjjmax_phi",
         "trailak4_mjjmax_eta",
     ]
 
@@ -82,7 +84,7 @@ def setup(ctx, learning_rate: float):
     datasets = select_and_label_datasets(all_datasets, dataset_labels)
     for dataset_info in datasets:
         if re.match(dataset_labels["v_qcd_nlo_17"], dataset_info.name):
-            dataset_info.n_events = 0.1 * dataset_info.n_events
+            dataset_info.n_events = 0.01 * dataset_info.n_events
 
     training_sequence = build_sequence(
         datasets=copy.deepcopy(datasets), features=features
@@ -92,13 +94,12 @@ def setup(ctx, learning_rate: float):
     )
     normalize_classes(training_sequence)
     normalize_classes(validation_sequence)
-    for dataset_info in training_sequence.datasets.values():
-        dataset_info.weight = dataset_info.weight * 1e6
-    for dataset_info in validation_sequence.datasets.values():
-        dataset_info.weight = dataset_info.weight * 1e6
+
     # Training sequence
     training_sequence.read_range = (0.0, 0.5)
     training_sequence.scale_features = True
+    training_sequence.batch_size = 20
+    training_sequence.batch_buffer_size = 1e6
     training_sequence[0]
 
     # Validation sequence
@@ -112,11 +113,11 @@ def setup(ctx, learning_rate: float):
 
     # Build model
     model = sequential_dense_model(
-        n_layers=7,
-        n_nodes=[16, 16, 8, 8, 4, 4, 2],
+        n_layers=3,
+        n_nodes=[4, 4, 2],
         n_features=len(features),
         n_classes=len(training_sequence.dataset_labels()),
-        dropout=0.5,
+        dropout=0.,
     )
     optimizer = tf.keras.optimizers.Adam(
         learning_rate=learning_rate,
@@ -130,7 +131,7 @@ def setup(ctx, learning_rate: float):
     model.compile(
         loss="categorical_crossentropy",
         optimizer=optimizer,
-        metrics=["categorical_accuracy"],
+        weighted_metrics=["categorical_accuracy"],
     )
     model.summary()
 
@@ -165,7 +166,6 @@ def setup(ctx, learning_rate: float):
     save(training_sequence, prepend_path("training_sequence.pkl"))
     save(validation_sequence, prepend_path("validation_sequence.pkl"))
 
-
 @cli.command()
 @click.pass_context
 @click.option(
@@ -184,7 +184,7 @@ def setup(ctx, learning_rate: float):
     "--learning-rate", type=float, default=None, help="Set new learning rate."
 )
 def train(
-    ctx, steps_per_epoch: int, training_passes: int, overwrite_learning_rate: float
+    ctx, steps_per_epoch: int, training_passes: int, learning_rate: float
 ):
     """
     Train in a previously created working area.
@@ -195,9 +195,9 @@ def train(
 
     model = loader.get_model("latest")
 
-    if overwrite_learning_rate:
-        assert overwrite_learning_rate > 0, "Learning rate should be positive."
-        K.set_value(model.optimizer.learning_rate, overwrite_learning_rate)
+    if learning_rate:
+        assert learning_rate > 0, "Learning rate should be positive."
+        K.set_value(model.optimizer.learning_rate, learning_rate)
 
     training_sequence = loader.get_sequence("training")
     validation_sequence = loader.get_sequence("validation")
@@ -221,7 +221,8 @@ def train(
         save_freq=steps_total,
     )
 
-    validation_freq = epochs // training_passes
+    validation_freq = 1 #epochs // training_passes
+
     model.fit(
         x=training_sequence,
         steps_per_epoch=steps_per_epoch,
