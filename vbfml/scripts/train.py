@@ -43,7 +43,10 @@ def cli(ctx, tag):
 @click.option(
     "--learning-rate", default=1e-3, required=False, help="Learning rate for training."
 )
-def setup(ctx, learning_rate: float):
+@click.option(
+    "--dropout", default=0.5, required=False, help="Dropout rate."
+)
+def setup(ctx, learning_rate: float, dropout: float):
     """
     Creates a new working area. Prerequisite for later training.
     """
@@ -94,7 +97,6 @@ def setup(ctx, learning_rate: float):
     )
     normalize_classes(training_sequence)
     normalize_classes(validation_sequence)
-
     # Training sequence
     training_sequence.read_range = (0.0, 0.5)
     training_sequence.scale_features = True
@@ -117,7 +119,7 @@ def setup(ctx, learning_rate: float):
         n_nodes=[4, 4, 2],
         n_features=len(features),
         n_classes=len(training_sequence.dataset_labels()),
-        dropout=0.,
+        dropout=dropout,
     )
     optimizer = tf.keras.optimizers.Adam(
         learning_rate=learning_rate,
