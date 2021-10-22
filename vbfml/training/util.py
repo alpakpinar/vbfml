@@ -1,6 +1,6 @@
-from collections import defaultdict
 import pickle
 import re
+from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
 from typing import Dict, List

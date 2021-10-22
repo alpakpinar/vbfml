@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from tabulate import tabulate
-from tqdm import tqdm
 import copy
 import os
 import re
@@ -9,6 +7,8 @@ from datetime import datetime
 import click
 import tensorflow as tf
 from keras import backend as K
+from tabulate import tabulate
+from tqdm import tqdm
 
 from vbfml.models import sequential_dense_model
 from vbfml.training.data import TrainingLoader
@@ -43,9 +43,7 @@ def cli(ctx, tag):
 @click.option(
     "--learning-rate", default=1e-3, required=False, help="Learning rate for training."
 )
-@click.option(
-    "--dropout", default=0.5, required=False, help="Dropout rate."
-)
+@click.option("--dropout", default=0.5, required=False, help="Dropout rate.")
 def setup(ctx, learning_rate: float, dropout: float):
     """
     Creates a new working area. Prerequisite for later training.
@@ -168,6 +166,7 @@ def setup(ctx, learning_rate: float, dropout: float):
     save(training_sequence, prepend_path("training_sequence.pkl"))
     save(validation_sequence, prepend_path("validation_sequence.pkl"))
 
+
 @cli.command()
 @click.pass_context
 @click.option(
@@ -185,9 +184,7 @@ def setup(ctx, learning_rate: float, dropout: float):
 @click.option(
     "--learning-rate", type=float, default=None, help="Set new learning rate."
 )
-def train(
-    ctx, steps_per_epoch: int, training_passes: int, learning_rate: float
-):
+def train(ctx, steps_per_epoch: int, training_passes: int, learning_rate: float):
     """
     Train in a previously created working area.
     """
@@ -223,7 +220,7 @@ def train(
         save_freq=steps_total,
     )
 
-    validation_freq = 1 #epochs // training_passes
+    validation_freq = 1  # epochs // training_passes
 
     model.fit(
         x=training_sequence,

@@ -40,7 +40,7 @@ axis_bins = {
     "trailak4_mjjmax_pt": pt_bins,
     "trailak4_mjjmax_phi": phi_bins,
     "trailak4_mjjmax_eta": eta_bins,
-    "score": np.linspace(0, 1, 20),
+    "score": np.linspace(0, 1, 100),
     "composition": np.linspace(-0.5, 4.5, 5),
     "transformed": np.linspace(-5, 5, 20),
 }
