@@ -1,3 +1,4 @@
+from collections import defaultdict
 import pickle
 import re
 from copy import deepcopy
@@ -99,8 +100,14 @@ def summarize_datasets(datasets: List[DatasetInfo]) -> None:
     Prints a neat summary of a group of datasets to the terminal.
     """
     table = []
+    total_by_label = defaultdict(int)
     for dataset in datasets:
         table.append((dataset.label, dataset.name, dataset.n_events))
+        total_by_label[dataset.label] += dataset.n_events
+
+    for key, value in total_by_label.items():
+        table.append((key, "--- TOTAL ---", value))
+
     print(
         tabulate(
             sorted(table),
