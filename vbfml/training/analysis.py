@@ -1,6 +1,7 @@
 import os
 import pickle
 from dataclasses import dataclass, field
+from collections import defaultdict
 from typing import Dict, Optional
 
 import hist
@@ -56,7 +57,8 @@ class TrainingAnalyzer:
 
     directory: str
     cache: str = "analyzer_cache.pkl"
-    histograms: "dict" = field(default_factory=dict)
+
+    data: "dict" = field(default_factory=dict)
 
     def __post_init__(self):
         self.loader = TrainingLoader(self.directory)
@@ -83,17 +85,17 @@ class TrainingAnalyzer:
         success = False
         try:
             with open(self.cache, "rb") as f:
-                histograms = pickle.load(f)
+                data = pickle.load(f)
             success = True
         except:
-            histograms = {}
-        self.histograms = histograms
+            data = {}
+        self.data = data
         return success
 
     def write_to_cache(self) -> bool:
         """Cached histograms written to disk."""
         with open(self.cache, "wb") as f:
-            return pickle.dump(self.histograms, f)
+            return pickle.dump(self.data, f)
 
     def analyze(self):
         """
@@ -106,7 +108,7 @@ class TrainingAnalyzer:
             sequence.batch_size = int(1e6)
             sequence.batch_buffer_size = 10
             histograms[sequence_type] = self._analyze_sequence(sequence, sequence_type)
-        self.histograms = histograms
+        self.data["histograms"] = histograms
 
     def _fill_feature_histograms(
         self,
@@ -154,6 +156,52 @@ class TrainingAnalyzer:
                 }
             )
 
+    def _fill_feature_covariance(
+        self, features: np.ndarray, labels: np.ndarray, feature_scaler
+    ):
+        """
+        Calculate covariance coefficients between different features (e.g. mjj vs met).
+
+        Covariance coefficients are stored in a dictionary member of the analyzer.
+        For each batch of feature values, the previously calculated covariance is updated
+        by calculating the weighted mean between the old and new covariance values,
+        using the underlying number of events as the weight for the mean.
+
+        To make this procedure more accurate, the feature covariance is calculated
+        after feature scaling, which ensures that the individual feature averages
+        are close to zero, which simplifies the formula for the covariance.
+        """
+        feature_names = self.loader.get_features()
+        features = feature_scaler.transform(features)
+
+        if not "covariance" in self.data:
+            self.data["covariance"] = defaultdict(dict)
+            self.data["covariance_event_count"] = defaultdict(int)
+
+        for iclass in range(labels.shape[1]):
+            n_event_previous = self.data["covariance_event_count"][iclass]
+            mask = labels[:, iclass] == 1
+            n_events = np.sum(mask)
+            for ifeat1, feat1 in enumerate(feature_names):
+                for ifeat2, feat2 in enumerate(feature_names):
+                    if ifeat2 < ifeat1:
+                        continue
+
+                    covariance = np.cov(
+                        features[mask][:, ifeat1], features[mask][:, ifeat2]
+                    )
+
+                    key = tuple(sorted((feat1, feat2)))
+
+                    previous_covariance = self.data["covariance"][iclass].get(key, 0)
+                    updated_covariance = (
+                        previous_covariance * n_event_previous + covariance * n_events
+                    )
+                    updated_covariance /= n_event_previous + n_events
+                    self.data["covariance"][iclass][key] = updated_covariance
+
+            self.data["covariance_event_count"][iclass] = n_event_previous + n_events
+
     def _analyze_sequence(
         self, sequence: MultiDatasetSequence, sequence_type: str
     ) -> Dict[str, hist.Hist]:
@@ -181,6 +229,7 @@ class TrainingAnalyzer:
                 )
 
             self._fill_score_histograms(histograms, scores, labels, weights)
+            self._fill_feature_covariance(features, labels_onehot, feature_scaler)
             # self._fill_composition_histograms(histograms, scores, labels, weights)
 
         return histograms
