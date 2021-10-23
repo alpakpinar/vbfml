@@ -43,17 +43,17 @@ class TrainingAnalyzer:
     training / validation / test data sets.
 
     """
+
     directory: str
     cache: str = "analyzer_cache.pkl"
     histograms: "dict" = field(default_factory=dict)
-    
 
     def __post_init__(self):
         self.loader = TrainingLoader(self.directory)
         self.cache = os.path.join(self.directory, os.path.basename(self.cache))
-        self.predicted_scores=[]
-        self.validation_scores=[]
-        self.weights=[]
+        self.predicted_scores = []
+        self.validation_scores = []
+        self.weights = []
 
     def _make_histogram(self, quantity_name: str) -> hist.Hist:
         """Creates an empty histogram for a given quantity (feature or score)"""
@@ -73,22 +73,32 @@ class TrainingAnalyzer:
         success = False
         try:
             with open(self.cache, "rb") as f:
-                histograms,predicted_scores,validation_scores,weights = pickle.load(f)
+                histograms, predicted_scores, validation_scores, weights = pickle.load(
+                    f
+                )
             success = True
         except:
             histograms = {}
-            predicted_scores=[]
-            validation_scores=[]
-            weights=[]
+            predicted_scores = []
+            validation_scores = []
+            weights = []
         self.histograms = histograms
-        self.predicted_scores=predicted_scores
-        self.validation_scores=validation_scores
-        self.weights=weights
+        self.predicted_scores = predicted_scores
+        self.validation_scores = validation_scores
+        self.weights = weights
         return success
 
     def write_to_cache(self):
         with open(self.cache, "wb") as f:
-            return pickle.dump([self.histograms,self.predicted_scores,self.validation_scores,self.weights], f)
+            return pickle.dump(
+                [
+                    self.histograms,
+                    self.predicted_scores,
+                    self.validation_scores,
+                    self.weights,
+                ],
+                f,
+            )
 
     def analyze(self):
         """
@@ -101,15 +111,18 @@ class TrainingAnalyzer:
             sequence.scale_features = False
             sequence.batch_size = int(1e6)
             sequence.batch_buffer_size = 10
-            histogram_out,predicted_scores,validation_scores,weights = self._analyze_sequence(sequence, sequence_type)
-            if(sequence_type=="validation"):
+            (
+                histogram_out,
+                predicted_scores,
+                validation_scores,
+                weights,
+            ) = self._analyze_sequence(sequence, sequence_type)
+            if sequence_type == "validation":
                 self.validation_scores = validation_scores
-                self.predicted_scores=predicted_scores
-                self.weights=weights
-            histograms[sequence_type]=histogram_out
+                self.predicted_scores = predicted_scores
+                self.weights = weights
+            histograms[sequence_type] = histogram_out
         self.histograms = histograms
-        
-        
 
     def _analyze_sequence(
         self, sequence: MultiDatasetSequence, sequence_type: str
@@ -119,23 +132,22 @@ class TrainingAnalyzer:
 
         Loop over batches, make and return histograms.
         """
-        
+
         histograms = {}
         model = self.loader.get_model()
         feature_names = self.loader.get_features()
         feature_scaler = self.loader.get_feature_scaler()
-        predicted_scores=[]
-        validation_scores=[]
-        sample_weights=[]
+        predicted_scores = []
+        validation_scores = []
+        sample_weights = []
         for ibatch in tqdm(
             range(len(sequence)), desc=f"Analyze batches of {sequence_type} sequence."
         ):
-            
 
             features, labels_onehot, weights = sequence[ibatch]
             labels = labels_onehot.argmax(axis=1)
             scores = model.predict(feature_scaler.transform(features))
-            if sequence_type=='validation':
+            if sequence_type == "validation":
                 predicted_scores.append(scores)
                 validation_scores.append(labels_onehot)
                 sample_weights.append(weights)
@@ -164,6 +176,5 @@ class TrainingAnalyzer:
                         "weight": weights,
                     }
                 )
-        
-        return histograms,predicted_scores,validation_scores,weights
-    
+
+        return histograms, predicted_scores, validation_scores, weights

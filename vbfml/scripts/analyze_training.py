@@ -33,13 +33,19 @@ def plot(training_path):
 
     # Plot histograms
     output_directory = os.path.join(training_path, "plots")
-    plotter = TrainingHistogramPlotter(analyzer.weights,analyzer.predicted_scores,analyzer.validation_scores,analyzer.histograms, output_directory)
+    plotter = TrainingHistogramPlotter(
+        analyzer.weights,
+        analyzer.predicted_scores,
+        analyzer.validation_scores,
+        analyzer.histograms,
+        output_directory,
+    )
     plotter.plot()
 
     # Plot training history
     loader = TrainingLoader(training_path)
     plot_history(loader.get_history(), output_directory)
-    
+
 
 if __name__ == "__main__":
     cli()
