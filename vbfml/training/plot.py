@@ -1,12 +1,16 @@
 import os
 from dataclasses import dataclass
 
+from numpy.core.fromnumeric import ndim
+
 import mplhep as hep
 import numpy as np
 from hist import Hist
 from matplotlib import pyplot as plt
 from tqdm import tqdm
-
+from scipy import integrate
+from sklearn import metrics
+import time
 plt.style.use(hep.style.CMS)
 
 
@@ -30,7 +34,9 @@ class TrainingHistogramPlotter:
     Tool to make standard plots based on histograms created with
     the TrainingAnalyzer
     """
-
+    weights:"list"
+    predicted_scores:"list"
+    validation_scores:"list"
     histograms: "list[Hist]"
     output_directory: str = "./output"
 
@@ -61,10 +67,10 @@ class TrainingHistogramPlotter:
             )
         return histograms
 
+
     def plot_by_sequence_types(self) -> None:
         """
         Comparison plots between the training and validation sequences.
-
         Generates plots for features + tagger scores.
         """
         output_subdir = "by_sequence"
@@ -78,7 +84,6 @@ class TrainingHistogramPlotter:
                 gridspec_kw={"height_ratios": (3, 1)},
                 sharex=True,
             )
-
             histograms = self.get_histograms_across_sequences(name)
 
             for sequence, histogram in histograms.items():
@@ -116,21 +121,74 @@ class TrainingHistogramPlotter:
                             markersize=5,
                         )
                     else:
-                        hep.histplot(values / norm, edges, color=color, ls="-", ax=ax)
-
-            ax.legend()
-            rax.set_xlabel(name)
-            ax.set_ylabel("Events (a.u.)")
-            ax.set_yscale("log")
-            for ext in "pdf", "png":
-                fig.savefig(
-                    os.path.join(self.output_directory, output_subdir, f"{name}.{ext}")
-                )
-            plt.close(fig)
+                        values_normalized = values/norm
+                        histogram1 = hep.histplot(values/norm, edges, color=color, label=f"class={label}, {sequence}",ls="-", ax=ax)       
+                        steppatch = (histogram1[0][0]).get_data()
+                        values_hist = np.reshape(np.asarray(steppatch[0]),(len(steppatch[0]),1))
+                        edges_hist= np.reshape((np.asarray(steppatch[1])),(len(steppatch[1]),1))
+                        integral = np.zeros((len(edges_hist),1))
+                        #compute efficency
+                        for bin in range(1,len(values_hist)+1):
+                            integral[bin-1] = (sum(values_hist[0:bin] * np.diff(edges_hist[0:bin+1],axis=0)))                               
+                        rax.plot(edges_hist[1:],integral[:-1],color = color, label=f"class={label}, {sequence}",axes=rax)
+                    ax.legend()
+                    rax.legend(prop={'size': 15})
+                    rax.set_xlabel(name)
+                    rax.set_ylabel("Efficency (a.u.)")
+                    ax.set_ylabel("Events (a.u.)")
+                    ax.set_yscale("log")
+                    for ext in "pdf", "png":
+                        fig.savefig(
+                            os.path.join(self.output_directory, output_subdir, f"{name}.{ext}")
+                        )
+                    plt.close(fig)
 
     def plot(self) -> None:
         self.plot_by_sequence_types()
+        self.plot_ROC()
 
+    #plot ROC curve for each class
+    def plot_ROC(self)->None:
+        fpr=dict()
+        tpr=dict()
+        score_classes = np.array(self.predicted_scores).shape[2]
+        number_batches=np.array(self.predicted_scores).shape[0]
+
+        for sclass in range(score_classes):
+            #combine batch scores for each class
+            p_score =np.array(self.predicted_scores[0][:,sclass])
+            v_score = np.array(self.validation_scores[0][:,sclass])
+            sample_weights = np.array(self.weights)
+            predicted_scores_combined =  p_score
+            validation_scores_combined =  v_score
+            for batch in range(1, number_batches):
+                sample_weights=np.append(sample_weights,sample_weights)
+                p_score =np.asarray(self.predicted_scores[batch][:,sclass])
+                v_score = np.asarray(self.validation_scores[batch][:,sclass])  
+                predicted_scores_combined = np.append(predicted_scores_combined, p_score)
+                validation_scores_combined = np.append(validation_scores_combined,v_score)
+            np.reshape(predicted_scores_combined,(len(predicted_scores_combined),1))
+            np.reshape(validation_scores_combined,(len(validation_scores_combined),1))
+            #make ROC curve         
+            fpr[sclass],tpr[sclass],thresholds=metrics.roc_curve(validation_scores_combined,predicted_scores_combined,sample_weight=sample_weights)
+            auc = metrics.roc_auc_score(validation_scores_combined,predicted_scores_combined,sample_weight=sample_weights)
+            fig, ax = plt.subplots()
+            label_1 = "Current Classifier- AUC ="+str(round(auc,3))
+            ax.plot(fpr[sclass],tpr[sclass],label=label_1)
+            ax.set_title("Label "+str(sclass))
+            ax.set_ylabel('True Positive Rate')
+            ax.set_xlabel('False Positive Rate')
+            x =np.linspace(0, 1, 20)
+            ax.plot(x,x,linestyle='--',label='Random Classifier')
+            ax.legend()
+            outdir = os.path.join(self.output_directory, "ROC")
+            try:
+                os.makedirs(outdir)
+            except FileExistsError:
+                pass
+
+            for ext in "png", "pdf":
+                fig.savefig(os.path.join(outdir, f"ROC_score_{sclass}.{ext}"))
 
 def plot_history(history, outdir):
 
@@ -143,8 +201,8 @@ def plot_history(history, outdir):
     ax.plot(x, history["val_loss"], color="b", label="Validation", marker="o")
 
     ax2 = ax.twinx()
-    ax2.plot(x, history["accuracy"], color="r", ls="--", label="Training")
-    ax2.plot(x, history["val_accuracy"], color="r", label="Validation", marker="o")
+    ax2.plot(x, history["categorical_accuracy"], color="r", ls="--", label="Training")
+    ax2.plot(x, history["val_categorical_accuracy"], color="r", label="Validation", marker="o")
     ax.set_xlabel("Training time (a.u.)")
     ax.set_ylabel("Loss")
     ax.set_yscale("log")
