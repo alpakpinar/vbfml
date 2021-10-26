@@ -231,32 +231,56 @@ def plot_history(history, outdir):
     fig = plt.figure(figsize=(12, 10))
     ax = plt.gca()
 
-    x = np.array(range(len(history["loss"])))
+    accuracy_types = [
+        key for key in history.keys() if "acc" in key and not "val" in key
+    ]
+    accuracy_types = [x.replace("x_", "").replace("y_", "") for x in accuracy_types]
 
-    ax.plot(x, history["loss"], color="b", ls="--", label="Training")
-    ax.plot(x, history["val_loss"], color="b", label="Validation", marker="o")
+    for accuracy_type in accuracy_types:
+        ax.plot(
+            history["x_loss"],
+            history["y_loss"],
+            color="b",
+            ls="--",
+            marker="s",
+            label="Training",
+        )
+        ax.plot(
+            history["x_val_loss"],
+            history["y_val_loss"],
+            color="b",
+            label="Validation",
+            marker="o",
+        )
 
-    ax2 = ax.twinx()
-    ax2.plot(x, history["categorical_accuracy"], color="r", ls="--", label="Training")
-    ax2.plot(
-        x,
-        history["val_categorical_accuracy"],
-        color="r",
-        label="Validation",
-        marker="o",
-    )
-    ax.set_xlabel("Training time (a.u.)")
-    ax.set_ylabel("Loss")
-    ax.set_yscale("log")
-    ax2.set_ylabel("Accuracy")
-    ax2.set_ylim(0, 1)
-    ax.legend(title="Loss")
-    ax2.legend(title="Accuracy")
-    outdir = os.path.join(outdir, "history")
-    try:
-        os.makedirs(outdir)
-    except FileExistsError:
-        pass
+        ax2 = ax.twinx()
+        ax2.plot(
+            history[f"x_{accuracy_type}"],
+            history[f"y_{accuracy_type}"],
+            color="r",
+            ls="--",
+            marker="s",
+            label="Training",
+        )
+        ax2.plot(
+            history[f"x_val_{accuracy_type}"],
+            history[f"y_val_{accuracy_type}"],
+            color="r",
+            label="Validation",
+            marker="o",
+        )
+        ax.set_xlabel("Training time (a.u.)")
+        ax.set_ylabel("Loss")
+        ax.set_yscale("log")
+        ax2.set_ylabel(f"Accuracy ({accuracy_type})")
+        ax2.set_ylim(0, 1)
+        ax.legend(title="Loss")
+        ax2.legend(title="Accuracy")
+        outdir = os.path.join(outdir, "history")
+        try:
+            os.makedirs(outdir)
+        except FileExistsError:
+            pass
 
-    for ext in "png", "pdf":
-        fig.savefig(os.path.join(outdir, f"history.{ext}"))
+        for ext in "png", "pdf":
+            fig.savefig(os.path.join(outdir, f"history_{accuracy_type}.{ext}"))

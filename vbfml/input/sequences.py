@@ -51,7 +51,7 @@ class MultiDatasetSequence(Sequence):
 
         self._scale_features = scale_features
         self._feature_scaler = None
-        self._float_dtype = np.float16
+        self._float_dtype = np.float32
 
     def __len__(self) -> int:
         read_fraction = self.read_range[1] - self.read_range[0]
@@ -70,7 +70,7 @@ class MultiDatasetSequence(Sequence):
         return self._batch_size
 
     @batch_size.setter
-    def batch_size(self, batch_size: str) -> None:
+    def batch_size(self, batch_size: int) -> None:
         self.buffer.clear()
         self.buffer.batch_size = batch_size
         self._batch_size = batch_size

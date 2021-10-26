@@ -12,8 +12,10 @@ class TrainingLoader:
     def _fpath(self, fname):
         return os.path.join(self._directory, fname)
 
-    def get_model(self):
-        return tf.keras.models.load_model(self._directory)
+    def get_model(self, tag: str = "latest"):
+        return tf.keras.models.load_model(
+            os.path.join(self._directory, f"models/{tag}")
+        )
 
     def get_sequence(self, sequence_type="training"):
         return load(self._fpath(f"{sequence_type}_sequence.pkl"))

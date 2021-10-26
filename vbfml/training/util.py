@@ -1,13 +1,17 @@
 import pickle
 import re
+from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
+from typing import Dict, List
 
 import boost_histogram as bh
 import tensorflow as tf
 import uproot
 from tabulate import tabulate
 from tqdm import tqdm
+
+from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
 
 
 def load(fpath: str) -> object:
@@ -28,7 +32,10 @@ def get_n_events(filename: str, treename: str) -> int:
         return 0
 
 
-def get_weight_integral_by_label(sequence) -> "dict[str:float]":
+def get_weight_integral_by_label(sequence: MultiDatasetSequence) -> Dict[str, float]:
+    """
+    Integrate the weights of all samples, accumulate by their label.
+    """
     # Save settings so we can restore later
     backup = {}
     for key in ["batch_size", "batch_buffer_size"]:
@@ -63,15 +70,15 @@ def get_weight_integral_by_label(sequence) -> "dict[str:float]":
     return integrals
 
 
-def normalize_classes(sequence: "MultiDatasetSequence") -> None:
-    """Changes weights so that all classes have same integral."""
+def normalize_classes(sequence: MultiDatasetSequence) -> None:
+    """Changes data set weights in-place so that all classes have same integral."""
     label_to_weight_dict = get_weight_integral_by_label(sequence)
     for dataset_obj in sequence.datasets.values():
         weight = label_to_weight_dict[dataset_obj.label]
         dataset_obj.weight = dataset_obj.weight / weight
 
 
-def generate_callbacks_for_profiling():
+def generate_callbacks_for_profiling() -> None:
     """
     Callbacks for profiling of keras training.
 
@@ -88,13 +95,19 @@ def generate_callbacks_for_profiling():
     return callbacks
 
 
-def summarize_datasets(datasets: "list[DatasetInfo]") -> None:
+def summarize_datasets(datasets: List[DatasetInfo]) -> None:
     """
     Prints a neat summary of a group of datasets to the terminal.
     """
     table = []
+    total_by_label = defaultdict(int)
     for dataset in datasets:
         table.append((dataset.label, dataset.name, dataset.n_events))
+        total_by_label[dataset.label] += dataset.n_events
+
+    for key, value in total_by_label.items():
+        table.append((key, "--- TOTAL ---", value))
+
     print(
         tabulate(
             sorted(table),
@@ -104,8 +117,8 @@ def summarize_datasets(datasets: "list[DatasetInfo]") -> None:
 
 
 def select_and_label_datasets(
-    all_datasets: "list[DatasetInfo]", labels: "dict[str:str]"
-) -> "list[DatasetInfo]":
+    all_datasets: List[DatasetInfo], labels: Dict[str, str]
+) -> List[DatasetInfo]:
     """
     Slim down a list of datasets and apply labeling.
 
@@ -125,3 +138,39 @@ def select_and_label_datasets(
             dataset.label = label
         selected_datasets.extend(matching_datasets)
     return selected_datasets
+
+
+def append_history(
+    history1: Dict[str, List[float]],
+    history2: Dict[str, List[float]],
+    validation_frequence: int = 1,
+) -> Dict[str, List[float]]:
+    """
+    Append keras training histories.
+
+    The second history is appended to the first one, and the combined history is returned.
+    """
+    new_history = {}
+    for key, value_list in history2.items():
+        n_entries = len(value_list)
+
+        x_freq = 1
+        x_offset = 0
+
+        if "val" in key:
+            x_freq = validation_frequence
+            x_offset = 1
+
+        if key in history1:
+            original_x = history1[f"x_{key}"]
+            new_x = original_x + [
+                original_x[-1] + (ix + x_offset) * x_freq for ix in range(n_entries)
+            ]
+            new_y = history1[key] + value_list
+        else:
+            new_x = [(ix + x_offset) * x_freq for ix in range(n_entries)]
+            new_y = value_list
+
+        new_history[f"x_{key}"] = new_x
+        new_history[f"y_{key}"] = new_y
+    return new_history

@@ -24,14 +24,15 @@ def analyze(training_path):
 
 @cli.command()
 @click.argument("training_path")
-def plot(training_path):
+@click.option("--force-analyze", default=False, is_flag=True)
+def plot(training_path: str, force_analyze: bool = False):
     # Redo the analysis if cache does not exist
     analyzer = TrainingAnalyzer(training_path)
-    if not analyzer.load_from_cache():
+    if force_analyze or not analyzer.load_from_cache():
         analyzer.analyze()
         analyzer.write_to_cache()
 
-    # Plot histograms
+    # # Plot histograms
     output_directory = os.path.join(training_path, "plots")
     plotter = TrainingHistogramPlotter(
         analyzer.weights,
