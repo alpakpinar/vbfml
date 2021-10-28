@@ -130,20 +130,20 @@ class TestTrainingAnalysisAndPlot(TestCase):
         self.analyzer.write_to_cache()
         self.assertTrue(os.path.exists(self.analyzer.cache))
         self.assertTrue(self.analyzer.load_from_cache())
-        self.assertEqual(self.analyzer.histograms, {})
+        self.assertEqual(self.analyzer.data, {})
 
     def test_training_analyzer_analysis(self):
         """Test event loop and histogram creation"""
         self.analyzer.analyze()
         for feature in self.features:
             for sequence in "training", "validation":
-                self.assertTrue(feature in self.analyzer.histograms[sequence])
-                self.assertTrue("score_0" in self.analyzer.histograms[sequence])
-                self.assertTrue("score_1" in self.analyzer.histograms[sequence])
+                self.assertTrue(feature in self.analyzer.data["histograms"][sequence])
+                self.assertTrue("score_0" in self.analyzer.data["histograms"][sequence])
+                self.assertTrue("score_1" in self.analyzer.data["histograms"][sequence])
 
     def test_plot(self):
         """Test that plotting runs -- no verification of output"""
         self.analyzer.analyze()
-        plotter = TrainingHistogramPlotter(self.analyzer.histograms)
+        plotter = TrainingHistogramPlotter(self.analyzer.data["histograms"])
         plotter.plot_by_sequence_types()
         plot_history(self.loader.get_history(), outdir=self.wdir)
