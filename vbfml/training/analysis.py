@@ -1,13 +1,13 @@
 import os
 import pickle
-from dataclasses import dataclass, field
 from collections import defaultdict
+from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 import hist
 import numpy as np
+import sklearn
 from tqdm import tqdm
-
 from vbfml.input.sequences import MultiDatasetSequence
 from vbfml.training.data import TrainingLoader
 
@@ -116,7 +116,7 @@ class TrainingAnalyzer:
         features: np.ndarray,
         labels: np.ndarray,
         weights: np.ndarray,
-        feature_scaler: Optional,
+        feature_scaler: Optional(sklearn.preprocessing.StandardScaler),
     ):
         feature_names = self.loader.get_features()
 
