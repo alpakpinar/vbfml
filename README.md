@@ -46,7 +46,24 @@ black vbfml
 
 ## Usage example
 
-Check out the scripts/train.py script for an example training work flow. The scripts/analyze_training.py script can be used to create typical postprocessing plots, such as variable distributions. It can be extended with further postprocessing:
+Check out the scripts/train.py script for an example training work flow. You can set up a new training area:
+
+```
+./scripts/train.py --tag mytag setup
+```
+
+This will create a new working area under the `./output/mytag/` directory. In this directory, all ingredients for training will be saved.
+
+To run training, use e.g.:
+
+```
+./scripts/train.py --tag mytag setup --training-passes 5 --learning-rate 1e-1
+```
+
+The `--training-passes` argument specifies how often the entire training data set will be processed (In case of the keras setup we use, this is not necessarily equal the number of epochs, which have a user-defined length). The learning rate argument can be omitted, in which case the rate from the last training (or the default one from the setup if no training has happened yet) will be used. If you have already run training in this working area and decide to train again, you can pick up where you left off.
+
+
+The scripts/analyze_training.py script can be used to create typical postprocessing plots, such as variable distributions. It can be extended with further postprocessing:
 
 ```bash
 ./scripts/analyze_training.py plot /path/to/training/folder/
