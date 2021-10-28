@@ -116,7 +116,7 @@ class TrainingAnalyzer:
         features: np.ndarray,
         labels: np.ndarray,
         weights: np.ndarray,
-        feature_scaler: Optional(sklearn.preprocessing.StandardScaler),
+        feature_scaler: Optional[sklearn.preprocessing.StandardScaler],
     ):
         feature_names = self.loader.get_features()
 
