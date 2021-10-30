@@ -1,8 +1,7 @@
+from typing import Dict, Tuple, List
 import os
 from dataclasses import dataclass
-
-from numpy.core.fromnumeric import ndim
-
+import matplotlib
 import mplhep as hep
 import numpy as np
 from hist import Hist
@@ -166,6 +165,86 @@ class TrainingHistogramPlotter:
                         )
                     plt.close(fig)
 
+    def _covariance_dict_to_matrices(
+        self, covariance: Dict[Tuple[str, str], float]
+    ) -> Tuple[List[str], Dict[str, np.ndarray]]:
+        feature_names = sorted(set([x[0] for x in covariance.keys()]))
+        n_feat = len(feature_names)
+
+        matrices = {}
+        matrices["covariance"] = np.zeros((n_feat, n_feat))
+        matrices["correlation"] = np.zeros((n_feat, n_feat))
+
+        for ifeat1, feat1 in enumerate(feature_names):
+            for ifeat2, feat2 in enumerate(feature_names):
+                key = (feat1, feat2)
+                if key not in covariance:
+                    key = (feat2, feat1)
+                cov = covariance[key][0, 1]
+                v1 = covariance[(feat1, feat1)][0, 1]
+                v2 = covariance[(feat2, feat2)][0, 1]
+
+                matrices["covariance"][ifeat1, ifeat2] = cov
+                matrices["correlation"][ifeat1, ifeat2] = cov / np.sqrt(v1 * v2)
+
+        return feature_names, matrices
+
+    def plot_covariance(
+        self, covariance: Dict[int, Dict[Tuple[str, str], float]]
+    ) -> None:
+
+        ncolors = 10
+        cmap = plt.get_cmap("RdBu", ncolors)
+        for class_index, class_covariance in covariance.items():
+            feature_names, matrices = self._covariance_dict_to_matrices(
+                class_covariance
+            )
+
+            output_subdirectory = os.path.join(self.output_directory, "covariance")
+            try:
+                os.makedirs(output_subdirectory)
+            except FileExistsError:
+                pass
+
+            for tag, matrix in matrices.items():
+                fig = plt.figure()
+                ax = plt.gca()
+
+                if "correlation" in tag:
+                    vmin, vmax = -1, 1
+                else:
+                    vmax = 1.2 * np.max(np.abs(matrix))
+                    vmin = -vmax
+
+                cax = ax.matshow(matrix, vmin=vmin, vmax=vmax, cmap=cmap)
+                cbar = fig.colorbar(cax, shrink=0.6)
+                cbar.set_label(tag)
+                cbar.set_ticks(
+                    [vmin + i * (vmax - vmin) / ncolors for i in range(ncolors + 1)]
+                )
+                plt.xticks(
+                    list(range(len(feature_names))), feature_names, rotation="vertical"
+                )
+                plt.yticks(
+                    list(range(len(feature_names))),
+                    feature_names,
+                    rotation="horizontal",
+                )
+                plt.subplots_adjust(left=0.3, bottom=0.0, right=0.9, top=0.8)
+
+                for i in range(matrix.shape[0]):
+                    ax.axhline(i + 0.5, color="k")
+                    ax.axvline(i + 0.5, color="k")
+                for ext in "pdf", "png":
+                    fig.savefig(
+                        os.path.join(
+                            output_subdirectory,
+                            f"feature_{tag}_class{class_index}.{ext}",
+                        )
+                    )
+
+                plt.close(fig)
+
     def plot(self) -> None:
         self.plot_by_sequence_types()
         self.plot_ROC()
@@ -176,8 +255,7 @@ class TrainingHistogramPlotter:
         tpr = dict()
         score_classes = np.array(self.predicted_scores).shape[2]
         number_batches = np.array(self.predicted_scores).shape[0]
-
-        for sclass in range(score_classes):
+        for sclass in tqdm(range(score_classes),desc="Plotting ROC curves"):
             # combine batch scores for each class
             p_score = np.array(self.predicted_scores[0][:, sclass])
             v_score = np.array(self.validation_scores[0][:, sclass])
@@ -236,7 +314,7 @@ def plot_history(history, outdir):
     ]
     accuracy_types = [x.replace("x_", "").replace("y_", "") for x in accuracy_types]
 
-    for accuracy_type in accuracy_types:
+    for accuracy_type in tqdm(accuracy_types,desc="Plotting History"):
         ax.plot(
             history["x_loss"],
             history["y_loss"],

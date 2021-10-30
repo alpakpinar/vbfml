@@ -35,13 +35,14 @@ def plot(training_path: str, force_analyze: bool = False):
     # # Plot histograms
     output_directory = os.path.join(training_path, "plots")
     plotter = TrainingHistogramPlotter(
-        analyzer.weights,
-        analyzer.predicted_scores,
-        analyzer.validation_scores,
-        analyzer.histograms,
+        analyzer.data["weights"],
+        analyzer.data["predicted_scores"],
+        analyzer.data["validation_scores"],
+        analyzer.data["histograms"],
         output_directory,
     )
     plotter.plot()
+    plotter.plot_covariance(analyzer.data["covariance"])
 
     # Plot training history
     loader = TrainingLoader(training_path)
