@@ -144,6 +144,11 @@ class TestTrainingAnalysisAndPlot(TestCase):
     def test_plot(self):
         """Test that plotting runs -- no verification of output"""
         self.analyzer.analyze()
-        plotter = TrainingHistogramPlotter(self.analyzer.data["histograms"])
+        plotter = TrainingHistogramPlotter(
+            self.analyzer.data["weights"],
+            self.analyzer.data["predicted_scores"],
+            self.analyzer.data["validation_scores"],
+            self.analyzer.data["histograms"],
+        )
         plotter.plot_by_sequence_types()
         plot_history(self.loader.get_history(), outdir=self.wdir)

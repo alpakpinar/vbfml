@@ -33,5 +33,4 @@ def sequential_dense_model(
             )
         )
     model.add(Dense(n_classes, activation="softmax"))
-
     return model

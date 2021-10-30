@@ -107,7 +107,17 @@ class TrainingAnalyzer:
             sequence.scale_features = False
             sequence.batch_size = int(1e6)
             sequence.batch_buffer_size = 10
-            histograms[sequence_type] = self._analyze_sequence(sequence, sequence_type)
+            (
+                histogram_out,
+                predicted_scores,
+                validation_scores,
+                weights,
+            ) = self._analyze_sequence(sequence, sequence_type)
+            histograms[sequence_type] = histogram_out
+            if sequence_type == "validation":
+                self.data["validation_scores"] = validation_scores
+                self.data["predicted_scores"] = predicted_scores
+                self.data["weights"] = weights
         self.data["histograms"] = histograms
 
     def _fill_feature_histograms(
@@ -214,7 +224,9 @@ class TrainingAnalyzer:
         model = self.loader.get_model()
 
         feature_scaler = self.loader.get_feature_scaler()
-
+        predicted_scores = []
+        validation_scores = []
+        sample_weights = []
         for ibatch in tqdm(
             range(len(sequence)), desc=f"Analyze batches of {sequence_type} sequence."
         ):
@@ -222,6 +234,10 @@ class TrainingAnalyzer:
             labels = labels_onehot.argmax(axis=1)
 
             scores = model.predict(feature_scaler.transform(features))
+            if sequence_type == "validation":
+                predicted_scores.append(scores)
+                validation_scores.append(labels_onehot)
+                sample_weights.append(weights)
 
             for scaler in feature_scaler, None:
                 self._fill_feature_histograms(
@@ -232,4 +248,4 @@ class TrainingAnalyzer:
             self._fill_feature_covariance(features, labels_onehot, feature_scaler)
             # self._fill_composition_histograms(histograms, scores, labels, weights)
 
-        return histograms
+        return histograms, predicted_scores, validation_scores, weights
