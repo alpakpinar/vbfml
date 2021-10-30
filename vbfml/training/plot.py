@@ -255,7 +255,7 @@ class TrainingHistogramPlotter:
         tpr = dict()
         score_classes = np.array(self.predicted_scores).shape[2]
         number_batches = np.array(self.predicted_scores).shape[0]
-        for sclass in tqdm(range(score_classes),desc="Plotting ROC curves"):
+        for sclass in tqdm(range(score_classes), desc="Plotting ROC curves"):
             # combine batch scores for each class
             p_score = np.array(self.predicted_scores[0][:, sclass])
             v_score = np.array(self.validation_scores[0][:, sclass])
@@ -314,7 +314,7 @@ def plot_history(history, outdir):
     ]
     accuracy_types = [x.replace("x_", "").replace("y_", "") for x in accuracy_types]
 
-    for accuracy_type in tqdm(accuracy_types,desc="Plotting History"):
+    for accuracy_type in tqdm(accuracy_types, desc="Plotting History"):
         ax.plot(
             history["x_loss"],
             history["y_loss"],
