@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+import copy
+import os
+import re
+from datetime import datetime
+
+import click
+import tensorflow as tf
+from keras import backend as K
+from vbfml.models import sequential_dense_model
+from vbfml.training.data import TrainingLoader
+from vbfml.training.input import build_sequence, load_datasets_bucoffea
+from vbfml.training.util import (
+    append_history,
+    normalize_classes,
+    save,
+    select_and_label_datasets,
+)
+
+
+def get_gridsearch_directory(tag: str) -> str:
+    return os.path.join("./output", f"gridsearch_{tag}")
+
+
+@click.group()
+@click.option(
+    "--tag",
+    default=datetime.now().strftime("%Y-%m-%d_%H-%M"),
+    required=False,
+    help="A string-valued tag used to identify the run. If a run with this tag exists, will use existing run.",
+)
+@click.pass_context
+def cli(ctx, tag):
+    ctx.ensure_object(dict)
+    ctx.obj["TAG"] = tag
+
+
+@cli.command()
+@click.pass_context
+def setup(ctx):
+    """
+    Creates a new working area. Prerequisite for later training.
+    """
+
+    features = [
+        "mjj",
+        "dphijj",
+        "detajj",
+        "mjj_maxmjj",
+        "dphijj_maxmjj",
+        "detajj_maxmjj",
+        "recoil_pt",
+        "dphi_ak40_met",
+        "dphi_ak41_met",
+        "ht",
+        "leadak4_pt",
+        "leadak4_phi",
+        "leadak4_eta",
+        "trailak4_pt",
+        "trailak4_phi",
+        "trailak4_eta",
+        "leadak4_mjjmax_pt",
+        "leadak4_mjjmax_phi",
+        "leadak4_mjjmax_eta",
+        "trailak4_mjjmax_pt",
+        "trailak4_mjjmax_phi",
+        "trailak4_mjjmax_eta",
+    ]
+
+    all_datasets = load_datasets_bucoffea(
+        directory="/data/cms/vbfml/2021-08-25_treesForML_v2/"
+    )
+
+    dataset_labels = {
+        "ewk_17": "(EWK.*2017|VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017)",
+        "v_qcd_nlo_17": "(WJetsToLNu_Pt-\d+To.*|Z\dJetsToNuNu_M-50_LHEFilterPtZ-\d+To\d+)_MatchEWPDG20-amcatnloFXFX_2017",
+    }
+    datasets = select_and_label_datasets(all_datasets, dataset_labels)
+    for dataset_info in datasets:
+        if re.match(dataset_labels["v_qcd_nlo_17"], dataset_info.name):
+            dataset_info.n_events = 0.01 * dataset_info.n_events
+
+    training_sequence = build_sequence(
+        datasets=copy.deepcopy(datasets), features=features
+    )
+    validation_sequence = build_sequence(
+        datasets=copy.deepcopy(datasets), features=features
+    )
+    normalize_classes(training_sequence)
+    normalize_classes(validation_sequence)
+
+    # Training sequence
+    training_sequence.read_range = (0.0, 0.5)
+    training_sequence.scale_features = True
+    training_sequence[0]
+
+    # Validation sequence
+    validation_sequence.read_range = (0.5, 1.0)
+    validation_sequence.scale_features = True
+    validation_sequence._feature_scaler = copy.deepcopy(
+        training_sequence._feature_scaler
+    )
+    validation_sequence.batch_size = 1e6
+    validation_sequence.batch_buffer_size = 10
+
+    output_directory = get_gridsearch_directory(ctx.obj["TAG"])
+
+    try:
+        os.makedirs(output_directory)
+    except FileExistsError:
+        pass
+
+    def prepend_path(fname):
+        return os.path.join(output_directory, fname)
+
+    # Feature scaling object for future evaluation
+    save(training_sequence._feature_scaler, prepend_path("feature_scaler.pkl"))
+
+    # List of features
+    save(
+        features,
+        prepend_path(
+            "features.pkl",
+        ),
+    )
+    with open("features.txt", "w") as f:
+        f.write("\n".join(features) + "\n")
+
+    # Training and validation sequences
+    # Clear buffer before saving to save space
+    for seq in training_sequence, validation_sequence:
+        seq.buffer.clear()
+    save(training_sequence, prepend_path("training_sequence.pkl"))
+    save(validation_sequence, prepend_path("validation_sequence.pkl"))
+
+
+def create_model(learning_rate: float, n_features: int, n_classes: int, dropout: float):
+    model = sequential_dense_model(
+        n_layers=3,
+        n_nodes=[4, 4, 2],
+        n_features=n_features,
+        n_classes=n_classes,
+        dropout=dropout,
+    )
+    optimizer = tf.keras.optimizers.Adam(
+        learning_rate=learning_rate,
+        beta_1=0.9,
+        beta_2=0.999,
+        epsilon=1e-07,
+        amsgrad=False,
+        name="Adam",
+    )
+
+    cce = tf.keras.losses.CategoricalCrossentropy(name="cce")
+
+    model.compile(
+        loss="categorical_crossentropy",
+        optimizer=optimizer,
+        weighted_metrics=["categorical_accuracy", "accuracy", cce.__call__],
+    )
+
+    return model
+
+
+@cli.command()
+@click.pass_context
+def search(ctx):
+    """
+    Run grid search in a previously created working area.
+    """
+    output_directory = get_gridsearch_directory(ctx.obj["TAG"])
+
+    loader = TrainingLoader(output_directory)
+
+    training_sequence = loader.get_sequence("training")
+    validation_sequence = loader.get_sequence("validation")
+    assert training_sequence._feature_scaler
+    assert validation_sequence._feature_scaler
+    steps_total = len(training_sequence)
+
+    features = loader.get_features()
+
+    models = {}
+    for learning_rate in [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 1]:
+        for dropout in [0.25, 0.5]:
+            key = f"lr-{learning_rate}_do-{dropout}"
+            models[key] = create_model(
+                learning_rate=learning_rate,
+                n_features=len(features),
+                n_classes=2,
+                dropout=dropout,
+            )
+
+    steps_total = len(training_sequence)
+    steps_per_epoch = 1000
+    training_passes = 50
+    epochs = training_passes * steps_total // steps_per_epoch
+    validation_freq = epochs // (training_passes)
+
+    model_directory = os.path.join(output_directory, "models")
+    try:
+        os.makedirs(model_directory)
+    except FileExistsError:
+        pass
+    for key, model in models.items():
+        history = model.fit(
+            x=training_sequence,
+            steps_per_epoch=steps_per_epoch,
+            epochs=epochs,
+            max_queue_size=0,
+            shuffle=False,
+            validation_data=validation_sequence,
+            validation_freq=validation_freq,
+        )
+        model.save(os.path.join(model_directory, key))
+
+        history = append_history(
+            {}, model.history.history, validation_frequence=validation_freq
+        )
+        save(history, os.path.join(output_directory, f"history_{key}.pkl"))
+
+
+if __name__ == "__main__":
+    cli()
