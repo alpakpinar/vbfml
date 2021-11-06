@@ -75,7 +75,9 @@ class ModelDB:
 
     def _check_model_is_valid(self, model):
         """Internal function to check if the model name is valid"""
-        assert model in self.model_data.keys(), f"Model: {model} not recognized"
+        assert (
+            model in self.model_data.keys() or model is None
+        ), f"Model: {model} not recognized"
 
     def _check_feature_is_valid(self, feature):
         """Internal function to check if the feature name for a given model is valid"""
@@ -90,6 +92,9 @@ class ModelDB:
         """
         self._check_model_is_valid(model)
         self.model = model
+
+    def clear_model(self):
+        self.set_model(None)
 
     def get(self, feature):
         """Getter for a specific feature of a specific model."""
