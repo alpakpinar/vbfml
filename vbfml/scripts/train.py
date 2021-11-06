@@ -61,6 +61,7 @@ class ModelDB:
                 "batch_buffer_size_train": 1e6,
                 "batch_size_val": 1e6,
                 "batch_buffer_size_val": 10,
+                "weight_expression": "weight_total*xs/sumw",
             },
             "conv": {
                 "features": ["EventImage_pixelsAfterPUPPI"],
@@ -70,6 +71,7 @@ class ModelDB:
                 "batch_buffer_size_train": 100,
                 "batch_size_val": 100,
                 "batch_buffer_size_val": 10,
+                "weight_expression": "Normalization",
             },
         }
 
@@ -122,20 +124,24 @@ def cli(ctx, tag):
 )
 @click.option("--dropout", default=0.5, required=False, help="Dropout rate.")
 @click.option(
+    "--input-dir",
+    default="./output/2021-10-29_vbfhinv_26Oct21_nanov8",
+    required=False,
+    help="Input directory containing the ROOT files for training and validation.",
+)
+@click.option(
     "--model",
     default="conv",
     required=False,
     help="The model for which to run the setup.",
     type=click.Choice(["conv", "dense"]),
 )
-def setup(ctx, learning_rate: float, dropout: float, model: str):
+def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model: str):
     """
     Creates a new working area. Prerequisite for later training.
     """
 
-    all_datasets = load_datasets_bucoffea(
-        directory="/data/cms/vbfml/2021-08-25_treesForML_v2/"
-    )
+    all_datasets = load_datasets_bucoffea(input_dir)
 
     dataset_labels = {
         "ewk_17": "(EWK.*2017|VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017)",
@@ -150,14 +156,18 @@ def setup(ctx, learning_rate: float, dropout: float, model: str):
     # (set of features, dropout rate etc.)
     db = ModelDB()
     db.set_model(model)
-    # Get the set of features for this model
+
     features = db.get("features")
 
     training_sequence = build_sequence(
-        datasets=copy.deepcopy(datasets), features=features
+        datasets=copy.deepcopy(datasets),
+        features=features,
+        weight_expression=db.get("weight_expression"),
     )
     validation_sequence = build_sequence(
-        datasets=copy.deepcopy(datasets), features=features
+        datasets=copy.deepcopy(datasets),
+        features=features,
+        weight_expression=db.get("weight_expression"),
     )
     normalize_classes(training_sequence)
     normalize_classes(validation_sequence)
