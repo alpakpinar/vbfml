@@ -7,19 +7,22 @@ from vbfml.training.util import get_n_events
 
 
 def build_sequence(
-    datasets: "list[DatasetInfo]", features: "list[str]", absolute_weight=False
+    datasets: "list[DatasetInfo]",
+    features: "list[str]",
+    weight_expression: str = "weight_total*xs/sumw",
+    absolute_weight=False,
 ) -> MultiDatasetSequence:
     """Shortcut to set up a MultiDatasetSequence"""
 
-    weight_expression = "weight_total * xs / sumw"
     if absolute_weight:
         weight_expression = f"abs({weight_expression})"
+
     sequence = MultiDatasetSequence(
         batch_size=50,
         branches=features,
         shuffle=True,
         batch_buffer_size=int(1e5),
-        weight_expression="weight_total*xs/sumw",
+        weight_expression=weight_expression,
     )
 
     for dataset in datasets:
