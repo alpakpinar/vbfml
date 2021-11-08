@@ -10,7 +10,7 @@ def build_sequence(
     datasets: "list[DatasetInfo]",
     features: "list[str]",
     weight_expression: str = "weight_total*xs/sumw",
-    absolute_weight=False,
+    absolute_weight: bool = False,
 ) -> MultiDatasetSequence:
     """Shortcut to set up a MultiDatasetSequence"""
 
