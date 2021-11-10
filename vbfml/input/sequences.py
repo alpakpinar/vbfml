@@ -128,9 +128,7 @@ class MultiDatasetSequence(Sequence):
         (i.e. many batches) rather than just a single batch. Higher
         statistiscal accuracy will result in better scaling performance.
         """
-        features = (
-            df.drop(columns=self._non_feature_columns()).dropna(axis=1).to_numpy()
-        )
+        features = df.drop(columns=self._non_feature_columns()).to_numpy()
         self._init_feature_scaler_from_features(features)
 
     def apply_feature_scaling(self, features: np.ndarray) -> np.ndarray:
@@ -161,6 +159,9 @@ class MultiDatasetSequence(Sequence):
             df = self._read_single_dataframe_for_batch_range(
                 batch_start, batch_stop, name
             )
+            # Do not add empty dataframes to the dataframe list
+            if len(df) == 0:
+                continue
             if self.is_weighted():
                 self._create_weight_column(df, name)
             dataframes.append(df)
@@ -245,9 +246,7 @@ class MultiDatasetSequence(Sequence):
     def _batch_df_formatting(self, df: pd.DataFrame) -> "tuple[np.ndarray]":
         """Convert from a batch from pd.DataFrame to a tuple of np.ndarray for keras"""
 
-        features = (
-            df.drop(columns=self._non_feature_columns()).dropna(axis=1).to_numpy()
-        )
+        features = df.drop(columns=self._non_feature_columns()).to_numpy()
         features = features.astype(self._float_dtype)
         if self.scale_features:
             features = self.apply_feature_scaling(features)
