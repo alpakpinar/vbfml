@@ -200,6 +200,11 @@ class MultiDatasetSequence(Sequence):
             start + n_batches * self.batch_size * self.fractions[dataset_name]
         )
         stop = min(stop, int(self.read_range[1] * dataset_events))
+
+        # If start < stop, that typically means we don't have events to read
+        # In that case, set start = stop so that we'll generate an empty df
+        stop = max(start, stop)
+
         return start, stop
 
     def dataset_labels(self) -> "list[str]":

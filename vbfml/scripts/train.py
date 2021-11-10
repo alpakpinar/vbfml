@@ -2,6 +2,8 @@
 import copy
 import os
 import re
+import warnings
+import pandas as pd
 from datetime import datetime
 
 import click
@@ -19,6 +21,8 @@ from vbfml.training.util import (
     save,
     select_and_label_datasets,
 )
+
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
 
 def get_training_directory(tag: str) -> str:
