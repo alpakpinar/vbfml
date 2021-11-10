@@ -1,10 +1,11 @@
 from unittest import TestCase
-from vbfml.scripts.train import ModelDB
+from vbfml.util import vbfml_path, ModelDB
 
 
 class TestModelDB(TestCase):
     def setUp(self) -> None:
-        self.db = ModelDB()
+        infile = vbfml_path("config/model_params.yml")
+        self.db = ModelDB(infile)
         self.features_to_check = {
             "features": list,
             "dropout": float,
@@ -31,7 +32,7 @@ class TestModelDB(TestCase):
         for model in ["dense", "conv"]:
             self.db.set_model(model)
             for key in self.features_to_check.keys():
-                self.assertIn(key, self.db.model_data[model])
+                self.assertIn(key, self.db.data[model])
 
         self.db.clear_model()
 

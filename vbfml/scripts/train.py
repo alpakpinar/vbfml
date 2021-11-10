@@ -21,91 +21,13 @@ from vbfml.training.util import (
     save,
     select_and_label_datasets,
 )
+from vbfml.util import ModelDB
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
 
 def get_training_directory(tag: str) -> str:
     return os.path.join("./output", f"model_{tag}")
-
-
-class ModelDB:
-    def __init__(self) -> None:
-        """Container class holding information about different model types."""
-        self.model = None
-        self.model_data = {
-            "dense": {
-                "features": [
-                    "mjj",
-                    "dphijj",
-                    "detajj",
-                    "mjj_maxmjj",
-                    "dphijj_maxmjj",
-                    "detajj_maxmjj",
-                    "recoil_pt",
-                    "dphi_ak40_met",
-                    "dphi_ak41_met",
-                    "ht",
-                    "leadak4_pt",
-                    # "leadak4_phi",
-                    "leadak4_eta",
-                    "trailak4_pt",
-                    # "trailak4_phi",
-                    "trailak4_eta",
-                    "leadak4_mjjmax_pt",
-                    # "leadak4_mjjmax_phi",
-                    "leadak4_mjjmax_eta",
-                    "trailak4_mjjmax_pt",
-                    # "trailak4_mjjmax_phi",
-                    "trailak4_mjjmax_eta",
-                ],
-                "dropout": 0.5,
-                "train_size": 0.5,
-                "batch_size_train": 20,
-                "batch_buffer_size_train": 1e6,
-                "batch_size_val": 1e6,
-                "batch_buffer_size_val": 10,
-                "weight_expression": "weight_total*xs/sumw",
-            },
-            "conv": {
-                "features": ["EventImage_pixelsAfterPUPPI"],
-                "dropout": 0.4,
-                "train_size": 0.67,
-                "batch_size_train": 10,
-                "batch_buffer_size_train": 100,
-                "batch_size_val": 100,
-                "batch_buffer_size_val": 10,
-                "weight_expression": "Normalization",
-            },
-        }
-
-    def _check_model_is_valid(self, model):
-        """Internal function to check if the model name is valid"""
-        assert (
-            model in self.model_data.keys() or model is None
-        ), f"Model: {model} not recognized"
-
-    def _check_feature_is_valid(self, feature):
-        """Internal function to check if the feature name for a given model is valid"""
-        assert (
-            feature in self.model_data[self.model].keys()
-        ), f"Feature: {feature} is not recognized for {self.model}"
-
-    def set_model(self, model):
-        """
-        Set the type of model we want to look stuff up for.
-        Make sure you do it before you retrieve values!
-        """
-        self._check_model_is_valid(model)
-        self.model = model
-
-    def clear_model(self):
-        self.set_model(None)
-
-    def get(self, feature):
-        """Getter for a specific feature of a specific model."""
-        self._check_feature_is_valid(feature)
-        return self.model_data[self.model][feature]
 
 
 @click.group()
@@ -158,7 +80,9 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model: str)
 
     # Object containing data for different models
     # (set of features, dropout rate etc.)
-    db = ModelDB()
+    # Loaded from the YML configuration file
+    ymlfile = "../config/model_params.yml"
+    db = ModelDB(ymlfile)
     db.set_model(model)
 
     features = db.get("features")

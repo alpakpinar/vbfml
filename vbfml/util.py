@@ -1,6 +1,66 @@
 from dataclasses import dataclass
 
+import os
+import yaml
+import vbfml
 import pandas as pd
+
+pjoin = os.path.join
+
+
+def vbfml_path(path):
+    """Returns the absolute path for the given path."""
+    return pjoin(vbfml.__path__[0], path)
+
+
+@dataclass
+class YamlLoader:
+    infile: str
+
+    def load(self) -> dict:
+        """Loads and returns data from a YAML file."""
+        with open(self.infile, "r") as f:
+            data = yaml.load(f, Loader=yaml.FullLoader)
+            return data
+
+
+@dataclass
+class ModelDB:
+    infile: str
+    data: dict = None
+    model: str = None
+
+    def __post_init__(self):
+        loader = YamlLoader(self.infile)
+        self.data = loader.load()
+
+    def _check_model_is_valid(self, model):
+        """Internal function to check if the model name is valid"""
+        assert (
+            model in self.data.keys() or model is None
+        ), f"Model: {model} not recognized"
+
+    def _check_feature_is_valid(self, feature):
+        """Internal function to check if the feature name for a given model is valid"""
+        assert (
+            feature in self.data[self.model].keys()
+        ), f"Feature: {feature} is not recognized for {self.model}"
+
+    def set_model(self, model):
+        """
+        Set the type of model we want to look stuff up for.
+        Make sure you do it before you retrieve values!
+        """
+        self._check_model_is_valid(model)
+        self.model = model
+
+    def clear_model(self):
+        self.set_model(None)
+
+    def get(self, feature):
+        """Getter for a specific feature of a specific model."""
+        self._check_feature_is_valid(feature)
+        return self.data[self.model][feature]
 
 
 @dataclass
