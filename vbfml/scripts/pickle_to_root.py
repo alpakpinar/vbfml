@@ -9,6 +9,7 @@ import numpy as np
 
 from tqdm import tqdm
 from pprint import pprint
+from vbfml.util import vbfml_path
 
 pjoin = os.path.join
 
@@ -38,7 +39,7 @@ def main():
         # Read the normalization factor
         norm = data["normalization"]
 
-        outdir = f"./output/{outtag}"
+        outdir = vbfml_path(f"root/{outtag}")
         if not os.path.exists(outdir):
             os.makedirs(outdir)
         outrootfile = pjoin(outdir, f"tree_{dataset_name}.root")

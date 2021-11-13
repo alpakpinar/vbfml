@@ -5,7 +5,7 @@ conv:
   batch_size_val: 100
   dropout: 0.4
   features:
-  - EventImage_pixelsAfterPUPPI
+  - JetImage_pixels
   train_size: 0.67
   weight_expression: Normalization
 dense:
