@@ -40,22 +40,22 @@ class ModelConfiguration:
     data: dict = None
     model: str = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         with open(self.infile, "r") as f:
             self.data = yaml.load(f, Loader=yaml.FullLoader)
             self._set_model_arch()
 
-    def _set_model_arch(self):
+    def _set_model_arch(self) -> None:
         """Set model architecture based on which config file has been passed."""
         self.model = self.data["architecture"]
 
-    def _check_feature_is_valid(self, feature):
+    def _check_feature_is_valid(self, feature: str) -> None:
         """Internal function to check if the feature name for a given model is valid"""
         assert (
             feature in self.data.keys()
         ), f"Feature: {feature} is not recognized for {self.model}"
 
-    def get(self, feature):
+    def get(self, feature: str):
         """Getter for a specific feature of a specific model."""
         self._check_feature_is_valid(feature)
         return self.data[feature]
