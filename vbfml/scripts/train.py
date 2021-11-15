@@ -21,7 +21,7 @@ from vbfml.training.util import (
     save,
     select_and_label_datasets,
 )
-from vbfml.util import ModelDB
+from vbfml.util import ModelConfiguration, vbfml_path
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
@@ -51,18 +51,16 @@ def cli(ctx, tag):
 @click.option("--dropout", default=0.5, required=False, help="Dropout rate.")
 @click.option(
     "--input-dir",
-    default="./output/2021-10-29_vbfhinv_26Oct21_nanov8",
+    default=vbfml_path("root/2021-11-13_vbfhinv_treesForML"),
     required=False,
     help="Input directory containing the ROOT files for training and validation.",
 )
 @click.option(
-    "--model",
-    default="conv",
-    required=False,
-    help="The model for which to run the setup.",
-    type=click.Choice(["conv", "dense"]),
+    "--model-config",
+    required=True,
+    help="Path to the .yml file that has the model configuration parameters.",
 )
-def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model: str):
+def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_config: str):
     """
     Creates a new working area. Prerequisite for later training.
     """
@@ -81,32 +79,29 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model: str)
     # Object containing data for different models
     # (set of features, dropout rate etc.)
     # Loaded from the YML configuration file
-    ymlfile = "../config/model_params.yml"
-    db = ModelDB(ymlfile)
-    db.set_model(model)
+    mconfig = ModelConfiguration(model_config)
 
-    features = db.get("features")
+    features = mconfig.get("features")
 
     training_sequence = build_sequence(
         datasets=copy.deepcopy(datasets),
         features=features,
-        weight_expression=db.get("weight_expression"),
+        weight_expression=mconfig.get("weight_expression"),
     )
     validation_sequence = build_sequence(
         datasets=copy.deepcopy(datasets),
         features=features,
-        weight_expression=db.get("weight_expression"),
+        weight_expression=mconfig.get("weight_expression"),
     )
     normalize_classes(training_sequence)
     normalize_classes(validation_sequence)
 
     # Training sequence
-    train_size = db.get("train_size")
+    train_size = mconfig.get("train_size")
     training_sequence.read_range = (0.0, train_size)
     training_sequence.scale_features = True
-    training_sequence.batch_size = db.get("batch_size_train")
-    training_sequence.batch_buffer_size = db.get("batch_buffer_size_train")
-    training_sequence[0]
+    training_sequence.batch_size = mconfig.get("batch_size_train")
+    training_sequence.batch_buffer_size = mconfig.get("batch_buffer_size_train")
 
     # Validation sequence
     validation_sequence.read_range = (train_size, 1.0)
@@ -114,10 +109,11 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model: str)
     validation_sequence._feature_scaler = copy.deepcopy(
         training_sequence._feature_scaler
     )
-    validation_sequence.batch_size = db.get("batch_size_val")
-    validation_sequence.batch_buffer_size = db.get("batch_buffer_size_val")
+    validation_sequence.batch_size = mconfig.get("batch_size_val")
+    validation_sequence.batch_buffer_size = mconfig.get("batch_buffer_size_val")
 
     # Build model
+    model = mconfig.get("architecture")
     if model == "dense":
         model = sequential_dense_model(
             n_layers=3,

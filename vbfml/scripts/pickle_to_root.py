@@ -15,14 +15,14 @@ pjoin = os.path.join
 
 
 def main():
-    '''
+    """
     This script transforms the input pickle files to ROOT tries via Uproot4.
     Meant to be used for transforming the event image data.
 
     INPUT  : .pkl files containing dictionaries which hold the image data.
     OUTPUT : .root files containing a TTree with the event data. Events will have
     the image pixels and pixel shapese saved to them as branches.
-    '''
+    """
     # Path to directory containing pkl files
     inpath = sys.argv[1]
     infiles = [pjoin(inpath, f) for f in os.listdir(inpath) if f.endswith(".pkl.gz")]

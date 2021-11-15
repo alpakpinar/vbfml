@@ -1,0 +1,10 @@
+architecture: conv
+batch_buffer_size_train: 100
+batch_buffer_size_val: 10
+batch_size_train: 10
+batch_size_val: 100
+dropout: 0.4
+features:
+- JetImage_pixels
+train_size: 0.67
+weight_expression: Normalization
