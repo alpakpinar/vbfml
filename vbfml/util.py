@@ -26,6 +26,16 @@ class YamlLoader:
 
 @dataclass
 class ModelConfiguration:
+    """
+    Object used to read model configuration data, given a .yml configuration file as an input.
+
+    After the object is initiated, one can get any feature by calling the get() method:
+    >>> mconfig = ModelConfiguration("model.yml")
+    >>> my_feature = mconfig.get("my_feature")
+
+    If the feature is not recognized, get() will raise an AssertionError.
+    """
+
     infile: str
     data: dict = None
     model: str = None
