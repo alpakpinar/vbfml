@@ -18,6 +18,18 @@ def sequential_dense_model(
     n_classes: int,
     dropout: float = 0,
 ) -> Sequential:
+    """Definition of the dense neural network.
+
+    Args:
+        n_features (int): Number of features in the input data.
+        n_layers (int): Number of fully-connected (dense) layers.
+        n_nodes (list[int]): Number of nodes for each fully-connected layer.
+        n_classes (int): Number of classes representing different physics processes.
+        dropout (float, optional): [description]. Defaults to 0.
+
+    Returns:
+        Sequential: The Keras Sequential model that will be used in the training.
+    """
     model = Sequential()
 
     assert (
@@ -56,6 +68,22 @@ def sequential_convolutional_model(
     dropout: float = 0,
     image_shape: tuple = (40, 20, 1),
 ) -> Sequential:
+    """Definition of the convolutional neural network model.
+
+    Args:
+        n_layers_for_conv (int): Number of convolutional layers.
+        n_filters_for_conv (list[int]): Number of filters for each convolutional layer.
+        pool_size_for_conv (list[int]): Pool size for each max-pooling layer.
+        filter_size_for_conv (list[int]): Filter size for each convolutional layer.
+        n_nodes_for_dense (list[int]): Number of nodes for each fully-connected layer.
+        n_layers_for_dense (int): Number of fully-connected (dense) layers.
+        n_classes (int): Number of classes representing different physics processes.
+        dropout (float, optional): The dropout rate. Defaults to 0.
+        image_shape (tuple, optional): Shape of the input image data. Defaults to (40, 20, 1).
+
+    Returns:
+        Sequential: The Keras Sequential model that will be used in the training.
+    """
     model = Sequential()
 
     assert (
