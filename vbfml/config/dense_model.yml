@@ -1,8 +1,12 @@
 architecture: dense
-batch_buffer_size_train: 1000000
-batch_buffer_size_val: 10
-batch_size_train: 20
-batch_size_val: 1000000
+training_parameters:
+  batch_size: 20
+  batch_buffer_size: 1000000
+  train_size: 0.5
+validation_parameters:
+  batch_size: 1000000
+  batch_buffer_size: 10
+weight_expression: weight_total*xs/sumw
 features:
 - mjj
 - dphijj
@@ -22,8 +26,6 @@ features:
 - leadak4_mjjmax_eta
 - trailak4_mjjmax_pt
 - trailak4_mjjmax_eta
-train_size: 0.5
-weight_expression: weight_total*xs/sumw
 arch_parameters:
   n_layers: 3
   n_nodes: [4, 4, 2]

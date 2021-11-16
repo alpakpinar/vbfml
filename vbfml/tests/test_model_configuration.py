@@ -19,11 +19,10 @@ class TestConfigParser(TestCase):
         # (with the given data types!)
         self.features_to_check = {
             "features": list,
-            "train_size": float,
-            "batch_size_train": int,
-            "batch_size_val": int,
-            "batch_buffer_size_train": int,
-            "batch_buffer_size_val": int,
+            "training_parameters": dict,
+            "validation_parameters": dict,
+            "architecture": str,
+            "arch_parameters": dict,
         }
 
     def test_exceptions(self):

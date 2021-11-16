@@ -97,21 +97,24 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
     normalize_classes(validation_sequence)
 
     # Training sequence
-    train_size = mconfig.get("train_size")
+    training_params = mconfig.get("training_parameters")
+    train_size = training_params["train_size"]
+
     training_sequence.read_range = (0.0, train_size)
     training_sequence.scale_features = True
-    training_sequence.batch_size = mconfig.get("batch_size_train")
-    training_sequence.batch_buffer_size = mconfig.get("batch_buffer_size_train")
+    training_sequence.batch_size = training_params["batch_size"]
+    training_sequence.batch_buffer_size = training_params["batch_buffer_size"]
     training_sequence[0]
 
     # Validation sequence
+    validation_params = mconfig.get("validation_parameters")
     validation_sequence.read_range = (train_size, 1.0)
     validation_sequence.scale_features = True
     validation_sequence._feature_scaler = copy.deepcopy(
         training_sequence._feature_scaler
     )
-    validation_sequence.batch_size = mconfig.get("batch_size_val")
-    validation_sequence.batch_buffer_size = mconfig.get("batch_buffer_size_val")
+    validation_sequence.batch_size = validation_params["batch_size"]
+    validation_sequence.batch_buffer_size = validation_params["batch_buffer_size"]
 
     # Build model
     model = ModelFactory.build(mconfig)
