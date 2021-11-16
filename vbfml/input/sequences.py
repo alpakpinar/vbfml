@@ -159,6 +159,9 @@ class MultiDatasetSequence(Sequence):
             df = self._read_single_dataframe_for_batch_range(
                 batch_start, batch_stop, name
             )
+            # Do not add empty dataframes to the dataframe list
+            if len(df) == 0:
+                continue
             if self.is_weighted():
                 self._create_weight_column(df, name)
             dataframes.append(df)
@@ -198,6 +201,11 @@ class MultiDatasetSequence(Sequence):
             start + n_batches * self.batch_size * self.fractions[dataset_name]
         )
         stop = min(stop, int(self.read_range[1] * dataset_events))
+
+        # If start < stop, that typically means we don't have events to read
+        # In that case, set start = stop so that we'll generate an empty df
+        stop = max(start, stop)
+
         return start, stop
 
     def dataset_labels(self) -> "list[str]":

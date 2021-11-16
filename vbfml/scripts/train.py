@@ -2,6 +2,8 @@
 import copy
 import os
 import re
+import warnings
+import pandas as pd
 from datetime import datetime
 
 import click
@@ -10,7 +12,7 @@ from keras import backend as K
 from tabulate import tabulate
 from tqdm import tqdm
 
-from vbfml.models import sequential_dense_model
+from vbfml.models import sequential_dense_model, sequential_convolutional_model
 from vbfml.training.data import TrainingLoader
 from vbfml.training.input import build_sequence, load_datasets_bucoffea
 from vbfml.training.util import (
@@ -19,6 +21,9 @@ from vbfml.training.util import (
     save,
     select_and_label_datasets,
 )
+from vbfml.util import ModelConfiguration, ModelFactory, vbfml_path
+
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
 
 def get_training_directory(tag: str) -> str:
@@ -44,39 +49,23 @@ def cli(ctx, tag):
     "--learning-rate", default=1e-3, required=False, help="Learning rate for training."
 )
 @click.option("--dropout", default=0.5, required=False, help="Dropout rate.")
-def setup(ctx, learning_rate: float, dropout: float):
+@click.option(
+    "--input-dir",
+    default=vbfml_path("root/2021-11-13_vbfhinv_treesForML"),
+    required=False,
+    help="Input directory containing the ROOT files for training and validation.",
+)
+@click.option(
+    "--model-config",
+    required=True,
+    help="Path to the .yml file that has the model configuration parameters.",
+)
+def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_config: str):
     """
     Creates a new working area. Prerequisite for later training.
     """
 
-    features = [
-        "mjj",
-        "dphijj",
-        "detajj",
-        "mjj_maxmjj",
-        "dphijj_maxmjj",
-        "detajj_maxmjj",
-        "recoil_pt",
-        "dphi_ak40_met",
-        "dphi_ak41_met",
-        "ht",
-        "leadak4_pt",
-        # "leadak4_phi",
-        "leadak4_eta",
-        "trailak4_pt",
-        # "trailak4_phi",
-        "trailak4_eta",
-        "leadak4_mjjmax_pt",
-        # "leadak4_mjjmax_phi",
-        "leadak4_mjjmax_eta",
-        "trailak4_mjjmax_pt",
-        # "trailak4_mjjmax_phi",
-        "trailak4_mjjmax_eta",
-    ]
-
-    all_datasets = load_datasets_bucoffea(
-        directory="/data/cms/vbfml/2021-08-25_treesForML_v2/"
-    )
+    all_datasets = load_datasets_bucoffea(input_dir)
 
     dataset_labels = {
         "ewk_17": "(EWK.*2017|VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017)",
@@ -87,38 +76,49 @@ def setup(ctx, learning_rate: float, dropout: float):
         if re.match(dataset_labels["v_qcd_nlo_17"], dataset_info.name):
             dataset_info.n_events = 0.01 * dataset_info.n_events
 
+    # Object containing data for different models
+    # (set of features, dropout rate etc.)
+    # Loaded from the YML configuration file
+    mconfig = ModelConfiguration(model_config)
+
+    features = mconfig.get("features")
+
     training_sequence = build_sequence(
-        datasets=copy.deepcopy(datasets), features=features
+        datasets=copy.deepcopy(datasets),
+        features=features,
+        weight_expression=mconfig.get("weight_expression"),
     )
     validation_sequence = build_sequence(
-        datasets=copy.deepcopy(datasets), features=features
+        datasets=copy.deepcopy(datasets),
+        features=features,
+        weight_expression=mconfig.get("weight_expression"),
     )
     normalize_classes(training_sequence)
     normalize_classes(validation_sequence)
+
     # Training sequence
-    training_sequence.read_range = (0.0, 0.5)
+    training_params = mconfig.get("training_parameters")
+    train_size = training_params["train_size"]
+
+    training_sequence.read_range = (0.0, train_size)
     training_sequence.scale_features = True
-    training_sequence.batch_size = 20
-    training_sequence.batch_buffer_size = 1e6
+    training_sequence.batch_size = training_params["batch_size"]
+    training_sequence.batch_buffer_size = training_params["batch_buffer_size"]
     training_sequence[0]
 
     # Validation sequence
-    validation_sequence.read_range = (0.5, 1.0)
+    validation_params = mconfig.get("validation_parameters")
+    validation_sequence.read_range = (train_size, 1.0)
     validation_sequence.scale_features = True
     validation_sequence._feature_scaler = copy.deepcopy(
         training_sequence._feature_scaler
     )
-    validation_sequence.batch_size = 1e6
-    validation_sequence.batch_buffer_size = 10
+    validation_sequence.batch_size = validation_params["batch_size"]
+    validation_sequence.batch_buffer_size = validation_params["batch_buffer_size"]
 
     # Build model
-    model = sequential_dense_model(
-        n_layers=3,
-        n_nodes=[4, 4, 2],
-        n_features=len(features),
-        n_classes=len(training_sequence.dataset_labels()),
-        dropout=dropout,
-    )
+    model = ModelFactory.build(mconfig)
+
     optimizer = tf.keras.optimizers.Adam(
         learning_rate=learning_rate,
         beta_1=0.9,

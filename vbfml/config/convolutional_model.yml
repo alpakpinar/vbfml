@@ -1,0 +1,21 @@
+architecture: conv
+training_parameters:
+  batch_size: 10
+  batch_buffer_size: 100
+  train_size: 0.67
+validation_parameters:
+  batch_size: 100
+  batch_buffer_size: 10
+weight_expression: Normalization
+features:
+- JetImage_pixels
+arch_parameters:
+  n_layers_for_conv: 2
+  n_filters_for_conv: [32, 32]
+  filter_size_for_conv: [3, 3]
+  pool_size_for_conv: [2, 2]
+  n_layers_for_dense: 5
+  n_nodes_for_dense: [128, 128, 64, 64, 32]
+  image_shape: [40, 20, 1]
+  n_classes: 2
+  dropout: 0.4

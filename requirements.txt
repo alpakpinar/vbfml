@@ -9,4 +9,5 @@ sklearn
 tabulate
 tensorflow
 tqdm
+pyyaml
 uproot>=4.1.1
