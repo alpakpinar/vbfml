@@ -4,6 +4,7 @@ keras
 mplhep
 numpy
 pandas
+pre-commit
 pytest
 sklearn
 tabulate
