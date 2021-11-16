@@ -21,7 +21,7 @@ from vbfml.training.util import (
     save,
     select_and_label_datasets,
 )
-from vbfml.util import ModelConfiguration, vbfml_path
+from vbfml.util import ModelConfiguration, ModelFactory, vbfml_path
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
@@ -102,6 +102,7 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
     training_sequence.scale_features = True
     training_sequence.batch_size = mconfig.get("batch_size_train")
     training_sequence.batch_buffer_size = mconfig.get("batch_buffer_size_train")
+    training_sequence[0]
 
     # Validation sequence
     validation_sequence.read_range = (train_size, 1.0)
@@ -113,29 +114,7 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
     validation_sequence.batch_buffer_size = mconfig.get("batch_buffer_size_val")
 
     # Build model
-    model = mconfig.get("architecture")
-    if model == "dense":
-        model = sequential_dense_model(
-            n_layers=3,
-            n_nodes=[4, 4, 2],
-            n_features=len(features),
-            n_classes=len(training_sequence.dataset_labels()),
-            dropout=dropout,
-        )
-    elif model == "conv":
-        model = sequential_convolutional_model(
-            n_layers_for_conv=2,
-            n_filters_for_conv=[32, 32],
-            filter_size_for_conv=[3, 3],
-            pool_size_for_conv=[2, 2],
-            n_layers_for_dense=5,
-            n_nodes_for_dense=[128, 128, 64, 64, 32],
-            n_classes=len(training_sequence.dataset_labels()),
-            dropout=dropout,
-            image_shape=(40, 20, 1),
-        )
-    else:
-        raise ValueError(f"Invalid value for model type: {model}")
+    model = ModelFactory.build(mconfig)
 
     optimizer = tf.keras.optimizers.Adam(
         learning_rate=learning_rate,

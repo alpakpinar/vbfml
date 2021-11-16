@@ -5,6 +5,8 @@ import yaml
 import vbfml
 import pandas as pd
 
+from vbfml.models import sequential_convolutional_model, sequential_dense_model
+
 pjoin = os.path.join
 
 
@@ -59,6 +61,44 @@ class ModelConfiguration:
         """Getter for a specific feature of a specific model."""
         self._check_feature_is_valid(feature)
         return self.data[feature]
+
+
+@dataclass
+class ModelFactory:
+    """
+    Factory object used to build neural network models with different architectures.
+
+    To build a model, one can use the build() method of this class, providing the
+    ModelConfiguration object as an input:
+    >>> mconfig = ModelConfiguration("config.yml")
+    >>> ModelFactory.build(mconfig)
+    """
+
+    @classmethod
+    def build(cls, model_config: ModelConfiguration):
+        """Build the model given the ModelConfiguration object.
+
+        Args:
+            model_config (ModelConfiguration): ModelConfiguration object for the model being built.
+        """
+        # The type of model we want to build (e.g. Convolutional, dense etc.)
+        model = model_config.get("architecture")
+
+        # The set of parameters specifying the model architecture
+        # as specified in the .yml config files
+        arch_parameters = model_config.get("arch_parameters")
+
+        builder_function = {
+            "dense": sequential_dense_model,
+            "conv": sequential_convolutional_model,
+        }
+
+        assert model in builder_function.keys(), f"Model {model} not recognized"
+
+        if model == "dense":
+            arch_parameters["n_features"] = len(model_config.get("features"))
+
+        return builder_function[model](**arch_parameters)
 
 
 @dataclass

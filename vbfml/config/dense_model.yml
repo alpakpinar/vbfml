@@ -3,7 +3,6 @@ batch_buffer_size_train: 1000000
 batch_buffer_size_val: 10
 batch_size_train: 20
 batch_size_val: 1000000
-dropout: 0.5
 features:
 - mjj
 - dphijj
@@ -25,3 +24,8 @@ features:
 - trailak4_mjjmax_eta
 train_size: 0.5
 weight_expression: weight_total*xs/sumw
+arch_parameters:
+  n_layers: 3
+  n_nodes: [4, 4, 2]
+  dropout: 0.5
+  n_classes: 2

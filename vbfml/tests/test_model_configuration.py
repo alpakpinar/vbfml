@@ -19,7 +19,6 @@ class TestConfigParser(TestCase):
         # (with the given data types!)
         self.features_to_check = {
             "features": list,
-            "dropout": float,
             "train_size": float,
             "batch_size_train": int,
             "batch_size_val": int,
