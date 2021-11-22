@@ -424,23 +424,37 @@ class TestMultiDatasetSequenceFeatureScaling(TestCase):
             """
             Mean is supposed to be ~=0, std dev ~=1
             -> Calculate and return the absolute differences
+            IMPORTANT: Note that this is relevant only for "standard" scaling!
             """
             deviation_mean = np.max(np.abs(np.mean(features, axis=0)))
             deviation_std = np.max(np.abs(np.std(features, axis=0) - 1))
             return deviation_mean, deviation_std
 
         # Read without feature scaling
-        self.mds.scale_features = False
+        self.mds.scale_features = "none"
         features, _, weights = self.mds[0]
         dev_mean, dev_std = deviation_from_target(features)
         self.assertNotAlmostEqual(dev_mean, self.feature_mean)
         self.assertNotAlmostEqual(dev_std, self.feature_std - 1)
         self.assertTrue(np.allclose(np.abs(features), weights, rtol=0.01))
 
-        # Read with feature scaling
-        self.mds.scale_features = True
+        # Read with standard feature scaling
+        self.mds.scale_features = "standard"
         features, _, weights = self.mds[0]
         dev_mean, dev_std = deviation_from_target(features)
         self.assertAlmostEqual(dev_mean, 0, places=2)
         self.assertAlmostEqual(dev_std, 0, places=2)
         self.assertTrue(np.all(features != weights))
+
+    def test_feature_scaling_with_norm(self):
+        """
+        After "norm" normalization, all values should be <=1.
+        Compute the (min,max) range in features and see
+        if this is indeed the case.
+        """
+        # Read with norm feature scaling
+        self.mds.scale_features = "norm"
+        features, _, _ = self.mds[0]
+        f_min, f_max = np.min(features), np.max(features)
+        self.assertTrue(f_min < f_max)
+        self.assertTrue(np.abs(f_max) <= 1.0)
