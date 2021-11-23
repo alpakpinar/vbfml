@@ -169,6 +169,10 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
     save(training_sequence, prepend_path("training_sequence.pkl"))
     save(validation_sequence, prepend_path("validation_sequence.pkl"))
 
+    # Save model type identifier for later uses
+    with open(prepend_path("model_identifier.txt"), "w+") as f:
+        f.write(mconfig.get("architecture"))
+
 
 @cli.command()
 @click.pass_context
