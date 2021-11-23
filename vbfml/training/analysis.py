@@ -274,84 +274,6 @@ class TrainingAnalyzer(TrainingAnalyzerBase):
         return histograms, predicted_scores, validation_scores, weights
 
 
-class PlotSaver:
-    def __init__(self, outdir: str) -> None:
-        self.outdir = outdir
-        if not os.path.exists(outdir):
-            os.makedirs(outdir)
-
-    def save(self, fig: plt.figure, outfilename: str):
-        """Save a given figure object.
-
-        Args:
-            fig (plt.figure): The figure object.
-            outfilename (str): The path to save the file.
-        """
-        outpath = pjoin(self.outdir, outfilename)
-        fig.savefig(outpath)
-        plt.close(fig)
-
-
-class ConfusionMatrixPlotter:
-    def __init__(self, tag: str) -> None:
-        """Object to plot confusion matrix.
-
-        Args:
-            tag (str): The tag for the output directory
-        """
-        self.saver = PlotSaver(outdir=f"{tag}/confusion_matrix")
-
-    def plot(
-        self,
-        sequence: MultiDatasetSequence,
-        model: keras.engine.sequential.Sequential,
-        batch_size: int = 1000,
-        ibatch: int = 0,
-        normalize: str = "true",
-    ):
-
-        sequence.batch_size = batch_size
-        sequence.scale_features = "norm"
-        features, labels_onehot, weights = sequence[ibatch]
-
-        # Predicted scores by the model vs the truth labels
-        prediction_scores = model.predict(features)
-
-        cm = confusion_matrix(
-            labels_onehot.argmax(axis=1),
-            prediction_scores.argmax(axis=1),
-            normalize=normalize,
-        )
-
-        disp = ConfusionMatrixDisplay(
-            confusion_matrix=cm,
-        )
-
-        fig, ax = plt.subplots()
-        disp.plot(ax=ax)
-        ax.text(
-            0,
-            1,
-            f"Batch # {ibatch}",
-            fontsize=14,
-            ha="left",
-            va="bottom",
-            transform=ax.transAxes,
-        )
-
-        ax.text(
-            1,
-            1,
-            f"# of Events: {batch_size}",
-            fontsize=14,
-            ha="right",
-            va="bottom",
-            transform=ax.transAxes,
-        )
-
-        self.saver.save(fig, f"confusion_matrix_{ibatch}.pdf")
-
-
 @dataclass
 class ImageTrainingAnalyzer(TrainingAnalyzerBase):
     def _analyze_sequence(self, sequence: MultiDatasetSequence, sequence_type: str):
@@ -392,7 +314,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         """
         histograms = {}
         # Plot a few images and the corresponding truth and prediction labels
-        for sequence_type in ["validation"]:
+        for sequence_type in ["training", "validation"]:
             sequence = self.loader.get_sequence(sequence_type)
             sequence.scale_features = "norm"
             sequence.batch_size = 1000
