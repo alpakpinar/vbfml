@@ -1,17 +1,23 @@
-from typing import Dict, Tuple, List
 import os
-from dataclasses import dataclass
-import matplotlib
+import warnings
+import matplotlib.colors
+import matplotlib.cbook
 import mplhep as hep
 import numpy as np
+
+from dataclasses import dataclass
+from typing import Dict, Optional, Tuple, List
 from hist import Hist
 from matplotlib import pyplot as plt
+from sklearn.metrics._plot.confusion_matrix import ConfusionMatrixDisplay
 from tqdm import tqdm
-from scipy import integrate
 from sklearn import metrics
-import time
 
-plt.style.use(hep.style.CMS)
+# plt.style.use(hep.style.CMS)
+
+warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
+
+pjoin = os.path.join
 
 
 def keys_to_list(keys):
@@ -29,10 +35,29 @@ colors = ["b", "r", "k", "g"]
 
 
 @dataclass
-class TrainingHistogramPlotter:
+class PlotSaver:
+    outdir: str
+
+    def __post_init__(self):
+        if not os.path.exists(self.outdir):
+            os.makedirs(self.outdir)
+
+    def save(self, fig: plt.figure, outfilename: str):
+        """Save a given figure object.
+
+        Args:
+            fig (plt.figure): The figure object.
+            outfilename (str): The path to save the file.
+        """
+        outpath = pjoin(self.outdir, outfilename)
+        fig.savefig(outpath)
+        plt.close(fig)
+
+
+@dataclass
+class PlotterBase:
     """
-    Tool to make standard plots based on histograms created with
-    the TrainingAnalyzer
+    Base class for plotters.
     """
 
     weights: "list"
@@ -40,6 +65,7 @@ class TrainingHistogramPlotter:
     validation_scores: "list"
     histograms: "list[Hist]"
     output_directory: str = "./output"
+    features: "Optional[np.array]" = None
 
     def __post_init__(self):
         self.sequence_types = keys_to_list(self.histograms.keys())
@@ -49,6 +75,8 @@ class TrainingHistogramPlotter:
         self.histogram_names = sorted(list(set(histogram_names)))
 
         self.output_directory = os.path.abspath(self.output_directory)
+
+        self.saver = PlotSaver(self.output_directory)
 
     def create_output_directory(self, subdirectory: str) -> None:
         directory = os.path.join(self.output_directory, subdirectory)
@@ -67,6 +95,175 @@ class TrainingHistogramPlotter:
                 sequence_type, histogram_name
             )
         return histograms
+
+
+@dataclass
+class ImageTrainingPlotter(PlotterBase):
+    """
+    Plotter for image training results, created with ImageTrainingAnalyzer
+    """
+
+    def plot_confusion_matrix(self, normalize="true"):
+        """Plots the confusion matrix based on truth and predicted labels.
+
+        Args:
+            normalize (str, optional): Whether to normalize the rows in the matrix. Defaults to 'true'.
+        """
+        truth_labels = self.validation_scores.argmax(axis=1)
+        predicted_labels = self.predicted_scores.argmax(axis=1)
+
+        cm = metrics.confusion_matrix(
+            truth_labels,
+            predicted_labels,
+            normalize=normalize,
+            sample_weight=self.weights.flatten(),
+        )
+
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+
+        fig, ax = plt.subplots()
+        disp.plot(ax=ax)
+        ax.text(
+            1,
+            1,
+            f"# of Events: {len(truth_labels)}",
+            fontsize=14,
+            ha="right",
+            va="bottom",
+            transform=ax.transAxes,
+        )
+
+        self.saver.save(fig, "confusion_matrix.pdf")
+
+    def _add_ax_labels(self, ax: plt.axis):
+        """Include axis labels for 2D eta/phi plots.
+
+        Args:
+            ax (plt.axis): The ax object to plot on.
+        """
+        ax.set_xlabel(r"PF Candidate $\eta$")
+        ax.set_ylabel(r"PF Candidate $\phi$")
+
+    def _plot_label(self, ax: plt.axis, truth_label: int, prediction_scores: list):
+        """Add label info on the plot.
+
+        Args:
+            ax (plt.axis): The ax object to plot on.
+            truth_label (int): The class label.
+            prediction_scores (int): The predicted class label.
+        """
+        ax.text(
+            0,
+            1,
+            f"Label: {truth_label}",
+            fontsize=14,
+            ha="left",
+            va="bottom",
+            transform=ax.transAxes,
+        )
+
+        score_text = f"""Score for 0: {prediction_scores[0]:.3f}
+        Score for 1: {prediction_scores[1]:.3f}"""
+
+        ax.text(
+            1,
+            1,
+            score_text,
+            fontsize=10,
+            ha="right",
+            va="bottom",
+            transform=ax.transAxes,
+        )
+
+    def plot_features(self, nevents: int = 5, image_shape: tuple = (40, 20)):
+        """Plot several event images together with truth labels and predicted scores.
+
+        Args:
+            nevents (int, optional): Number of events to plot. Defaults to 5.
+            image_shape (tuple, optional): Shape of each event image. Defaults to (40,20).
+        """
+        truth_labels = self.validation_scores.argmax(axis=1)
+        predicted_labels = self.predicted_scores.argmax(axis=1)
+        features = self.features[:nevents, :]
+
+        new_shape = (features.shape[0], *image_shape)
+        features = np.reshape(features, new_shape)
+
+        etabins = np.linspace(-5, 5, image_shape[0])
+        phibins = np.linspace(-np.pi, np.pi, image_shape[1])
+        for idx in tqdm(range(len(features)), desc="Plotting images"):
+            fig, ax = plt.subplots()
+            cmap = ax.pcolormesh(
+                etabins,
+                phibins,
+                features[idx].T,
+                norm=matplotlib.colors.LogNorm(1e-3, 1e0),
+            )
+
+            self._plot_label(ax, truth_labels[idx], self.predicted_scores[idx])
+            self._add_ax_labels(ax)
+
+            cb = fig.colorbar(cmap)
+            cb.set_label("Transformed Pixels")
+            self.saver.save(fig, f"image_ievent_{idx}.pdf")
+
+    def plot_scores(self):
+        output_subdir = "scores"
+        self.create_output_directory(output_subdir)
+
+        for name in tqdm(self.histogram_names, desc="Plotting histograms"):
+            histograms = self.get_histograms_across_sequences(name)
+
+            for sequence, histogram in histograms.items():
+                label_axis = [axis for axis in histogram.axes if axis.name == "label"][
+                    0
+                ]
+
+                for label in label_axis.edges[:-1]:
+                    label = int(label)
+                    color = colors[label % len(colors)]
+
+                    histogram_for_label = histogram[{"label": int(label)}]
+
+                    edges = histogram_for_label.axes[0].edges
+                    values = merge_flow_bins(histogram_for_label.values(flow=True))
+
+                    if np.all(values == 0):
+                        continue
+                    variances = merge_flow_bins(
+                        histogram_for_label.variances(flow=True)
+                    )
+                    norm = np.sum(values)
+
+                    fig, ax = plt.subplots()
+
+                    if sequence == "validation":
+                        hep.histplot(
+                            values / norm,
+                            edges,
+                            yerr=np.sqrt(variances) / norm,
+                            histtype="errorbar",
+                            label=f"class={label}, {sequence}",
+                            marker="o",
+                            color=color,
+                            ax=ax,
+                            markersize=5,
+                        )
+
+                    self.saver.save(fig, f"score_dist_{label}.pdf")
+
+    def plot(self) -> None:
+        self.plot_features()
+        self.plot_scores()
+        self.plot_confusion_matrix()
+
+
+@dataclass
+class TrainingHistogramPlotter(PlotterBase):
+    """
+    Tool to make standard plots based on histograms created with
+    the TrainingAnalyzer
+    """
 
     def plot_by_sequence_types(self) -> None:
         """

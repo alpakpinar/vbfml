@@ -1,8 +1,13 @@
 import os
 import pickle
+import keras
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional
+
+from sklearn.metrics._plot.confusion_matrix import ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix
+from matplotlib import pyplot as plt
 
 import hist
 import numpy as np
@@ -10,6 +15,8 @@ import sklearn
 from tqdm import tqdm
 from vbfml.input.sequences import MultiDatasetSequence
 from vbfml.training.data import TrainingLoader
+
+pjoin = os.path.join
 
 # Hard coded sane default binnings
 # If it extends more, might warrant
@@ -48,11 +55,10 @@ axis_bins = {
 
 
 @dataclass
-class TrainingAnalyzer:
+class TrainingAnalyzerBase:
     """
-    Analyzer to make histograms based on
-    training / validation / test data sets.
-
+    Base class for training analyzers.
+    Contains methods that are common to all analyzers.
     """
 
     directory: str
@@ -80,6 +86,34 @@ class TrainingAnalyzer:
 
         return histogram
 
+    def _fill_score_histograms(
+        self,
+        histograms: Dict[str, hist.Hist],
+        scores: np.ndarray,
+        labels: np.ndarray,
+        weights: np.ndarray,
+    ) -> None:
+        """Create and fill score histograms.
+
+        Args:
+            histograms (Dict[str, hist.Hist]): The dictionary of histogram objects.
+            scores (np.ndarray): Array of predicted scores.
+            labels (np.ndarray): Array of truth labels.
+            weights (np.ndarray): Array of sample weights.
+        """
+        n_classes = scores.shape[1]
+        for scored_class in range(n_classes):
+            name = f"score_{scored_class}"
+            if not name in histograms:
+                histograms[name] = self._make_histogram(name)
+            histograms[name].fill(
+                **{
+                    name: scores[:, scored_class],
+                    "label": labels,
+                    "weight": weights,
+                }
+            )
+
     def load_from_cache(self) -> bool:
         """Histograms loaded from disk cache."""
         success = False
@@ -96,6 +130,15 @@ class TrainingAnalyzer:
         """Cached histograms written to disk."""
         with open(self.cache, "wb") as f:
             return pickle.dump(self.data, f)
+
+
+@dataclass
+class TrainingAnalyzer(TrainingAnalyzerBase):
+    """
+    Analyzer to make histograms based on
+    training / validation / test data sets.
+
+    """
 
     def analyze(self):
         """
@@ -143,26 +186,6 @@ class TrainingAnalyzer:
                     feature_name: features[:, ifeat].flatten(),
                     "label": labels,
                     "weight": weights.flatten(),
-                }
-            )
-
-    def _fill_score_histograms(
-        self,
-        histograms: Dict[str, hist.Hist],
-        scores: np.ndarray,
-        labels: np.ndarray,
-        weights: np.ndarray,
-    ) -> None:
-        n_classes = scores.shape[1]
-        for scored_class in range(n_classes):
-            name = f"score_{scored_class}"
-            if not name in histograms:
-                histograms[name] = self._make_histogram(name)
-            histograms[name].fill(
-                **{
-                    name: scores[:, scored_class],
-                    "label": labels,
-                    "weight": weights,
                 }
             )
 
@@ -249,3 +272,144 @@ class TrainingAnalyzer:
             # self._fill_composition_histograms(histograms, scores, labels, weights)
 
         return histograms, predicted_scores, validation_scores, weights
+
+
+class PlotSaver:
+    def __init__(self, outdir: str) -> None:
+        self.outdir = outdir
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+
+    def save(self, fig: plt.figure, outfilename: str):
+        """Save a given figure object.
+
+        Args:
+            fig (plt.figure): The figure object.
+            outfilename (str): The path to save the file.
+        """
+        outpath = pjoin(self.outdir, outfilename)
+        fig.savefig(outpath)
+        plt.close(fig)
+
+
+class ConfusionMatrixPlotter:
+    def __init__(self, tag: str) -> None:
+        """Object to plot confusion matrix.
+
+        Args:
+            tag (str): The tag for the output directory
+        """
+        self.saver = PlotSaver(outdir=f"{tag}/confusion_matrix")
+
+    def plot(
+        self,
+        sequence: MultiDatasetSequence,
+        model: keras.engine.sequential.Sequential,
+        batch_size: int = 1000,
+        ibatch: int = 0,
+        normalize: str = "true",
+    ):
+
+        sequence.batch_size = batch_size
+        sequence.scale_features = "norm"
+        features, labels_onehot, weights = sequence[ibatch]
+
+        # Predicted scores by the model vs the truth labels
+        prediction_scores = model.predict(features)
+
+        cm = confusion_matrix(
+            labels_onehot.argmax(axis=1),
+            prediction_scores.argmax(axis=1),
+            normalize=normalize,
+        )
+
+        disp = ConfusionMatrixDisplay(
+            confusion_matrix=cm,
+        )
+
+        fig, ax = plt.subplots()
+        disp.plot(ax=ax)
+        ax.text(
+            0,
+            1,
+            f"Batch # {ibatch}",
+            fontsize=14,
+            ha="left",
+            va="bottom",
+            transform=ax.transAxes,
+        )
+
+        ax.text(
+            1,
+            1,
+            f"# of Events: {batch_size}",
+            fontsize=14,
+            ha="right",
+            va="bottom",
+            transform=ax.transAxes,
+        )
+
+        self.saver.save(fig, f"confusion_matrix_{ibatch}.pdf")
+
+
+@dataclass
+class ImageTrainingAnalyzer(TrainingAnalyzerBase):
+    def _analyze_sequence(self, sequence: MultiDatasetSequence, sequence_type: str):
+        """
+        Analyzes a specific sequence.
+        """
+        histograms = {}
+        model = self.loader.get_model()
+
+        predicted_scores = []
+        validation_scores = []
+        sample_weights = []
+        for ibatch in tqdm(
+            range(len(sequence)), desc=f"Analyze batches of {sequence_type} sequence"
+        ):
+            features, labels_onehot, weights = sequence[ibatch]
+            labels = labels_onehot.argmax(axis=1)
+
+            scores = model.predict(features)
+            if sequence_type == "validation":
+                predicted_scores.append(scores)
+                validation_scores.append(labels_onehot)
+                sample_weights.append(weights)
+
+            self._fill_score_histograms(histograms, scores, labels, weights)
+
+        return (
+            histograms,
+            features,
+            np.vstack(predicted_scores),
+            np.vstack(validation_scores),
+            np.vstack(sample_weights).flatten(),
+        )
+
+    def analyze(self):
+        """
+        Loads all relevant data sets and analyze them.
+        """
+        histograms = {}
+        # Plot a few images and the corresponding truth and prediction labels
+        for sequence_type in ["validation"]:
+            sequence = self.loader.get_sequence(sequence_type)
+            sequence.scale_features = "norm"
+            sequence.batch_size = 1000
+            sequence.batch_buffer_size = 10
+
+            (
+                histogram_out,
+                features,
+                predicted_scores,
+                validation_scores,
+                weights,
+            ) = self._analyze_sequence(sequence, sequence_type)
+            histograms[sequence_type] = histogram_out
+            if sequence_type == "validation":
+                self.data["validation_scores"] = validation_scores
+                self.data["predicted_scores"] = predicted_scores
+                self.data["weights"] = weights
+
+            self.data["features"] = features
+            self.data["histograms"] = histograms
