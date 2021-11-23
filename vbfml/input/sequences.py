@@ -270,6 +270,11 @@ class MultiDatasetSequence(Sequence):
         if self.scale_features != "none":
             features = self.apply_feature_scaling(features)
 
+        # Double checking the feature range here
+        if self.scale_features == "norm":
+            valid = np.all(features >= 0) & np.all(features <= 1)
+            assert valid, "Features are not scaled correctly to [0,1] range, please check!"
+
         labels = to_categorical(
             row_vector(df["label"]),
             num_classes=len(self.dataset_labels()),
