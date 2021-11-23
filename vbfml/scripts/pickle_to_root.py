@@ -2,6 +2,7 @@
 
 import os
 import sys
+import re
 import gzip
 import pickle
 import uproot
@@ -41,11 +42,16 @@ def main():
             continue
 
         # Scout branches
-        inputs = [input for input in data.keys() if "norm" not in input]
+        inputs = [
+            input
+            for input in data.keys()
+            if re.match("(JetImage.*)|(weight_total)", input)
+        ]
         numevents = len(data[inputs[0]])
 
-        # Read the normalization factor
-        norm = data["normalization"]
+        # Read weight values necessary to compute normalization factor
+        xs = data["xs"]
+        sumw = data["sumw"]
 
         outdir = vbfml_path(f"root/{outtag}")
         if not os.path.exists(outdir):
@@ -61,7 +67,9 @@ def main():
                 else:
                     tree_data[inputname] = np.stack(np.array(data[inputname]))
 
-            tree_data["Normalization"] = [norm] * numevents
+            tree_data["xs"] = [xs] * numevents
+            tree_data["sumw"] = [sumw] * numevents
+
             f["sr_vbf"] = tree_data
 
 
