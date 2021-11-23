@@ -446,15 +446,54 @@ class TestMultiDatasetSequenceFeatureScaling(TestCase):
         self.assertAlmostEqual(dev_std, 0, places=2)
         self.assertTrue(np.all(features != weights))
 
+class TestMultiDatasetSequenceNormFeatureScaling(TestCase):
+    def setUp(self):
+        self.treename = "tree"
+        self.feature_branches = ["a"]
+        self.nevents_per_file = int(1e4)
+        # Generate data that resembles the real image data
+        # i.e. has a range of [0,255]
+        self.values = np.random.randint(
+            low=0,
+            high=255, 
+            size=self.nevents_per_file
+            )
+
+        self.mds = MultiDatasetSequence(
+            batch_size=int(1e3),
+            branches=self.feature_branches,
+            shuffle=False
+        )
+        
+        self.wdir = make_tmp_dir()
+        self.addCleanup(os.rmdir, self.wdir)
+        fname = os.path.abspath(os.path.join(self.wdir, "test.root"))
+
+        create_test_tree(
+            filename=fname,
+            treename=self.treename,
+            branches=self.feature_branches,
+            n_events=self.nevents_per_file,
+            value=self.values,
+        )
+        self.addCleanup(os.remove, fname)
+
+        dataset = DatasetInfo(
+            name="dataset",
+            files=[fname],
+            n_events=self.nevents_per_file,
+            treename=self.treename,
+        )
+        self.mds.add_dataset(dataset)
+
     def test_feature_scaling_with_norm(self):
         """
-        After "norm" normalization, all values should be <=1.
-        Compute the (min,max) range in features and see
-        if this is indeed the case.
+        Test "norm" feature scaling. After the feature scaling, all values
+        should be in a range of [0,1].
         """
-        # Read with norm feature scaling
         self.mds.scale_features = "norm"
-        features, _, _ = self.mds[0]
+        features, _ = self.mds[0]
         f_min, f_max = np.min(features), np.max(features)
         self.assertTrue(f_min < f_max)
-        self.assertTrue(np.abs(f_max) <= 1.0)
+        self.assertTrue(f_min >= 0)
+        self.assertTrue(f_max <= 1)
