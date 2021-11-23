@@ -250,7 +250,20 @@ class ImageTrainingPlotter(PlotterBase):
                             markersize=5,
                         )
 
-                    self.saver.save(fig, f"score_dist_{label}.pdf")
+                        ax.set_xlabel("Score Value")
+                        ax.set_ylabel("Normalized Counts")
+
+                        ax.text(
+                            0,
+                            1,
+                            f"score_{label}",
+                            fontsize=14,
+                            ha="left",
+                            va="bottom",
+                            transform=ax.transAxes,
+                        )
+
+                        self.saver.save(fig, f"score_dist_{label}.pdf")
 
     def plot(self) -> None:
         self.plot_features()
