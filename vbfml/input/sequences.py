@@ -273,7 +273,9 @@ class MultiDatasetSequence(Sequence):
         # Double checking the feature range here
         if self.scale_features == "norm":
             valid = np.all((features >= 0) & (features <= 1))
-            assert valid, "Features are not scaled correctly to [0,1] range, please check!"
+            assert (
+                valid
+            ), "Features are not scaled correctly to [0,1] range, please check!"
 
         labels = to_categorical(
             row_vector(df["label"]),

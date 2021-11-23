@@ -446,6 +446,7 @@ class TestMultiDatasetSequenceFeatureScaling(TestCase):
         self.assertAlmostEqual(dev_std, 0, places=2)
         self.assertTrue(np.all(features != weights))
 
+
 class TestMultiDatasetSequenceNormFeatureScaling(TestCase):
     def setUp(self):
         self.treename = "tree"
@@ -453,18 +454,12 @@ class TestMultiDatasetSequenceNormFeatureScaling(TestCase):
         self.nevents_per_file = int(1e4)
         # Generate data that resembles the real image data
         # i.e. has a range of [0,255]
-        self.values = np.random.randint(
-            low=0,
-            high=255, 
-            size=self.nevents_per_file
-            )
+        self.values = np.random.randint(low=0, high=255, size=self.nevents_per_file)
 
         self.mds = MultiDatasetSequence(
-            batch_size=int(1e3),
-            branches=self.feature_branches,
-            shuffle=False
+            batch_size=int(1e3), branches=self.feature_branches, shuffle=False
         )
-        
+
         self.wdir = make_tmp_dir()
         self.addCleanup(os.rmdir, self.wdir)
         fname = os.path.abspath(os.path.join(self.wdir, "test.root"))
