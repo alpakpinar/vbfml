@@ -185,7 +185,7 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
 @click.option(
     "--training-passes",
     type=int,
-    default=1,
+    default=10,
     help="Number of iterations through the whole training set.",
 )
 @click.option(

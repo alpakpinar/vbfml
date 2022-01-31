@@ -1,7 +1,7 @@
 import os
 import pickle
 import keras
-from collections import defaultdict
+from collections import defaultdict, Counter
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
@@ -283,6 +283,10 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         histograms = {}
         model = self.loader.get_model()
 
+        # Count the occurence of number of classes in the training 
+        # and validation sequences 
+        counter = Counter()
+
         predicted_scores = []
         validation_scores = []
         sample_weights = []
@@ -292,6 +296,8 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
             features, labels_onehot, weights = sequence[ibatch]
             labels = labels_onehot.argmax(axis=1)
 
+            counter.update(labels)
+
             scores = model.predict(features)
             if sequence_type == "validation":
                 predicted_scores.append(scores)
@@ -300,20 +306,49 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
             self._fill_score_histograms(histograms, scores, labels, weights)
 
-        return (
-            histograms,
-            features,
-            np.vstack(predicted_scores),
-            np.vstack(validation_scores),
-            np.vstack(sample_weights).flatten(),
-        )
+        # Normalize the counter values
+        sample_counts = {}
+        total_count = sum(counter.values())
+
+        def pretty_labels(index):
+            """
+            0 -> EWK V+jets/VBF H(inv), 
+            1 -> QCD V+jets
+            """
+            if index == 0:
+                return 'EWK V/VBFH'
+            return 'QCD V'
+
+        for key, count in counter.items():
+            sample_counts[pretty_labels(key)] = count / total_count
+
+        if sequence_type == "validation":
+            return (
+                histograms,
+                features,
+                sample_counts,
+                np.vstack(predicted_scores),
+                np.vstack(validation_scores),
+                np.vstack(sample_weights).flatten(),
+            )
+
+        return (histograms, features, sample_counts, [], [], [])
 
     def analyze(self):
         """
         Loads all relevant data sets and analyze them.
         """
         histograms = {}
-        # Plot a few images and the corresponding truth and prediction labels
+        sample_counts_per_sequence = {}
+        
+        # We'll analyze the training and validation sequences and save histograms
+        # for each sequence type.
+        # For images, we're typically interested in:
+        # - Features (i.e. list of 40x20 images)
+        # - List of prediction scores
+        # - List of labels
+        # - Score distributions for a given class
+        
         for sequence_type in ["training", "validation"]:
             sequence = self.loader.get_sequence(sequence_type)
             sequence.scale_features = "norm"
@@ -323,11 +358,15 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
             (
                 histogram_out,
                 features,
+                sample_counts,
                 predicted_scores,
                 validation_scores,
                 weights,
             ) = self._analyze_sequence(sequence, sequence_type)
+            
             histograms[sequence_type] = histogram_out
+            sample_counts_per_sequence[sequence_type] = sample_counts
+            
             if sequence_type == "validation":
                 self.data["validation_scores"] = validation_scores
                 self.data["predicted_scores"] = predicted_scores
@@ -335,3 +374,4 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
             self.data["features"] = features
             self.data["histograms"] = histograms
+            self.data["sample_counts_per_sequence"] = sample_counts_per_sequence

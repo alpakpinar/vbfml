@@ -6,6 +6,7 @@ import mplhep as hep
 import numpy as np
 
 from dataclasses import dataclass
+from collections import OrderedDict
 from typing import Dict, Optional, Tuple, List
 from hist import Hist
 from matplotlib import pyplot as plt
@@ -66,6 +67,7 @@ class PlotterBase:
     histograms: "list[Hist]"
     output_directory: str = "./output"
     features: "Optional[np.array]" = None
+    sample_counts: "Optional[Dict]" = None
 
     def __post_init__(self):
         self.sequence_types = keys_to_list(self.histograms.keys())
@@ -175,6 +177,24 @@ class ImageTrainingPlotter(PlotterBase):
             transform=ax.transAxes,
         )
 
+    def plot_sample_counts(self):
+        """
+        Creates a pie chart for the frequency of occurence of each sample class,
+        separately in training and validation sequences.
+        """
+        fig, axes = plt.subplots(1,2)
+
+        training_sample_counts = self.sample_counts['training']
+        validation_sample_counts = self.sample_counts['validation']
+
+        axes[0].pie(training_sample_counts.values(), labels=training_sample_counts.keys(), autopct='%.3f')
+        axes[0].set_title('Training', fontsize=14)
+
+        axes[1].pie(validation_sample_counts.values(), labels=validation_sample_counts.keys(), autopct='%.3f')
+        axes[1].set_title('Validation', fontsize=14)
+
+        self.saver.save(fig, "sample_counts.pdf")
+
     def plot_features(self, nevents: int = 5, image_shape: tuple = (40, 20)):
         """Plot several event images together with truth labels and predicted scores.
 
@@ -208,10 +228,11 @@ class ImageTrainingPlotter(PlotterBase):
             self.saver.save(fig, f"image_ievent_{idx}.pdf")
 
     def plot_scores(self):
+        """Plots score distributions."""
         output_subdir = "scores"
         self.create_output_directory(output_subdir)
 
-        for name in tqdm(self.histogram_names, desc="Plotting histograms"):
+        for name in tqdm(self.histogram_names, desc="Plotting score histograms"):
             histograms = self.get_histograms_across_sequences(name)
 
             for sequence, histogram in histograms.items():
@@ -252,6 +273,7 @@ class ImageTrainingPlotter(PlotterBase):
 
                         ax.set_xlabel("Score Value")
                         ax.set_ylabel("Normalized Counts")
+                        ax.legend()
 
                         ax.text(
                             0,
@@ -263,12 +285,13 @@ class ImageTrainingPlotter(PlotterBase):
                             transform=ax.transAxes,
                         )
 
-                        self.saver.save(fig, f"score_dist_{label}.pdf")
+                        self.saver.save(fig, f"score_dist_{sequence}_{label}.pdf")
 
     def plot(self) -> None:
         self.plot_features()
         self.plot_scores()
         self.plot_confusion_matrix()
+        self.plot_sample_counts()
 
 
 @dataclass
