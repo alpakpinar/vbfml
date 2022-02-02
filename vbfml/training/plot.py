@@ -538,60 +538,58 @@ class TrainingHistogramPlotter(PlotterBase):
 
 
 def plot_history(history, outdir):
-
-    fig = plt.figure(figsize=(12, 10))
-    ax = plt.gca()
-
-    accuracy_types = [
-        key for key in history.keys() if "acc" in key and not "val" in key
+    '''Utility function to plot loss and accuracy metrics.'''
+    outdir = os.path.join(outdir, "history")
+    try:
+        os.makedirs(outdir)
+    except FileExistsError:
+        pass
+        
+    loss_metrics = [
+        ('Training', 'x_loss', 'y_loss'), 
+        ('Validation', 'x_val_loss', 'y_val_loss')
     ]
-    accuracy_types = [x.replace("x_", "").replace("y_", "") for x in accuracy_types]
+    
+    acc_metrics = [
+        ('Training','x_categorical_accuracy', 'y_categorical_accuracy'),
+        ('Validation','x_val_categorical_accuracy', 'y_val_categorical_accuracy'),
+    ]
 
-    for accuracy_type in tqdm(accuracy_types, desc="Plotting History"):
-        ax.plot(
-            history["x_loss"],
-            history["y_loss"],
-            color="b",
-            ls="--",
-            marker="s",
-            label="Training",
-        )
-        ax.plot(
-            history["x_val_loss"],
-            history["y_val_loss"],
-            color="b",
-            label="Validation",
-            marker="o",
-        )
+    metrics = {
+        'Loss' : loss_metrics,
+        'Accuracy' : acc_metrics
+    }
 
-        ax2 = ax.twinx()
-        ax2.plot(
-            history[f"x_{accuracy_type}"],
-            history[f"y_{accuracy_type}"],
-            color="r",
-            ls="--",
-            marker="s",
-            label="Training",
-        )
-        ax2.plot(
-            history[f"x_val_{accuracy_type}"],
-            history[f"y_val_{accuracy_type}"],
-            color="r",
-            label="Validation",
-            marker="o",
-        )
-        ax.set_xlabel("Training time (a.u.)")
-        ax.set_ylabel("Loss")
-        ax.set_yscale("log")
-        ax2.set_ylabel(f"Accuracy ({accuracy_type})")
-        ax2.set_ylim(0, 1)
-        ax.legend(title="Loss")
-        ax2.legend(title="Accuracy")
-        outdir = os.path.join(outdir, "history")
-        try:
-            os.makedirs(outdir)
-        except FileExistsError:
-            pass
+    def shift_by_one(xlist):
+        return [x+1 for x in xlist]
 
-        for ext in "png", "pdf":
-            fig.savefig(os.path.join(outdir, f"history_{accuracy_type}.{ext}"))
+    for tag, metriclist in tqdm(metrics.items(), desc="Plotting history"):
+        fig, ax = plt.subplots()
+
+        for label, metric_x, metric_y in metriclist:
+            # Annoyting: x_loss and x_val_loss shift by one (same for accuracy)
+            # Fix that here before plotting
+
+            if label == 'Training':
+                history[metric_x] = shift_by_one(history[metric_x])
+            
+            ax.plot(
+                history[metric_x],
+                history[metric_y],
+                label=label,
+                marker='o',
+            )
+
+        ax.legend(title=tag)
+        
+        ax.set_xlabel('Training Time (a.u.)', fontsize=14)
+        ax.set_ylabel(tag, fontsize=14)
+
+        if tag == 'Loss':
+            ax.set_yscale('log')
+        else:
+            ax.set_ylim(0,1)
+
+        outpath = os.path.join(outdir, f"history_{tag.lower()}.pdf")
+        fig.savefig(outpath)
+        plt.close(fig)
