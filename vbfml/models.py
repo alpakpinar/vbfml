@@ -101,9 +101,7 @@ def sequential_convolutional_model(
     for ilayer in range(n_layers_for_conv):
         model.add(
             Conv2D(
-                n_filters_for_conv[ilayer],
-                filter_size_for_conv[ilayer],
-                padding='same'
+                n_filters_for_conv[ilayer], filter_size_for_conv[ilayer], padding="same"
             )
         )
         model.add(MaxPooling2D(pool_size=pool_size_for_conv[ilayer]))

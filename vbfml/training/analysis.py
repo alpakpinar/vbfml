@@ -283,8 +283,8 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         histograms = {}
         model = self.loader.get_model()
 
-        # Count the occurence of number of classes in the training 
-        # and validation sequences 
+        # Count the occurence of number of classes in the training
+        # and validation sequences
         counter = Counter()
 
         predicted_scores = []
@@ -298,7 +298,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
             # Count the instances while taking weights into account
             for label, weight in zip(labels, weights):
-                counter.update( {label:weight} )
+                counter.update({label: weight})
 
             scores = model.predict(features)
             if sequence_type == "validation":
@@ -314,12 +314,12 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
         def pretty_labels(index):
             """
-            0 -> EWK V+jets/VBF H(inv), 
+            0 -> EWK V+jets/VBF H(inv),
             1 -> QCD V+jets
             """
             if index == 0:
-                return 'EWK V/VBF H'
-            return 'QCD V'
+                return "EWK V/VBF H"
+            return "QCD V"
 
         for key, count in counter.items():
             sample_counts[pretty_labels(key)] = (count / total_count)[0]
@@ -345,7 +345,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         """
         histograms = {}
         sample_counts_per_sequence = {}
-        
+
         # We'll analyze the training and validation sequences and save histograms
         # for each sequence type.
         # For images, we're typically interested in:
@@ -353,7 +353,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         # - List of prediction scores
         # - List of labels
         # - Score distributions for a given class
-        
+
         for sequence_type in ["training", "validation"]:
             sequence = self.loader.get_sequence(sequence_type)
             sequence.scale_features = "norm"
@@ -368,10 +368,10 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
                 validation_scores,
                 weights,
             ) = self._analyze_sequence(sequence, sequence_type)
-            
+
             histograms[sequence_type] = histogram_out
             sample_counts_per_sequence[sequence_type] = sample_counts
-            
+
             if sequence_type == "validation":
                 self.data["validation_scores"] = validation_scores
                 self.data["predicted_scores"] = predicted_scores

@@ -182,33 +182,34 @@ class ImageTrainingPlotter(PlotterBase):
         Creates a pie chart for the frequency of occurence of each sample class,
         separately in training and validation sequences.
         """
-        fig, axes = plt.subplots(1,2)
+        fig, axes = plt.subplots(1, 2)
 
-        training_sample_counts = self.sample_counts['training']
-        validation_sample_counts = self.sample_counts['validation']
+        training_sample_counts = self.sample_counts["training"]
+        validation_sample_counts = self.sample_counts["validation"]
 
         def make_autopct(values):
             def my_autopct(pct):
-                return f'{pct:.2f}%'
+                return f"{pct:.2f}%"
+
             return my_autopct
 
         def make_pie_chart(ax, values, labels):
-            '''Helper function to make pie chart.'''
-            ax.pie(
-                values, labels=labels, autopct=make_autopct(values)
-            )
+            """Helper function to make pie chart."""
+            ax.pie(values, labels=labels, autopct=make_autopct(values))
 
-        make_pie_chart(axes[0], 
-            values=[x[1] for x in training_sample_counts], 
-            labels=[x[0] for x in training_sample_counts], 
+        make_pie_chart(
+            axes[0],
+            values=[x[1] for x in training_sample_counts],
+            labels=[x[0] for x in training_sample_counts],
         )
-        axes[0].set_title('Training', fontsize=14)
+        axes[0].set_title("Training", fontsize=14)
 
-        make_pie_chart(axes[1], 
-            values=[x[1] for x in validation_sample_counts], 
-            labels=[x[0] for x in validation_sample_counts], 
+        make_pie_chart(
+            axes[1],
+            values=[x[1] for x in validation_sample_counts],
+            labels=[x[0] for x in validation_sample_counts],
         )
-        axes[1].set_title('Validation', fontsize=14)
+        axes[1].set_title("Validation", fontsize=14)
 
         self.saver.save(fig, "sample_counts.pdf")
 
@@ -555,30 +556,27 @@ class TrainingHistogramPlotter(PlotterBase):
 
 
 def plot_history(history, outdir):
-    '''Utility function to plot loss and accuracy metrics.'''
+    """Utility function to plot loss and accuracy metrics."""
     outdir = os.path.join(outdir, "history")
     try:
         os.makedirs(outdir)
     except FileExistsError:
         pass
-        
+
     loss_metrics = [
-        ('Training', 'x_loss', 'y_loss'), 
-        ('Validation', 'x_val_loss', 'y_val_loss')
-    ]
-    
-    acc_metrics = [
-        ('Training','x_categorical_accuracy', 'y_categorical_accuracy'),
-        ('Validation','x_val_categorical_accuracy', 'y_val_categorical_accuracy'),
+        ("Training", "x_loss", "y_loss"),
+        ("Validation", "x_val_loss", "y_val_loss"),
     ]
 
-    metrics = {
-        'Loss' : loss_metrics,
-        'Accuracy' : acc_metrics
-    }
+    acc_metrics = [
+        ("Training", "x_categorical_accuracy", "y_categorical_accuracy"),
+        ("Validation", "x_val_categorical_accuracy", "y_val_categorical_accuracy"),
+    ]
+
+    metrics = {"Loss": loss_metrics, "Accuracy": acc_metrics}
 
     def shift_by_one(xlist):
-        return [x+1 for x in xlist]
+        return [x + 1 for x in xlist]
 
     for tag, metriclist in tqdm(metrics.items(), desc="Plotting history"):
         fig, ax = plt.subplots()
@@ -587,25 +585,25 @@ def plot_history(history, outdir):
             # Annoyting: x_loss and x_val_loss shift by one (same for accuracy)
             # Fix that here before plotting
 
-            if label == 'Training':
+            if label == "Training":
                 history[metric_x] = shift_by_one(history[metric_x])
-            
+
             ax.plot(
                 history[metric_x],
                 history[metric_y],
                 label=label,
-                marker='o',
+                marker="o",
             )
 
         ax.legend(title=tag)
-        
-        ax.set_xlabel('Training Time (a.u.)', fontsize=14)
+
+        ax.set_xlabel("Training Time (a.u.)", fontsize=14)
         ax.set_ylabel(tag, fontsize=14)
 
-        if tag == 'Loss':
-            ax.set_yscale('log')
+        if tag == "Loss":
+            ax.set_yscale("log")
         else:
-            ax.set_ylim(0,1)
+            ax.set_ylim(0, 1)
 
         outpath = os.path.join(outdir, f"history_{tag.lower()}.pdf")
         fig.savefig(outpath)
