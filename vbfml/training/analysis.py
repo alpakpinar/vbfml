@@ -296,7 +296,9 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
             features, labels_onehot, weights = sequence[ibatch]
             labels = labels_onehot.argmax(axis=1)
 
-            counter.update(labels)
+            # Count the instances while taking weights into account
+            for label, weight in zip(labels, weights):
+                counter.update( {label:weight} )
 
             scores = model.predict(features)
             if sequence_type == "validation":
@@ -320,7 +322,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
             return 'QCD V'
 
         for key, count in counter.items():
-            sample_counts[pretty_labels(key)] = count / total_count
+            sample_counts[pretty_labels(key)] = (count / total_count)[0]
 
         # Sort by key
         sample_counts = sorted(sample_counts.items())
