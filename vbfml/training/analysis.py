@@ -1,7 +1,7 @@
 import os
 import pickle
 import keras
-from collections import defaultdict, Counter
+from collections import defaultdict, Counter, OrderedDict
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
@@ -307,7 +307,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
             self._fill_score_histograms(histograms, scores, labels, weights)
 
         # Normalize the counter values
-        sample_counts = {}
+        sample_counts = OrderedDict()
         total_count = sum(counter.values())
 
         def pretty_labels(index):
@@ -316,11 +316,14 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
             1 -> QCD V+jets
             """
             if index == 0:
-                return 'EWK V/VBFH'
+                return 'EWK V/VBF H'
             return 'QCD V'
 
         for key, count in counter.items():
             sample_counts[pretty_labels(key)] = count / total_count
+
+        # Sort by key
+        sample_counts = sorted(sample_counts.items())
 
         if sequence_type == "validation":
             return (

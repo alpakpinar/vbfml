@@ -187,10 +187,27 @@ class ImageTrainingPlotter(PlotterBase):
         training_sample_counts = self.sample_counts['training']
         validation_sample_counts = self.sample_counts['validation']
 
-        axes[0].pie(training_sample_counts.values(), labels=training_sample_counts.keys(), autopct='%.3f')
+        def make_autopct(values):
+            def my_autopct(pct):
+                return f'{pct:.2f}%'
+            return my_autopct
+
+        def make_pie_chart(ax, values, labels):
+            '''Helper function to make pie chart.'''
+            ax.pie(
+                values, labels=labels, autopct=make_autopct(values)
+            )
+
+        make_pie_chart(axes[0], 
+            values=[x[1] for x in training_sample_counts], 
+            labels=[x[0] for x in training_sample_counts], 
+        )
         axes[0].set_title('Training', fontsize=14)
 
-        axes[1].pie(validation_sample_counts.values(), labels=validation_sample_counts.keys(), autopct='%.3f')
+        make_pie_chart(axes[1], 
+            values=[x[1] for x in validation_sample_counts], 
+            labels=[x[0] for x in validation_sample_counts], 
+        )
         axes[1].set_title('Validation', fontsize=14)
 
         self.saver.save(fig, "sample_counts.pdf")
