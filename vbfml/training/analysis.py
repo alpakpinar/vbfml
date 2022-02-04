@@ -276,6 +276,34 @@ class TrainingAnalyzer(TrainingAnalyzerBase):
 
 @dataclass
 class ImageTrainingAnalyzer(TrainingAnalyzerBase):
+    def _group_images(
+        self,
+        features: np.ndarray,
+        predicted_scores: np.ndarray,
+        truth_labels: np.ndarray,
+    ):
+        """
+        Groups the list of images into "correctly classified" and "mis-classified".
+        Returns a dictionary containing the list of images for both.
+        """
+        predicted_labels = predicted_scores.argmax(axis=1)
+        mask = predicted_labels != truth_labels
+
+        # Return data grouped into two:
+        # Mis-classified images and correctly classified images
+        return {
+            "mis_classified": {
+                "features": features[mask],
+                "scores": predicted_scores[mask],
+                "truth_labels": truth_labels[mask],
+            },
+            "correctly_classified": {
+                "features": features[~mask],
+                "scores": predicted_scores[~mask],
+                "truth_labels": truth_labels[~mask],
+            },
+        }
+
     def _analyze_sequence(self, sequence: MultiDatasetSequence, sequence_type: str):
         """
         Analyzes a specific sequence.
@@ -290,13 +318,17 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         predicted_scores = []
         validation_scores = []
         sample_weights = []
+
+        # The list of images, scores and truth labels per batch.
+        grouped_image_data = []
+
         for ibatch in tqdm(
             range(len(sequence)), desc=f"Analyze batches of {sequence_type} sequence"
         ):
             features, labels_onehot, weights = sequence[ibatch]
             labels = labels_onehot.argmax(axis=1)
 
-            # Count the instances while taking weights into account
+            # Count the instances from each class while taking weights into account
             for label, weight in zip(labels, weights):
                 counter.update({label: weight})
 
@@ -305,6 +337,15 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
                 predicted_scores.append(scores)
                 validation_scores.append(labels_onehot)
                 sample_weights.append(weights)
+
+                # Group the images into two:
+                # 1. The ones that the model correctly classified
+                # 2. The ones that are mis-classified
+                image_data = self._group_images(
+                    features, predicted_scores=scores, truth_labels=labels
+                )
+
+                grouped_image_data.append(image_data)
 
             self._fill_score_histograms(histograms, scores, labels, weights)
 
@@ -330,14 +371,14 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         if sequence_type == "validation":
             return (
                 histograms,
-                features,
+                grouped_image_data,
                 sample_counts,
                 np.vstack(predicted_scores),
                 np.vstack(validation_scores),
                 np.vstack(sample_weights).flatten(),
             )
 
-        return (histograms, features, sample_counts, [], [], [])
+        return (histograms, grouped_image_data, sample_counts, [], [], [])
 
     def analyze(self):
         """
@@ -362,7 +403,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
             (
                 histogram_out,
-                features,
+                grouped_image_data,
                 sample_counts,
                 predicted_scores,
                 validation_scores,
@@ -376,7 +417,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
                 self.data["validation_scores"] = validation_scores
                 self.data["predicted_scores"] = predicted_scores
                 self.data["weights"] = weights
+                self.data["grouped_image_data"] = grouped_image_data
 
-            self.data["features"] = features
             self.data["histograms"] = histograms
             self.data["sample_counts_per_sequence"] = sample_counts_per_sequence

@@ -66,7 +66,7 @@ class PlotterBase:
     validation_scores: "list"
     histograms: "list[Hist]"
     output_directory: str = "./output"
-    features: "Optional[np.array]" = None
+    grouped_image_data: "Optional[np.array]" = None
     sample_counts: "Optional[Dict]" = None
 
     def __post_init__(self):
@@ -106,7 +106,9 @@ class ImageTrainingPlotter(PlotterBase):
     """
 
     def plot_confusion_matrix(self, normalize="true"):
-        """Plots the confusion matrix based on truth and predicted labels.
+        """
+        Plots the confusion matrix based on truth and predicted labels,
+        as computed on the validation set.
 
         Args:
             normalize (str, optional): Whether to normalize the rows in the matrix. Defaults to 'true'.
@@ -213,37 +215,55 @@ class ImageTrainingPlotter(PlotterBase):
 
         self.saver.save(fig, "sample_counts.pdf")
 
-    def plot_features(self, nevents: int = 5, image_shape: tuple = (40, 20)):
-        """Plot several event images together with truth labels and predicted scores.
+    def plot_images(
+        self,
+        nevents: int = 5,
+        image_shape: tuple = (40, 20),
+        imtype: str = "mis_classified",
+    ):
+        """
+        Plot several event images together with truth labels and predicted scores.
 
         Args:
             nevents (int, optional): Number of events to plot. Defaults to 5.
             image_shape (tuple, optional): Shape of each event image. Defaults to (40,20).
+            imtype (str, optional): The type of image: mis_classified or correctly_classified.
         """
-        truth_labels = self.validation_scores.argmax(axis=1)
-        predicted_labels = self.predicted_scores.argmax(axis=1)
-        features = self.features[:nevents, :]
+        # self.grouped_image_data contains a list of dictionaries per batch
+        # Get data from the first available batch
+        image_data = self.grouped_image_data[0][imtype]
+        images = image_data["features"][:nevents, :]
 
-        new_shape = (features.shape[0], *image_shape)
-        features = np.reshape(features, new_shape)
+        # Reshape images into original size
+        new_shape = (images.shape[0], *image_shape)
+        images = np.reshape(images, new_shape)
 
         etabins = np.linspace(-5, 5, image_shape[0])
         phibins = np.linspace(-np.pi, np.pi, image_shape[1])
-        for idx in tqdm(range(len(features)), desc="Plotting images"):
+        for idx in tqdm(range(len(images)), desc="Plotting images"):
             fig, ax = plt.subplots()
             cmap = ax.pcolormesh(
                 etabins,
                 phibins,
-                features[idx].T,
+                images[idx].T,
                 norm=matplotlib.colors.LogNorm(1e-3, 1e0),
             )
 
-            self._plot_label(ax, truth_labels[idx], self.predicted_scores[idx])
+            truth_labels = image_data["truth_labels"]
+            scores = image_data["scores"]
+
+            self._plot_label(ax, truth_labels[idx], scores[idx])
             self._add_ax_labels(ax)
 
             cb = fig.colorbar(cmap)
             cb.set_label("Transformed Pixels")
-            self.saver.save(fig, f"image_ievent_{idx}.pdf")
+
+            outdir = pjoin(self.output_directory, imtype)
+            if not os.path.exists(outdir):
+                os.makedirs(outdir)
+            outpath = pjoin(outdir, f"image_ievent_{idx}.pdf")
+            fig.savefig(outpath)
+            plt.close(fig)
 
     def plot_scores(self):
         """Plots score distributions."""
@@ -303,10 +323,14 @@ class ImageTrainingPlotter(PlotterBase):
                             transform=ax.transAxes,
                         )
 
+                        ax.axvline(0.5, ymin=0, ymax=1, color="k", ls="--", lw=2)
+
                         self.saver.save(fig, f"score_dist_{sequence}_{label}.pdf")
 
     def plot(self) -> None:
-        self.plot_features()
+        for imtype in ["mis_classified", "correctly_classified"]:
+            self.plot_images(imtype=imtype)
+
         self.plot_scores()
         self.plot_confusion_matrix()
         self.plot_sample_counts()

@@ -14,12 +14,12 @@ weight_expression: weight_total*xs/sumw
 features:
 - JetImage_pixels
 arch_parameters:
-  n_layers_for_conv: 2
-  n_filters_for_conv: [32, 32]
-  filter_size_for_conv: [3, 3]
-  pool_size_for_conv: [2, 2]
-  n_layers_for_dense: 5
-  n_nodes_for_dense: [128, 128, 64, 64, 32]
+  n_layers_for_conv: 1 
+  n_filters_for_conv: [4]
+  filter_size_for_conv: [4]
+  pool_size_for_conv: [2]
+  n_layers_for_dense: 1
+  n_nodes_for_dense: [100]
   image_shape: [40, 20, 1]
   n_classes: 2
-  dropout: 0.4
+  dropout: 0.2
