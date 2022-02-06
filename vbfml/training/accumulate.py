@@ -33,7 +33,8 @@ class ImageAccumulator():
         """
         Analyzes a specific sequence.
         """
-        images = {}
+        imagedict = {}
+        weightdict = {}
         model = self.loader.get_model()
         feature_scaler = self.loader.get_feature_scaler()
 
@@ -42,6 +43,7 @@ class ImageAccumulator():
         ):
             features, labels_onehot, weights = sequence[ibatch]
             labels = labels_onehot.argmax(axis=1)
+            weights = weights.flatten()
 
             scores = model.predict(features)
             predicted_labels = scores.argmax(axis=1)
@@ -49,20 +51,18 @@ class ImageAccumulator():
             # Now, we'll groupby the labels (predicted or truth) 
             # of the images, and accumulate them
             if groupby == "truth_label":
-                images['class_0'] = features[ labels == 0 ]     
-                images['class_1'] = features[ labels == 1 ]     
+                imagedict['class_0'], weightdict['class_0'] = features[ labels == 0 ], weights[ labels == 0 ]     
+                imagedict['class_1'], weightdict['class_1'] = features[ labels == 1 ], weights[ labels == 1 ]     
             elif groupby == "predicted_label":
-                images['class_0'] = features[ predicted_labels == 0 ]
-                images['class_1'] = features[ predicted_labels == 1 ]
+                imagedict['class_0'], weightdict['class_0'] = features[ predicted_labels == 0 ], weights[ predicted_labels == 0 ]
+                imagedict['class_1'], weightdict['class_1'] = features[ predicted_labels == 1 ], weights[ predicted_labels == 1 ]
             else:
                 raise ValueError('groupby can be either: "truth_label" or "predicted_label"')
 
             # Compute the mean per class
             avg_images = {}
-            for imclass, imagelist in images.items():
-                print(groupby)
-                print(imagelist.shape)
-                avg_images[imclass] = imagelist.mean(axis=0)
+            for imclass, imagelist in imagedict.items():
+                avg_images[imclass] = np.average(imagelist, axis=0, weights=weightdict[imclass])
 
         return avg_images
 
@@ -91,11 +91,11 @@ class ImageAccumulator():
                 etabins,
                 phibins,
                 im.T,
-                norm=matplotlib.colors.Normalize(vmin=0, vmax=1e-2),
+                norm=matplotlib.colors.LogNorm(vmin=1e-3, vmax=1e-2),
             )
 
             cb = fig.colorbar(cmap)
-            cb.set_label('Averaged Energy per Pixel (GeV)')
+            cb.set_label('Averaged Weighted Energy per Pixel (GeV)')
 
             ax.text(1,1,imclass,
                 fontsize=14,
