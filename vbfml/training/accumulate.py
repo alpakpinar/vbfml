@@ -13,17 +13,19 @@ from vbfml.training.data import TrainingLoader
 
 pjoin = os.path.join
 
+
 @dataclass
-class ImageAccumulator():
-    '''
-    Class to accumulate images and produce a new image 
+class ImageAccumulator:
+    """
+    Class to accumulate images and produce a new image
     based on the average of all input images.
-    '''
+    """
+
     directory: str
-    image_shape: tuple = (40,20)
+    image_shape: tuple = (40, 20)
 
     avg_images: "dict" = field(default_factory=dict)
-    
+
     def __post_init__(self):
         self.loader = TrainingLoader(self.directory)
 
@@ -38,9 +40,7 @@ class ImageAccumulator():
         model = self.loader.get_model()
         feature_scaler = self.loader.get_feature_scaler()
 
-        for ibatch in tqdm(
-            range(len(sequence)), desc="Accumulating image data"
-        ):
+        for ibatch in tqdm(range(len(sequence)), desc="Accumulating image data"):
             features, labels_onehot, weights = sequence[ibatch]
             labels = labels_onehot.argmax(axis=1)
             weights = weights.flatten()
@@ -48,25 +48,41 @@ class ImageAccumulator():
             scores = model.predict(features)
             predicted_labels = scores.argmax(axis=1)
 
-            # Now, we'll groupby the labels (predicted or truth) 
+            # Now, we'll groupby the labels (predicted or truth)
             # of the images, and accumulate them
             if groupby == "truth_label":
-                imagedict['class_0'], weightdict['class_0'] = features[ labels == 0 ], weights[ labels == 0 ]     
-                imagedict['class_1'], weightdict['class_1'] = features[ labels == 1 ], weights[ labels == 1 ]     
+                imagedict["class_0"], weightdict["class_0"] = (
+                    features[labels == 0],
+                    weights[labels == 0],
+                )
+                imagedict["class_1"], weightdict["class_1"] = (
+                    features[labels == 1],
+                    weights[labels == 1],
+                )
             elif groupby == "predicted_label":
-                imagedict['class_0'], weightdict['class_0'] = features[ predicted_labels == 0 ], weights[ predicted_labels == 0 ]
-                imagedict['class_1'], weightdict['class_1'] = features[ predicted_labels == 1 ], weights[ predicted_labels == 1 ]
+                imagedict["class_0"], weightdict["class_0"] = (
+                    features[predicted_labels == 0],
+                    weights[predicted_labels == 0],
+                )
+                imagedict["class_1"], weightdict["class_1"] = (
+                    features[predicted_labels == 1],
+                    weights[predicted_labels == 1],
+                )
             else:
-                raise ValueError('groupby can be either: "truth_label" or "predicted_label"')
+                raise ValueError(
+                    'groupby can be either: "truth_label" or "predicted_label"'
+                )
 
             # Compute the mean per class
             avg_images = {}
             for imclass, imagelist in imagedict.items():
-                avg_images[imclass] = np.average(imagelist, axis=0, weights=weightdict[imclass])
+                avg_images[imclass] = np.average(
+                    imagelist, axis=0, weights=weightdict[imclass]
+                )
 
         return avg_images
 
-    def accumulate(self, groupby: str, sequence_type: str = 'validation'):
+    def accumulate(self, groupby: str, sequence_type: str = "validation"):
         """
         Function to call to do the accumulation operation.
         """
@@ -84,7 +100,9 @@ class ImageAccumulator():
         etabins = np.linspace(-5, 5, self.image_shape[0])
         phibins = np.linspace(-np.pi, np.pi, self.image_shape[1])
 
-        for imclass, im in tqdm(self.avg_images.items(), desc="Plotting averaged images"):
+        for imclass, im in tqdm(
+            self.avg_images.items(), desc="Plotting averaged images"
+        ):
             fig, ax = plt.subplots()
             im = np.reshape(im, self.image_shape)
             cmap = ax.pcolormesh(
@@ -95,28 +113,34 @@ class ImageAccumulator():
             )
 
             cb = fig.colorbar(cmap)
-            cb.set_label('Averaged Weighted Energy per Pixel (GeV)')
+            cb.set_label("Averaged Weighted Energy per Pixel (GeV)")
 
-            ax.text(1,1,imclass,
+            ax.text(
+                1,
+                1,
+                imclass,
                 fontsize=14,
-                ha='right',
-                va='bottom',
-                transform=ax.transAxes
+                ha="right",
+                va="bottom",
+                transform=ax.transAxes,
             )
-            ax.text(0,1,f'Grouped by: {groupby}',
+            ax.text(
+                0,
+                1,
+                f"Grouped by: {groupby}",
                 fontsize=14,
-                ha='left',
-                va='bottom',
-                transform=ax.transAxes
+                ha="left",
+                va="bottom",
+                transform=ax.transAxes,
             )
 
-            ax.set_xlabel(r'PF Candidate $\eta$')
-            ax.set_ylabel(r'PF Candidate $\phi$')
+            ax.set_xlabel(r"PF Candidate $\eta$")
+            ax.set_ylabel(r"PF Candidate $\phi$")
 
             outdir = pjoin(self.directory, "plots", "accumulated")
             if not os.path.exists(outdir):
                 os.makedirs(outdir)
-            
+
             outpath = pjoin(outdir, f"images_groupby_{groupby}_{imclass}.pdf")
             fig.savefig(outpath)
             plt.close(fig)
