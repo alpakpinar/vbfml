@@ -64,7 +64,7 @@ class PlotterBase:
     weights: "list"
     predicted_scores: "list"
     validation_scores: "list"
-    histograms: "list[Hist]"
+    histograms: "Dict[Hist]"
     output_directory: str = "./output"
     grouped_image_data: "Optional[np.array]" = None
     sample_counts: "Optional[Dict]" = None
@@ -267,9 +267,6 @@ class ImageTrainingPlotter(PlotterBase):
 
     def plot_scores(self):
         """Plots score distributions."""
-        output_subdir = "scores"
-        self.create_output_directory(output_subdir)
-
         for name in tqdm(self.histogram_names, desc="Plotting score histograms"):
             histograms = self.get_histograms_across_sequences(name)
 
@@ -307,6 +304,16 @@ class ImageTrainingPlotter(PlotterBase):
                             color=color,
                             ax=ax,
                             markersize=5,
+                        )
+
+                    else:
+                        hep.histplot(
+                            values / norm,
+                            edges,
+                            label=f"class={label}, {sequence}",
+                            color=color,
+                            ls="-",
+                            ax=ax,
                         )
 
                         ax.set_xlabel("Score Value")
@@ -627,7 +634,7 @@ def plot_history(history, outdir):
         if tag == "Loss":
             ax.set_yscale("log")
         else:
-            ax.set_ylim(0, 1)
+            ax.set_ylim(0, 1.1)
 
         outpath = os.path.join(outdir, f"history_{tag.lower()}.pdf")
         fig.savefig(outpath)

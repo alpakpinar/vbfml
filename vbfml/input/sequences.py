@@ -259,7 +259,9 @@ class MultiDatasetSequence(Sequence):
         if self.scale_features != "none" and not self._feature_scaler:
             self._init_feature_scaler_from_multibatch(multibatch_df)
         if self.shuffle:
-            multibatch_df = multibatch_df.sample(frac=1, ignore_index=True)
+            multibatch_df = multibatch_df.sample(
+                frac=1, ignore_index=True, random_state=42
+            )
         self.buffer.set_multibatch(multibatch_df, batch_start)
 
     def _batch_df_formatting(self, df: pd.DataFrame) -> "tuple[np.ndarray]":

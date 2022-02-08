@@ -397,7 +397,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
         for sequence_type in ["training", "validation"]:
             sequence = self.loader.get_sequence(sequence_type)
-            sequence.scale_features = "norm"
+            # sequence.scale_features = "norm"
             sequence.batch_size = 1000
             sequence.batch_buffer_size = 10
 
