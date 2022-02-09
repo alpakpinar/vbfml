@@ -21,7 +21,14 @@ from vbfml.training.util import (
     save,
     select_and_label_datasets,
 )
-from vbfml.util import ModelConfiguration, ModelFactory, vbfml_path
+from vbfml.util import (
+    ModelConfiguration,
+    ModelFactory,
+    vbfml_path,
+    git_rev_parse,
+    git_diff,
+    git_diff_staged,
+)
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
@@ -172,6 +179,14 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
     # Save model type identifier for later uses
     with open(prepend_path("model_identifier.txt"), "w+") as f:
         f.write(mconfig.get("architecture"))
+
+    # Save repo version information to version.txt
+    with open(os.path.join(training_directory, "version.txt"), "w") as f:
+        f.write(f"Commit hash: {git_rev_parse()}\n")
+        f.write("git diff:\n\n")
+        f.write(git_diff() + "\n")
+        f.write("git diff --staged:\n\n")
+        f.write(git_diff_staged() + "\n")
 
 
 @cli.command()

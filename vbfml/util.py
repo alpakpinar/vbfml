@@ -5,6 +5,8 @@ import yaml
 import vbfml
 import pandas as pd
 
+import subprocess
+
 from vbfml.models import sequential_convolutional_model, sequential_dense_model
 
 pjoin = os.path.join
@@ -13,6 +15,18 @@ pjoin = os.path.join
 def vbfml_path(path):
     """Returns the absolute path for the given path."""
     return pjoin(vbfml.__path__[0], path)
+
+
+def git_rev_parse():
+    return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("utf-8")
+
+
+def git_diff():
+    return subprocess.check_output(["git", "diff"]).decode("utf-8")
+
+
+def git_diff_staged():
+    return subprocess.check_output(["git", "diff", "--staged"]).decode("utf-8")
 
 
 @dataclass
