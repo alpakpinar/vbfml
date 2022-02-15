@@ -83,7 +83,7 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
     for dataset_info in datasets:
         if re.match(dataset_labels["v_qcd_nlo_17"], dataset_info.name):
             dataset_info.n_events = int(np.floor(0.01 * dataset_info.n_events))
-        
+
     # Object containing data for different models
     # (set of features, dropout rate etc.)
     # Loaded from the YML configuration file
