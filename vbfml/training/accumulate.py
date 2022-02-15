@@ -88,7 +88,7 @@ class ImageAccumulator:
         """
         sequence = self.loader.get_sequence(sequence_type)
         sequence.scale_features = "norm"
-        sequence.batch_size = 1e4
+        sequence.batch_size = 10000
         sequence.batch_buffer_size = 1
 
         self.avg_images = self._analyze_sequence(sequence, groupby=groupby)

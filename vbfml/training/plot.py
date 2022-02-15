@@ -286,53 +286,36 @@ class ImageTrainingPlotter(PlotterBase):
 
                     if np.all(values == 0):
                         continue
-                    variances = merge_flow_bins(
-                        histogram_for_label.variances(flow=True)
-                    )
                     norm = np.sum(values)
 
                     fig, ax = plt.subplots()
 
-                    if sequence == "validation":
-                        hep.histplot(
-                            values / norm,
-                            edges,
-                            yerr=np.sqrt(variances) / norm,
-                            histtype="errorbar",
-                            label=f"class={label}, {sequence}",
-                            marker="o",
-                            color=color,
-                            ax=ax,
-                            markersize=5,
-                        )
+                    hep.histplot(
+                        values / norm,
+                        edges,
+                        label=f"class={label}, {sequence}",
+                        color=color,
+                        ls="-",
+                        ax=ax,
+                    )
 
-                    else:
-                        hep.histplot(
-                            values / norm,
-                            edges,
-                            label=f"class={label}, {sequence}",
-                            color=color,
-                            ls="-",
-                            ax=ax,
-                        )
+                    ax.set_xlabel("Score Value")
+                    ax.set_ylabel("Normalized Counts")
+                    ax.legend()
 
-                        ax.set_xlabel("Score Value")
-                        ax.set_ylabel("Normalized Counts")
-                        ax.legend()
+                    ax.text(
+                        0,
+                        1,
+                        f"score_{label}",
+                        fontsize=14,
+                        ha="left",
+                        va="bottom",
+                        transform=ax.transAxes,
+                    )
 
-                        ax.text(
-                            0,
-                            1,
-                            f"score_{label}",
-                            fontsize=14,
-                            ha="left",
-                            va="bottom",
-                            transform=ax.transAxes,
-                        )
+                    ax.axvline(0.5, ymin=0, ymax=1, color="k", ls="--", lw=2)
 
-                        ax.axvline(0.5, ymin=0, ymax=1, color="k", ls="--", lw=2)
-
-                        self.saver.save(fig, f"score_dist_{sequence}_{label}.pdf")
+                    self.saver.save(fig, f"score_dist_{sequence}_{label}.pdf")
 
     def plot(self) -> None:
         for imtype in ["mis_classified", "correctly_classified"]:

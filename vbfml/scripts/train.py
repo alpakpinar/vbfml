@@ -3,6 +3,7 @@ import copy
 import os
 import re
 import warnings
+import numpy as np
 import pandas as pd
 from datetime import datetime
 
@@ -81,8 +82,8 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
     datasets = select_and_label_datasets(all_datasets, dataset_labels)
     for dataset_info in datasets:
         if re.match(dataset_labels["v_qcd_nlo_17"], dataset_info.name):
-            dataset_info.n_events = 0.01 * dataset_info.n_events
-
+            dataset_info.n_events = int(np.floor(0.01 * dataset_info.n_events))
+        
     # Object containing data for different models
     # (set of features, dropout rate etc.)
     # Loaded from the YML configuration file
