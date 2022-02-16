@@ -104,6 +104,7 @@ class ImageTrainingPlotter(PlotterBase):
     """
     Plotter for image training results, created with ImageTrainingAnalyzer
     """
+    label_encoding: Optional[Dict[str, int]] = None
 
     def plot_confusion_matrix(self, normalize="true"):
         """
@@ -123,7 +124,10 @@ class ImageTrainingPlotter(PlotterBase):
             sample_weight=self.weights.flatten(),
         )
 
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+        disp = ConfusionMatrixDisplay(
+            confusion_matrix=cm,
+            display_labels=self.label_encoding.values(),
+        )
 
         fig, ax = plt.subplots()
         disp.plot(ax=ax)
@@ -306,7 +310,7 @@ class ImageTrainingPlotter(PlotterBase):
                     ax.text(
                         0,
                         1,
-                        f"score_{label}",
+                        f"score_{self.label_encoding[label]}",
                         fontsize=14,
                         ha="left",
                         va="bottom",

@@ -79,6 +79,7 @@ def plot(training_path: str, force_analyze: bool = False):
     if arch == "conv":
         plotter_args["grouped_image_data"] = analyzer.data["grouped_image_data"]
         plotter_args["sample_counts"] = analyzer.data["sample_counts_per_sequence"]
+        plotter_args["label_encoding"] = analyzer.data["label_encoding"]
 
     plotter = plotterInstances[arch](**plotter_args)
     plotter.plot()

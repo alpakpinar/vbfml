@@ -322,6 +322,13 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         # The list of images, scores and truth labels per batch.
         grouped_image_data = []
 
+        # Obtain the label encoding for this sequence (remove duplicates)
+        label_encoding = {}
+        for key, label in sequence.label_encoding.items():
+            if not isinstance(key, int):
+                continue
+            label_encoding[key] = label 
+
         for ibatch in tqdm(
             range(len(sequence)), desc=f"Analyze batches of {sequence_type} sequence"
         ):
@@ -373,12 +380,13 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
                 histograms,
                 grouped_image_data,
                 sample_counts,
+                label_encoding,
                 np.vstack(predicted_scores),
                 np.vstack(validation_scores),
                 np.vstack(sample_weights).flatten(),
             )
 
-        return (histograms, grouped_image_data, sample_counts, [], [], [])
+        return (histograms, grouped_image_data, sample_counts, label_encoding, [], [], [])
 
     def analyze(self):
         """
@@ -405,6 +413,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
                 histogram_out,
                 grouped_image_data,
                 sample_counts,
+                label_encoding,
                 predicted_scores,
                 validation_scores,
                 weights,
@@ -421,3 +430,4 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
             self.data["histograms"] = histograms
             self.data["sample_counts_per_sequence"] = sample_counts_per_sequence
+            self.data["label_encoding"] = label_encoding
