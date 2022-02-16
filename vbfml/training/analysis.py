@@ -311,18 +311,14 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         histograms = {}
         model = self.loader.get_model()
 
-        # Count the occurence of number of classes in the training
-        # and validation sequences
-        counter = Counter()
-
         predicted_scores = []
-        validation_scores = []
+        truth_scores = []
         sample_weights = []
 
         # The list of images, scores and truth labels per batch.
         grouped_image_data = []
 
-        # Obtain the label encoding for this sequence (remove duplicates)
+        # Obtain the label encoding for this sequence
         label_encoding = {}
         for key, label in sequence.label_encoding.items():
             if not isinstance(key, int):
@@ -335,16 +331,19 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
             features, labels_onehot, weights = sequence[ibatch]
             labels = labels_onehot.argmax(axis=1)
 
+            # Count the occurence of number of classes in the training and validation sequences
+            counter = Counter()
             # Count the instances from each class while taking weights into account
             for label, weight in zip(labels, weights):
                 counter.update({label: weight})
 
             scores = model.predict(features)
-            if sequence_type == "validation":
-                predicted_scores.append(scores)
-                validation_scores.append(labels_onehot)
-                sample_weights.append(weights)
+            sample_weights.append(weights)
+            
+            predicted_scores.append(scores)
+            truth_scores.append(labels_onehot)
 
+            if sequence_type == "validation":
                 # Group the images into two:
                 # 1. The ones that the model correctly classified
                 # 2. The ones that are mis-classified
@@ -356,10 +355,6 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
             self._fill_score_histograms(histograms, scores, labels, weights)
 
-        # Normalize the counter values
-        sample_counts = OrderedDict()
-        total_count = sum(counter.values())
-
         def pretty_labels(index):
             """
             0 -> EWK V+jets/VBF H(inv),
@@ -369,31 +364,40 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
                 return "EWK V/VBF H"
             return "QCD V"
 
+        # Normalize the counter values + add the pretty labels
+        sample_counts = OrderedDict()
+        total_count = sum(counter.values())
+
         for key, count in counter.items():
             sample_counts[pretty_labels(key)] = (count / total_count)[0]
 
         # Sort by key
         sample_counts = sorted(sample_counts.items())
-
-        if sequence_type == "validation":
-            return (
-                histograms,
-                grouped_image_data,
-                sample_counts,
-                label_encoding,
-                np.vstack(predicted_scores),
-                np.vstack(validation_scores),
-                np.vstack(sample_weights).flatten(),
-            )
-
-        return (histograms, grouped_image_data, sample_counts, label_encoding, [], [], [])
+        
+        sample_weights = np.vstack(sample_weights).flatten()
+        predicted_scores = np.vstack(predicted_scores)
+        truth_scores = np.vstack(truth_scores)
+        return (
+            histograms,
+            grouped_image_data,
+            sample_counts,
+            label_encoding,
+            predicted_scores,
+            truth_scores,
+            sample_weights,
+        )
 
     def analyze(self):
         """
         Loads all relevant data sets and analyze them.
         """
         histograms = {}
+        sample_weights = {}
         sample_counts_per_sequence = {}
+
+        truth_scores = {}
+        predicted_scores = {}
+
 
         # We'll analyze the training and validation sequences and save histograms
         # for each sequence type.
@@ -414,20 +418,25 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
                 grouped_image_data,
                 sample_counts,
                 label_encoding,
-                predicted_scores,
-                validation_scores,
+                _predicted_scores,
+                _truth_scores,
                 weights,
             ) = self._analyze_sequence(sequence, sequence_type)
 
             histograms[sequence_type] = histogram_out
             sample_counts_per_sequence[sequence_type] = sample_counts
+            sample_weights[sequence_type] = weights
+
+            truth_scores[sequence_type] = _truth_scores
+            predicted_scores[sequence_type] = _predicted_scores
 
             if sequence_type == "validation":
-                self.data["validation_scores"] = validation_scores
-                self.data["predicted_scores"] = predicted_scores
-                self.data["weights"] = weights
                 self.data["grouped_image_data"] = grouped_image_data
 
+            self.data["weights"] = sample_weights
             self.data["histograms"] = histograms
             self.data["sample_counts_per_sequence"] = sample_counts_per_sequence
             self.data["label_encoding"] = label_encoding
+
+            self.data["truth_scores"] = truth_scores
+            self.data["predicted_scores"] = predicted_scores

@@ -72,7 +72,7 @@ def plot(training_path: str, force_analyze: bool = False):
     plotter_args = {
         "weights": analyzer.data["weights"],
         "predicted_scores": analyzer.data["predicted_scores"],
-        "validation_scores": analyzer.data["validation_scores"],
+        "truth_scores": analyzer.data["truth_scores"],
         "histograms": analyzer.data["histograms"],
         "output_directory": output_directory,
     }

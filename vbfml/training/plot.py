@@ -61,9 +61,9 @@ class PlotterBase:
     Base class for plotters.
     """
 
-    weights: "list"
-    predicted_scores: "list"
-    validation_scores: "list"
+    weights: np.ndarray
+    predicted_scores: np.ndarray
+    truth_scores: np.ndarray
     histograms: "Dict[Hist]"
     output_directory: str = "./output"
     grouped_image_data: "Optional[np.array]" = None
@@ -106,7 +106,7 @@ class ImageTrainingPlotter(PlotterBase):
     """
     label_encoding: Optional[Dict[str, int]] = None
 
-    def plot_confusion_matrix(self, normalize="true"):
+    def plot_confusion_matrix(self, normalize: str="true", sequence_type: str="validation"):
         """
         Plots the confusion matrix based on truth and predicted labels,
         as computed on the validation set.
@@ -114,14 +114,14 @@ class ImageTrainingPlotter(PlotterBase):
         Args:
             normalize (str, optional): Whether to normalize the rows in the matrix. Defaults to 'true'.
         """
-        truth_labels = self.validation_scores.argmax(axis=1)
-        predicted_labels = self.predicted_scores.argmax(axis=1)
+        truth_labels = self.truth_scores[sequence_type].argmax(axis=1)
+        predicted_labels = self.predicted_scores[sequence_type].argmax(axis=1)
 
         cm = metrics.confusion_matrix(
             truth_labels,
             predicted_labels,
             normalize=normalize,
-            sample_weight=self.weights.flatten(),
+            sample_weight=self.weights[sequence_type].flatten(),
         )
 
         disp = ConfusionMatrixDisplay(
@@ -131,6 +131,16 @@ class ImageTrainingPlotter(PlotterBase):
 
         fig, ax = plt.subplots()
         disp.plot(ax=ax)
+        ax.text(
+            0,
+            1,
+            f"Sequence: {sequence_type}",
+            fontsize=14,
+            ha="left",
+            va="bottom",
+            transform=ax.transAxes,
+        )
+
         ax.text(
             1,
             1,
@@ -321,6 +331,36 @@ class ImageTrainingPlotter(PlotterBase):
 
                     self.saver.save(fig, f"score_dist_{sequence}_{label}.pdf")
 
+    def plot_weights(self):
+        '''Plots a histogram of weights per class.'''
+        sequence_types = ['training', 'validation']
+        for sequence_type in tqdm(sequence_types, desc='Plotting weights'):
+            labels = self.truth_scores[sequence_type].argmax(axis=1)
+            fig, ax = plt.subplots()
+
+            weights = self.weights[sequence_type]
+
+            bins = np.logspace(-8, 0)
+            for label in [0,1]:
+                ax.hist(
+                    weights[labels == label], 
+                    bins=bins, 
+                    label=self.label_encoding[label],
+                    histtype='step'
+                    )
+            
+            ax.legend(title='Class')
+            
+            ax.set_xscale('log')
+            ax.set_xlim(1e-8, 1e0)
+            ax.set_yscale('log')
+            ax.set_ylim(1e-1, 1e7)
+            
+            ax.set_xlabel(f'Event Weight ({sequence_type})', fontsize=14)
+            ax.set_ylabel('Counts', fontsize=14)
+
+            self.saver.save(fig, f"weight_dist_{sequence_type}.pdf")
+
     def plot(self) -> None:
         for imtype in ["mis_classified", "correctly_classified"]:
             self.plot_images(imtype=imtype)
@@ -328,6 +368,7 @@ class ImageTrainingPlotter(PlotterBase):
         self.plot_scores()
         self.plot_confusion_matrix()
         self.plot_sample_counts()
+        self.plot_weights()
 
 
 @dataclass
@@ -527,30 +568,30 @@ class TrainingHistogramPlotter(PlotterBase):
         for sclass in tqdm(range(score_classes), desc="Plotting ROC curves"):
             # combine batch scores for each class
             p_score = np.array(self.predicted_scores[0][:, sclass])
-            v_score = np.array(self.validation_scores[0][:, sclass])
+            v_score = np.array(self.truth_scores[0][:, sclass])
             sample_weights = np.array(self.weights)
             predicted_scores_combined = p_score
-            validation_scores_combined = v_score
+            truth_scores_combined = v_score
             for batch in range(1, number_batches):
                 sample_weights = np.append(sample_weights, sample_weights)
                 p_score = np.asarray(self.predicted_scores[batch][:, sclass])
-                v_score = np.asarray(self.validation_scores[batch][:, sclass])
+                v_score = np.asarray(self.truth_scores[batch][:, sclass])
                 predicted_scores_combined = np.append(
                     predicted_scores_combined, p_score
                 )
-                validation_scores_combined = np.append(
-                    validation_scores_combined, v_score
+                truth_scores_combined = np.append(
+                    truth_scores_combined, v_score
                 )
             np.reshape(predicted_scores_combined, (len(predicted_scores_combined), 1))
-            np.reshape(validation_scores_combined, (len(validation_scores_combined), 1))
+            np.reshape(truth_scores_combined, (len(truth_scores_combined), 1))
             # make ROC curve
             fpr[sclass], tpr[sclass], thresholds = metrics.roc_curve(
-                validation_scores_combined,
+                truth_scores_combined,
                 predicted_scores_combined,
                 sample_weight=sample_weights,
             )
             auc = metrics.roc_auc_score(
-                validation_scores_combined,
+                truth_scores_combined,
                 predicted_scores_combined,
                 sample_weight=sample_weights,
             )
@@ -613,7 +654,11 @@ def plot_history(history, outdir):
                 marker="o",
             )
 
+            if tag == "Accuracy":
+                ax.axhline(1.0, xmin=0, xmax=1, color='k', ls='--')
+
         ax.legend(title=tag)
+        ax.grid(True)
 
         ax.set_xlabel("Training Time (a.u.)", fontsize=14)
         ax.set_ylabel(tag, fontsize=14)
