@@ -30,7 +30,7 @@ class ImageAccumulator:
         self.loader = TrainingLoader(self.directory)
 
     def _analyze_sequence(
-        self, sequence: MultiDatasetSequence, groupby: str
+        self, sequence: MultiDatasetSequence, groupby: str, label_encoding: Dict[int, str]
     ) -> Dict[str, np.ndarray]:
         """
         Analyzes a specific sequence.
@@ -51,20 +51,20 @@ class ImageAccumulator:
             # Now, we'll groupby the labels (predicted or truth)
             # of the images, and accumulate them
             if groupby == "truth_label":
-                imagedict["class_0"], weightdict["class_0"] = (
+                imagedict[label_encoding[0]], weightdict[label_encoding[0]] = (
                     features[labels == 0],
                     weights[labels == 0],
                 )
-                imagedict["class_1"], weightdict["class_1"] = (
+                imagedict[label_encoding[1]], weightdict[label_encoding[1]] = (
                     features[labels == 1],
                     weights[labels == 1],
                 )
             elif groupby == "predicted_label":
-                imagedict["class_0"], weightdict["class_0"] = (
+                imagedict[label_encoding[0]], weightdict[label_encoding[0]] = (
                     features[predicted_labels == 0],
                     weights[predicted_labels == 0],
                 )
-                imagedict["class_1"], weightdict["class_1"] = (
+                imagedict[label_encoding[1]], weightdict[label_encoding[1]] = (
                     features[predicted_labels == 1],
                     weights[predicted_labels == 1],
                 )
@@ -91,7 +91,14 @@ class ImageAccumulator:
         sequence.batch_size = 10000
         sequence.batch_buffer_size = 1
 
-        self.avg_images = self._analyze_sequence(sequence, groupby=groupby)
+        # Retrieve label encoding for this sequence
+        label_encoding = {}
+        for key, label in sequence.label_encoding.items():
+            if isinstance(key, str):
+                continue
+            label_encoding[key] = label
+
+        self.avg_images = self._analyze_sequence(sequence, groupby=groupby, label_encoding=label_encoding)
 
     def plot(self, groupby: str):
         """
@@ -119,7 +126,7 @@ class ImageAccumulator:
                 1,
                 1,
                 imclass,
-                fontsize=14,
+                fontsize=13,
                 ha="right",
                 va="bottom",
                 transform=ax.transAxes,
@@ -128,7 +135,7 @@ class ImageAccumulator:
                 0,
                 1,
                 f"Grouped by: {groupby}",
-                fontsize=14,
+                fontsize=13,
                 ha="left",
                 va="bottom",
                 transform=ax.transAxes,
