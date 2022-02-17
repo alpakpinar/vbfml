@@ -4,7 +4,7 @@ training_parameters:
   batch_buffer_size: 1000
   scale_features: norm
   shuffle: true
-  train_size: 0.67
+  train_size: 0.8
 validation_parameters:
   batch_size: 1000
   batch_buffer_size: 10

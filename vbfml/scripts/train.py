@@ -195,7 +195,7 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
 @click.option(
     "--steps-per-epoch",
     type=int,
-    default=int(1e3),
+    default=int(2e3),
     help="Number of batches in an epoch.",
 )
 @click.option(
