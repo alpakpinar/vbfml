@@ -176,15 +176,15 @@ class ImageTrainingPlotter(PlotterBase):
         ax.text(
             0,
             1,
-            f"Label: {truth_label}",
+            self.label_encoding[truth_label],
             fontsize=14,
             ha="left",
             va="bottom",
             transform=ax.transAxes,
         )
 
-        score_text = f"""Score for 0: {prediction_scores[0]:.3f}
-        Score for 1: {prediction_scores[1]:.3f}"""
+        score_text = f"""{self.label_encoding[0]}: {prediction_scores[0]:.3f}
+        {self.label_encoding[1]}: {prediction_scores[1]:.3f}"""
 
         ax.text(
             1,
@@ -310,7 +310,7 @@ class ImageTrainingPlotter(PlotterBase):
                     hep.histplot(
                         values / norm,
                         edges,
-                        label=f"class={label}, {sequence}",
+                        label=f"{self.label_encoding[label]}, {sequence}",
                         color=color,
                         ls="-",
                         ax=ax,
@@ -365,7 +365,7 @@ class ImageTrainingPlotter(PlotterBase):
             self.saver.save(fig, f"weight_dist_{sequence_type}.pdf")
 
     def plot(self) -> None:
-        for imtype in ["mis_classified", "correctly_classified"]:
+        for imtype in self.grouped_image_data[0].keys():
             self.plot_images(imtype=imtype)
 
         self.plot_scores()

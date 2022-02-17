@@ -287,22 +287,38 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         Returns a dictionary containing the list of images for both.
         """
         predicted_labels = predicted_scores.argmax(axis=1)
-        mask = predicted_labels != truth_labels
+        wrong_clf = predicted_labels != truth_labels
 
-        # Return data grouped into two:
+        # Return data grouped into a few classes:
         # Mis-classified images and correctly classified images
-        return {
-            "mis_classified": {
+        grouping = {}
+        grouping["mis_classified"] = {
+            "features": features[wrong_clf],
+            "scores": predicted_scores[wrong_clf],
+            "truth_labels": truth_labels[wrong_clf],
+        }
+
+        grouping["correctly_classified"] = {
+            "features": features[~wrong_clf],
+            "scores": predicted_scores[~wrong_clf],
+            "truth_labels": truth_labels[~wrong_clf],
+        }
+
+        # Also take a look at the images where the model strongly predicts wrongly
+        n_classes = predicted_scores.shape[1]
+
+        for i in range(n_classes):
+            scores = predicted_scores[:, i]
+            tag = f"truth_{i}_strongly_mis_clf"
+            mask = (scores < 0.1) & (truth_labels == i)
+
+            grouping[tag] = {
                 "features": features[mask],
                 "scores": predicted_scores[mask],
                 "truth_labels": truth_labels[mask],
-            },
-            "correctly_classified": {
-                "features": features[~mask],
-                "scores": predicted_scores[~mask],
-                "truth_labels": truth_labels[~mask],
-            },
-        }
+            }
+
+        return grouping
 
     def _analyze_sequence(self, sequence: MultiDatasetSequence, sequence_type: str):
         """
