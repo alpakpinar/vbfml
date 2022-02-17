@@ -104,9 +104,12 @@ class ImageTrainingPlotter(PlotterBase):
     """
     Plotter for image training results, created with ImageTrainingAnalyzer
     """
+
     label_encoding: Optional[Dict[str, int]] = None
 
-    def plot_confusion_matrix(self, normalize: str="true", sequence_type: str="validation"):
+    def plot_confusion_matrix(
+        self, normalize: str = "true", sequence_type: str = "validation"
+    ):
         """
         Plots the confusion matrix based on truth and predicted labels,
         as computed on the validation set.
@@ -134,7 +137,7 @@ class ImageTrainingPlotter(PlotterBase):
         ax.text(
             0,
             1,
-            f"Sequence: {sequence_type}",
+            sequence_type,
             fontsize=14,
             ha="left",
             va="bottom",
@@ -254,7 +257,7 @@ class ImageTrainingPlotter(PlotterBase):
 
         etabins = np.linspace(-5, 5, image_shape[0])
         phibins = np.linspace(-np.pi, np.pi, image_shape[1])
-        for idx in tqdm(range(len(images)), desc="Plotting images"):
+        for idx in tqdm(range(len(images)), desc=f"Plotting {imtype} images"):
             fig, ax = plt.subplots()
             cmap = ax.pcolormesh(
                 etabins,
@@ -332,32 +335,32 @@ class ImageTrainingPlotter(PlotterBase):
                     self.saver.save(fig, f"score_dist_{sequence}_{label}.pdf")
 
     def plot_weights(self):
-        '''Plots a histogram of weights per class.'''
-        sequence_types = ['training', 'validation']
-        for sequence_type in tqdm(sequence_types, desc='Plotting weights'):
+        """Plots a histogram of weights per class."""
+        sequence_types = ["training", "validation"]
+        for sequence_type in tqdm(sequence_types, desc="Plotting weights"):
             labels = self.truth_scores[sequence_type].argmax(axis=1)
             fig, ax = plt.subplots()
 
             weights = self.weights[sequence_type]
 
             bins = np.logspace(-8, 0)
-            for label in [0,1]:
+            for label in [0, 1]:
                 ax.hist(
-                    weights[labels == label], 
-                    bins=bins, 
+                    weights[labels == label],
+                    bins=bins,
                     label=self.label_encoding[label],
-                    histtype='step'
-                    )
-            
-            ax.legend(title='Class')
-            
-            ax.set_xscale('log')
+                    histtype="step",
+                )
+
+            ax.legend(title="Class")
+
+            ax.set_xscale("log")
             ax.set_xlim(1e-8, 1e0)
-            ax.set_yscale('log')
+            ax.set_yscale("log")
             ax.set_ylim(1e-1, 1e7)
-            
-            ax.set_xlabel(f'Event Weight ({sequence_type})', fontsize=14)
-            ax.set_ylabel('Counts', fontsize=14)
+
+            ax.set_xlabel(f"Event Weight ({sequence_type})", fontsize=14)
+            ax.set_ylabel("Counts", fontsize=14)
 
             self.saver.save(fig, f"weight_dist_{sequence_type}.pdf")
 
@@ -579,9 +582,7 @@ class TrainingHistogramPlotter(PlotterBase):
                 predicted_scores_combined = np.append(
                     predicted_scores_combined, p_score
                 )
-                truth_scores_combined = np.append(
-                    truth_scores_combined, v_score
-                )
+                truth_scores_combined = np.append(truth_scores_combined, v_score)
             np.reshape(predicted_scores_combined, (len(predicted_scores_combined), 1))
             np.reshape(truth_scores_combined, (len(truth_scores_combined), 1))
             # make ROC curve
@@ -655,7 +656,7 @@ def plot_history(history, outdir):
             )
 
             if tag == "Accuracy":
-                ax.axhline(1.0, xmin=0, xmax=1, color='k', ls='--')
+                ax.axhline(1.0, xmin=0, xmax=1, color="k", ls="--")
 
         ax.legend(title=tag)
         ax.grid(True)

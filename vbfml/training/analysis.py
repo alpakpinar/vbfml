@@ -323,7 +323,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         for key, label in sequence.label_encoding.items():
             if not isinstance(key, int):
                 continue
-            label_encoding[key] = label 
+            label_encoding[key] = label
 
         for ibatch in tqdm(
             range(len(sequence)), desc=f"Analyze batches of {sequence_type} sequence"
@@ -339,7 +339,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
             scores = model.predict(features)
             sample_weights.append(weights)
-            
+
             predicted_scores.append(scores)
             truth_scores.append(labels_onehot)
 
@@ -373,7 +373,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
         # Sort by key
         sample_counts = sorted(sample_counts.items())
-        
+
         sample_weights = np.vstack(sample_weights).flatten()
         predicted_scores = np.vstack(predicted_scores)
         truth_scores = np.vstack(truth_scores)
@@ -397,7 +397,6 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
         truth_scores = {}
         predicted_scores = {}
-
 
         # We'll analyze the training and validation sequences and save histograms
         # for each sequence type.

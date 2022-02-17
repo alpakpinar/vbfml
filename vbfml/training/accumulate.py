@@ -30,7 +30,10 @@ class ImageAccumulator:
         self.loader = TrainingLoader(self.directory)
 
     def _analyze_sequence(
-        self, sequence: MultiDatasetSequence, groupby: str, label_encoding: Dict[int, str]
+        self,
+        sequence: MultiDatasetSequence,
+        groupby: str,
+        label_encoding: Dict[int, str],
     ) -> Dict[str, np.ndarray]:
         """
         Analyzes a specific sequence.
@@ -98,7 +101,9 @@ class ImageAccumulator:
                 continue
             label_encoding[key] = label
 
-        self.avg_images = self._analyze_sequence(sequence, groupby=groupby, label_encoding=label_encoding)
+        self.avg_images = self._analyze_sequence(
+            sequence, groupby=groupby, label_encoding=label_encoding
+        )
 
     def plot(self, groupby: str):
         """
