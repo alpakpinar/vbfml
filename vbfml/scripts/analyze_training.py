@@ -7,7 +7,10 @@ import warnings
 import pandas as pd
 
 from vbfml.training.analysis import TrainingAnalyzer, ImageTrainingAnalyzer
-from vbfml.training.accumulate import ImageAccumulator
+from vbfml.training.accumulate import (
+    ImageAccumulator,
+    ImageAccumulatorFromAnalyzerCache,
+)
 from vbfml.training.data import TrainingLoader
 from vbfml.training.plot import (
     ImageTrainingPlotter,
@@ -86,6 +89,12 @@ def plot(training_path: str, force_analyze: bool = False):
 
     if arch == "dense":
         plotter.plot_covariance(analyzer.data["covariance"])
+
+    accumulator_from_cache = ImageAccumulatorFromAnalyzerCache(
+        analyzer.data["grouped_image_data"], output_directory
+    )
+    accumulator_from_cache.accumulate()
+    accumulator_from_cache.plot()
 
     # Plot training history
     loader = TrainingLoader(training_path)

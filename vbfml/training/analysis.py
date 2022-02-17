@@ -368,7 +368,10 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
                 # 1. The ones that the model correctly classified
                 # 2. The ones that are mis-classified
                 image_data = self._group_images(
-                    features, predicted_scores=scores, truth_labels=labels, weights=weights
+                    features,
+                    predicted_scores=scores,
+                    truth_labels=labels,
+                    weights=weights,
                 )
 
                 grouped_image_data.append(image_data)

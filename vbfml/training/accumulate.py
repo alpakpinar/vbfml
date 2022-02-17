@@ -10,8 +10,81 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm
 from vbfml.input.sequences import MultiDatasetSequence
 from vbfml.training.data import TrainingLoader
+from vbfml.training.analysis import ImageTrainingAnalyzer
 
 pjoin = os.path.join
+
+
+@dataclass
+class ImageAccumulatorFromAnalyzerCache:
+    """
+    Accumulates images loaded from analyzer cache to produce
+    an averaged image.
+    """
+
+    grouped_image_data: List[Dict[str, Dict]]
+    directory: str
+    image_shape: tuple = (40, 20)
+
+    accumulated_images: "dict" = field(default_factory=dict)
+
+    def __post_init__(self):
+        # Look at first batch for now
+        self.grouped_image_data = self.grouped_image_data[0]
+
+    def accumulate(self) -> None:
+        imtypes = self.grouped_image_data.keys()
+
+        # For each image type, compute the mean image and save it
+        for imtype in tqdm(imtypes, desc="Accumulating images from cache"):
+            images = self.grouped_image_data[imtype]["features"]
+            weights = self.grouped_image_data[imtype]["weights"].flatten()
+            self.accumulated_images[imtype] = np.average(
+                images, axis=0, weights=weights
+            )
+
+    def plot(self) -> None:
+        etabins = np.linspace(-5, 5, self.image_shape[0])
+        phibins = np.linspace(-np.pi, np.pi, self.image_shape[1])
+        for imtype in tqdm(
+            self.accumulated_images.keys(), desc="Plottng accumulated images from cache"
+        ):
+            fig, ax = plt.subplots()
+
+            # Reshape the averaged image to 2D and plot
+            im = self.accumulated_images[imtype]
+            im = np.reshape(im, self.image_shape)
+
+            cmap = ax.pcolormesh(
+                etabins,
+                phibins,
+                im.T,
+                norm=matplotlib.colors.LogNorm(vmin=1e-3, vmax=1e-2),
+            )
+
+            cb = fig.colorbar(cmap)
+            cb.set_label("Averaged Weighted Energy per Pixel (GeV)")
+
+            ax.text(
+                1,
+                1,
+                imtype,
+                fontsize=13,
+                ha="right",
+                va="bottom",
+                transform=ax.transAxes,
+            )
+
+            ax.set_xlabel(r"PF Candidate $\eta$")
+            ax.set_ylabel(r"PF Candidate $\phi$")
+
+            outdir = pjoin(self.directory, "accumulated_from_cache")
+            if not os.path.exists(outdir):
+                os.makedirs(outdir)
+
+            outpath = pjoin(outdir, f"accumulated_image_{imtype}.pdf")
+            fig.savefig(outpath)
+            plt.close(fig)
 
 
 @dataclass
