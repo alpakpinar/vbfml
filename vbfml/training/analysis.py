@@ -281,6 +281,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         features: np.ndarray,
         predicted_scores: np.ndarray,
         truth_labels: np.ndarray,
+        weights: np.ndarray,
     ):
         """
         Groups the list of images into "correctly classified" and "mis-classified".
@@ -296,12 +297,14 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
             "features": features[wrong_clf],
             "scores": predicted_scores[wrong_clf],
             "truth_labels": truth_labels[wrong_clf],
+            "weights": weights[wrong_clf],
         }
 
         grouping["correctly_classified"] = {
             "features": features[~wrong_clf],
             "scores": predicted_scores[~wrong_clf],
             "truth_labels": truth_labels[~wrong_clf],
+            "weights": weights[~wrong_clf],
         }
 
         # Also take a look at the images where the model strongly predicts wrongly
@@ -316,6 +319,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
                 "features": features[mask],
                 "scores": predicted_scores[mask],
                 "truth_labels": truth_labels[mask],
+                "weights": weights[mask],
             }
 
         return grouping
@@ -364,7 +368,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
                 # 1. The ones that the model correctly classified
                 # 2. The ones that are mis-classified
                 image_data = self._group_images(
-                    features, predicted_scores=scores, truth_labels=labels
+                    features, predicted_scores=scores, truth_labels=labels, weights=weights
                 )
 
                 grouped_image_data.append(image_data)
