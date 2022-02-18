@@ -310,10 +310,24 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         # Also take a look at the images where the model strongly predicts wrongly
         n_classes = predicted_scores.shape[1]
 
+        # Strongly mis-classified samples
         for i in range(n_classes):
             scores = predicted_scores[:, i]
             tag = f"truth_{i}_strongly_mis_clf"
             mask = (scores < 0.1) & (truth_labels == i)
+
+            grouping[tag] = {
+                "features": features[mask],
+                "scores": predicted_scores[mask],
+                "truth_labels": truth_labels[mask],
+                "weights": weights[mask],
+            }
+
+        # Strongly well-classified samples
+        for i in range(n_classes):
+            scores = predicted_scores[:, i]
+            tag = f"truth_{i}_strongly_clf"
+            mask = (scores > 0.9) & (truth_labels == i)
 
             grouping[tag] = {
                 "features": features[mask],
@@ -432,8 +446,8 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         for sequence_type in ["training", "validation"]:
             sequence = self.loader.get_sequence(sequence_type)
             # sequence.scale_features = "norm"
-            sequence.batch_size = 1000
-            sequence.batch_buffer_size = 10
+            sequence.batch_size = 20000
+            sequence.batch_buffer_size = 1
 
             (
                 histogram_out,
