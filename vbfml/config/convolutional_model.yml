@@ -22,4 +22,4 @@ arch_parameters:
   n_nodes_for_dense: [100]
   image_shape: [40, 20, 1]
   n_classes: 2
-  dropout: 0.
+  dropout: 0.2

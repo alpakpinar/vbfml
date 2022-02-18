@@ -6,8 +6,9 @@ from datetime import datetime
 
 import click
 import tensorflow as tf
+import numpy as np
 from keras import backend as K
-from vbfml.models import sequential_dense_model
+from vbfml.models import sequential_dense_model, sequential_convolutional_model
 from vbfml.training.data import TrainingLoader
 from vbfml.training.input import build_sequence, load_datasets_bucoffea
 from vbfml.training.util import (
@@ -17,6 +18,14 @@ from vbfml.training.util import (
     select_and_label_datasets,
 )
 
+from vbfml.util import (
+    ModelConfiguration,
+    ModelFactory,
+    vbfml_path,
+    git_rev_parse,
+    git_diff,
+    git_diff_staged,
+)
 
 def get_gridsearch_directory(tag: str) -> str:
     return os.path.join("./output", f"gridsearch_{tag}")
@@ -37,39 +46,23 @@ def cli(ctx, tag):
 
 @cli.command()
 @click.pass_context
-def setup(ctx):
+@click.option(
+    "--input-dir",
+    default=vbfml_path("root/2021-11-13_vbfhinv_treesForML"),
+    required=False,
+    help="Input directory containing the ROOT files for training and validation.",
+)
+@click.option(
+    "--model-config",
+    default=vbfml_path("config/convolutional_model.yml"),
+    required=False,
+    help="Path to the .yml file that has the model configuration parameters.",
+)
+def setup(ctx, input_dir: str, model_config: str):
     """
     Creates a new working area. Prerequisite for later training.
     """
-
-    features = [
-        "mjj",
-        "dphijj",
-        "detajj",
-        "mjj_maxmjj",
-        "dphijj_maxmjj",
-        "detajj_maxmjj",
-        "recoil_pt",
-        "dphi_ak40_met",
-        "dphi_ak41_met",
-        "ht",
-        "leadak4_pt",
-        "leadak4_phi",
-        "leadak4_eta",
-        "trailak4_pt",
-        "trailak4_phi",
-        "trailak4_eta",
-        "leadak4_mjjmax_pt",
-        "leadak4_mjjmax_phi",
-        "leadak4_mjjmax_eta",
-        "trailak4_mjjmax_pt",
-        "trailak4_mjjmax_phi",
-        "trailak4_mjjmax_eta",
-    ]
-
-    all_datasets = load_datasets_bucoffea(
-        directory="/data/cms/vbfml/2021-08-25_treesForML_v2/"
-    )
+    all_datasets = load_datasets_bucoffea(directory=input_dir)
 
     dataset_labels = {
         "ewk_17": "(EWK.*2017|VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017)",
@@ -78,30 +71,51 @@ def setup(ctx):
     datasets = select_and_label_datasets(all_datasets, dataset_labels)
     for dataset_info in datasets:
         if re.match(dataset_labels["v_qcd_nlo_17"], dataset_info.name):
-            dataset_info.n_events = 0.01 * dataset_info.n_events
+            dataset_info.n_events = int(np.floor(0.01 * dataset_info.n_events))
+
+    # Object containing data for different models
+    # (set of features, dropout rate etc.)
+    # Loaded from the YML configuration file
+    mconfig = ModelConfiguration(model_config)
+
+    features = mconfig.get("features")
+
+    training_params = mconfig.get("training_parameters")
+    validation_params = mconfig.get("validation_parameters")
 
     training_sequence = build_sequence(
-        datasets=copy.deepcopy(datasets), features=features
+        datasets=copy.deepcopy(datasets),
+        features=features,
+        weight_expression=mconfig.get("weight_expression"),
+        shuffle=training_params["shuffle"],
+        scale_features=training_params["scale_features"],
     )
     validation_sequence = build_sequence(
-        datasets=copy.deepcopy(datasets), features=features
+        datasets=copy.deepcopy(datasets),
+        features=features,
+        weight_expression=mconfig.get("weight_expression"),
+        shuffle=validation_params["shuffle"],
+        scale_features=validation_params["scale_features"],
     )
     normalize_classes(training_sequence)
     normalize_classes(validation_sequence)
 
     # Training sequence
-    training_sequence.read_range = (0.0, 0.5)
-    training_sequence.scale_features = True
+    train_size = training_params["train_size"]
+    
+    training_sequence.read_range = (0.0, train_size)
+    training_sequence.batch_size = training_params["batch_size"]
+    training_sequence.batch_buffer_size = training_params["batch_buffer_size"]
     training_sequence[0]
 
     # Validation sequence
-    validation_sequence.read_range = (0.5, 1.0)
+    validation_sequence.read_range = (train_size, 1.0)
     validation_sequence.scale_features = True
     validation_sequence._feature_scaler = copy.deepcopy(
         training_sequence._feature_scaler
     )
-    validation_sequence.batch_size = 1e6
-    validation_sequence.batch_buffer_size = 10
+    validation_sequence.batch_size = validation_params["batch_size"]
+    validation_sequence.batch_buffer_size = validation_params["batch_buffer_size"]
 
     output_directory = get_gridsearch_directory(ctx.obj["TAG"])
 
@@ -161,6 +175,39 @@ def create_model(learning_rate: float, n_features: int, n_classes: int, dropout:
 
     return model
 
+def create_convolutional_model(dropout: float, l2_reg_factor: float):
+    model = sequential_convolutional_model(
+        n_layers_for_conv=1,
+        n_filters_for_conv=[4],
+        filter_size_for_conv=[4],
+        pool_size_for_conv=[2],
+        n_layers_for_dense=1,
+        n_nodes_for_dense=[100],
+        image_shape=(40,20,1),
+        n_classes=2,
+        dropout=dropout,
+        l2_reg_factor=l2_reg_factor,
+    )
+
+    optimizer = tf.keras.optimizers.Adam(
+        # learning_rate=learning_rate,
+        beta_1=0.9,
+        beta_2=0.999,
+        epsilon=1e-07,
+        amsgrad=False,
+        name="Adam",
+    )
+
+    cce = tf.keras.losses.CategoricalCrossentropy(name="cce")
+
+    model.compile(
+        loss="categorical_crossentropy",
+        optimizer=optimizer,
+        weighted_metrics=["categorical_accuracy", "accuracy", cce.__call__],
+    )
+
+    return model
+
 
 @cli.command()
 @click.pass_context
@@ -170,6 +217,8 @@ def search(ctx):
     """
     output_directory = get_gridsearch_directory(ctx.obj["TAG"])
 
+    # Retrieve the training+validation sequences from the training directory,
+    # which is setup earlier
     loader = TrainingLoader(output_directory)
 
     training_sequence = loader.get_sequence("training")
@@ -181,19 +230,17 @@ def search(ctx):
     features = loader.get_features()
 
     models = {}
-    for learning_rate in [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 1]:
-        for dropout in [0.25, 0.5]:
-            key = f"lr-{learning_rate}_do-{dropout}"
-            models[key] = create_model(
-                learning_rate=learning_rate,
-                n_features=len(features),
-                n_classes=2,
+    for l2_reg_factor in [1e-8, 1e-7, 1e-6]:
+        for dropout in [0, 0.2, 0.4]:
+            key = f"l2-{str(l2_reg_factor)[-1]}_do-{dropout}"
+            models[key] = create_convolutional_model(
                 dropout=dropout,
+                l2_reg_factor=l2_reg_factor,
             )
 
     steps_total = len(training_sequence)
     steps_per_epoch = 1000
-    training_passes = 50
+    training_passes = 10
     epochs = training_passes * steps_total // steps_per_epoch
     validation_freq = epochs // (training_passes)
 

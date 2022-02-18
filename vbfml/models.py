@@ -9,6 +9,7 @@ from tensorflow.keras.layers import (
 )
 
 from tensorflow.keras.models import Sequential
+from tensorflow.keras import regularizers
 
 
 def sequential_dense_model(
@@ -67,6 +68,7 @@ def sequential_convolutional_model(
     n_classes: int,
     dropout: float = 0,
     image_shape: tuple = (40, 20, 1),
+    l2_reg_factor: float = 0,
 ) -> Sequential:
     """Definition of the convolutional neural network model.
 
@@ -101,7 +103,10 @@ def sequential_convolutional_model(
     for ilayer in range(n_layers_for_conv):
         model.add(
             Conv2D(
-                n_filters_for_conv[ilayer], filter_size_for_conv[ilayer], padding="same"
+                n_filters_for_conv[ilayer],
+                filter_size_for_conv[ilayer],
+                padding="same",
+                kernel_regularizer=regularizers.l2(l2_reg_factor),
             )
         )
         model.add(MaxPooling2D(pool_size=pool_size_for_conv[ilayer]))
@@ -109,7 +114,14 @@ def sequential_convolutional_model(
     model.add(Flatten())
 
     for ilayer in range(n_layers_for_dense):
-        model.add(Dense(n_nodes_for_dense[ilayer], activation="relu"))
+        model.add(
+            Dense(
+                n_nodes_for_dense[ilayer],
+                activation="relu",
+                kernel_regularizer=regularizers.l2(l2_reg_factor),
+                bias_regularizer=regularizers.l2(l2_reg_factor),
+            )
+        )
         if dropout:
             model.add(Dropout(rate=dropout))
 
