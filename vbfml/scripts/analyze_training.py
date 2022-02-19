@@ -100,19 +100,12 @@ def plot(training_path: str, force_analyze: bool = False):
     loader = TrainingLoader(training_path)
     plot_history(loader.get_history(), output_directory)
 
-
-@cli.command()
-@click.argument("training_path")
-def accumulate(training_path: str):
-    # This only makes sense if we're looking at image data
-    arch = get_model_arch(training_path)
-    if arch != "conv":
-        raise RuntimeError(f"Cannot accumulate input data for model: {arch}")
-
-    acc = ImageAccumulator(training_path)
-    for groupby in ["truth_label", "predicted_label"]:
-        acc.accumulate(groupby=groupby)
-        acc.plot(groupby=groupby)
+    # Construct+plot accumulated images (only for convNets)
+    if arch == "conv":
+        acc = ImageAccumulator(training_path)
+        for groupby in ["truth_label", "predicted_label"]:
+            acc.accumulate(groupby=groupby)
+            acc.plot(groupby=groupby)
 
 
 if __name__ == "__main__":

@@ -164,7 +164,7 @@ class ImageAccumulator:
         """
         sequence = self.loader.get_sequence(sequence_type)
         sequence.scale_features = "norm"
-        sequence.batch_size = 10000
+        sequence.batch_size = 20000
         sequence.batch_buffer_size = 1
 
         # Retrieve label encoding for this sequence
