@@ -120,41 +120,43 @@ class ImageTrainingPlotter(PlotterBase):
         truth_labels = self.truth_scores[sequence_type].argmax(axis=1)
         predicted_labels = self.predicted_scores[sequence_type].argmax(axis=1)
 
-        cm = metrics.confusion_matrix(
-            truth_labels,
-            predicted_labels,
-            normalize=normalize,
-            sample_weight=self.weights[sequence_type].flatten(),
-        )
+        # Let's plot weighted and unweighted confusion metrics
+        for cmtype in ["weighted", "unweighted"]:
+            cm_args = {"normalize": normalize}
+            if cmtype == "weighted":
+                cm_args["sample_weight"] = self.weights[sequence_type].flatten()
 
-        disp = ConfusionMatrixDisplay(
-            confusion_matrix=cm,
-            display_labels=self.label_encoding.values(),
-        )
+            cm = metrics.confusion_matrix(truth_labels, predicted_labels, **cm_args)
 
-        fig, ax = plt.subplots()
-        disp.plot(ax=ax)
-        ax.text(
-            0,
-            1,
-            sequence_type,
-            fontsize=14,
-            ha="left",
-            va="bottom",
-            transform=ax.transAxes,
-        )
+            fig, ax = plt.subplots()
 
-        ax.text(
-            1,
-            1,
-            f"# of Events: {len(truth_labels)}",
-            fontsize=14,
-            ha="right",
-            va="bottom",
-            transform=ax.transAxes,
-        )
+            disp = ConfusionMatrixDisplay(
+                confusion_matrix=cm,
+                display_labels=self.label_encoding.values(),
+            )
 
-        self.saver.save(fig, "confusion_matrix.pdf")
+            disp.plot(ax=ax)
+            ax.text(
+                0,
+                1,
+                sequence_type,
+                fontsize=14,
+                ha="left",
+                va="bottom",
+                transform=ax.transAxes,
+            )
+
+            ax.text(
+                1,
+                1,
+                f"# of Events: {len(truth_labels)}",
+                fontsize=14,
+                ha="right",
+                va="bottom",
+                transform=ax.transAxes,
+            )
+
+            self.saver.save(fig, f"confusion_matrix_{cmtype}.pdf")
 
     def _add_ax_labels(self, ax: plt.axis):
         """Include axis labels for 2D eta/phi plots.
