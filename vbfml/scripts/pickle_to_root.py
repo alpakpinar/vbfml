@@ -42,18 +42,14 @@ def main():
             continue
 
         # Scout branches
-        inputs = [
-            input
-            for input in data.keys()
-            if re.match("(JetImage.*)|(weight_total)", input)
-        ]
+        inputs = [input for input in data.keys() if input not in ["xs", "sumw"]]
         numevents = len(data[inputs[0]])
 
         # Read weight values necessary to compute normalization factor
         xs = data["xs"]
         sumw = data["sumw"]
 
-        outdir = vbfml_path(f"root/{outtag}")
+        outdir = vbfml_path(f"root/{outtag}/v2")
         if not os.path.exists(outdir):
             os.makedirs(outdir)
         outrootfile = pjoin(outdir, f"tree_{dataset_name}.root")
