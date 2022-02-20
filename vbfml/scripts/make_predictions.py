@@ -61,6 +61,11 @@ def predict(input_files: str, training_path: str):
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
+    # Dump the input file argument to a txt file
+    input_file = pjoin(outdir, "input_root_files.txt")
+    with open(input_file, "w+") as f:
+        f.write(f"{input_files}\n")
+
     for quantity, xlabel in tqdm(quantities_labels.items(), desc="Plotting histograms"):
         fig, ax = plt.subplots()
         n_bins = 50
