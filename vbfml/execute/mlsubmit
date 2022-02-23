@@ -50,12 +50,9 @@ def do_submit(args):
     # Pack the repository for deployment to execution machine
     gridpack_path = pjoin(subdir, 'vbfml.tgz')
     if not os.path.exists(gridpack_path) or args.overwrite:
-        pack_repo(gridpack_path, overwrite=args.overwrite)
+        pack_repo(gridpack_path, args.training_directory, overwrite=args.overwrite)
     
     input_files.append(gridpack_path)
-
-    # Add the training directory to the list of files/directories we want to deploy
-    input_files.append(args.training_directory)
 
     # Submission details!
     filedir = pjoin(subdir, "files")

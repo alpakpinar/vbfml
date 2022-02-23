@@ -22,8 +22,10 @@ def get_repo_files():
     return to_add
 
 
-def pack_repo(path_to_gridpack, overwrite=False):
-    """Creates a gridpack file containing a compressed vbfml repository."""
+def pack_repo(
+    path_to_gridpack: str, training_directory: str = None, overwrite: bool = False
+):
+    """Creates a gridpack file containing a compressed vbfml repository + the training directory."""
     if os.path.exists(path_to_gridpack) and not overwrite:
         raise RuntimeError(
             f"Gridpack file already exists. Will not overwrite {path_to_gridpack} unless 'overwrite=True' is specified."
@@ -35,5 +37,7 @@ def pack_repo(path_to_gridpack, overwrite=False):
             name=f,
             arcname=f.replace(os.path.abspath(vbfml_path("..")), "vbfml"),
         )
+    # Add the training directory to the gridpack
+    tar.add(name=training_directory)
     tar.close()
     return
