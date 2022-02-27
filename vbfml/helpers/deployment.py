@@ -38,6 +38,9 @@ def pack_repo(
             arcname=f.replace(os.path.abspath(vbfml_path("..")), "vbfml"),
         )
     # Add the training directory to the gridpack
-    tar.add(name=training_directory)
+    tar.add(
+        name=training_directory,
+        arcname=training_directory.replace(os.path.abspath(vbfml_path("..")), "vbfml"),
+    )
     tar.close()
     return
