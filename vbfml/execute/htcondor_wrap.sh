@@ -22,6 +22,10 @@ source ${ENVNAME}/bin/activate
 python -m pip install -e vbfml --no-cache-dir
 export PYTHONPATH="${PWD}/${ENVNAME}/lib/python3.9/site-packages":${PYTHONPATH}
 
+TARGET_DIR="vbfml/vbfml"
+echo "Switching to ${TARGET_DIR}"
+cd ${TARGET_DIR}
+
 echo "Directory content---"
 ls -lah .
 echo "===================="
