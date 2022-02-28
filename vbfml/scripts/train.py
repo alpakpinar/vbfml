@@ -21,6 +21,7 @@ from vbfml.training.util import (
     normalize_classes,
     save,
     select_and_label_datasets,
+    PrintingCallback,
 )
 from vbfml.util import (
     ModelConfiguration,
@@ -251,9 +252,10 @@ def train(ctx, steps_per_epoch: int, training_passes: int, learning_rate: float)
         epochs=epochs,
         max_queue_size=0,
         shuffle=False,
+        verbose=0,
         validation_data=validation_sequence,
         validation_freq=validation_freq,
-        callbacks=[checkpoint1, checkpoint2],
+        callbacks=[PrintingCallback()],
     )
 
     model.save(
