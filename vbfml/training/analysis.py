@@ -349,9 +349,6 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         truth_scores = []
         sample_weights = []
 
-        # The list of images, scores and truth labels per batch.
-        grouped_image_data = []
-
         # Obtain the label encoding for this sequence
         label_encoding = {}
         for key, label in sequence.label_encoding.items():
@@ -376,19 +373,6 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
             predicted_scores.append(scores)
             truth_scores.append(labels_onehot)
-
-            if sequence_type == "validation":
-                # Group the images into two:
-                # 1. The ones that the model correctly classified
-                # 2. The ones that are mis-classified
-                image_data = self._group_images(
-                    features,
-                    predicted_scores=scores,
-                    truth_labels=labels,
-                    weights=weights,
-                )
-
-                grouped_image_data.append(image_data)
 
             self._fill_score_histograms(histograms, scores, labels, weights)
 
@@ -416,7 +400,6 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         truth_scores = np.vstack(truth_scores)
         return (
             histograms,
-            grouped_image_data,
             sample_counts,
             label_encoding,
             predicted_scores,
@@ -443,15 +426,14 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         # - List of labels
         # - Score distributions for a given class
 
-        for sequence_type in ["training", "validation"]:
+        for sequence_type in ["validation"]:
             sequence = self.loader.get_sequence(sequence_type)
             # sequence.scale_features = "norm"
-            sequence.batch_size = 20000
+            sequence.batch_size = 10000
             sequence.batch_buffer_size = 1
 
             (
                 histogram_out,
-                grouped_image_data,
                 sample_counts,
                 label_encoding,
                 _predicted_scores,
@@ -465,9 +447,6 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
             truth_scores[sequence_type] = _truth_scores
             predicted_scores[sequence_type] = _predicted_scores
-
-            if sequence_type == "validation":
-                self.data["grouped_image_data"] = grouped_image_data
 
             self.data["weights"] = sample_weights
             self.data["histograms"] = histograms

@@ -66,7 +66,6 @@ class PlotterBase:
     truth_scores: np.ndarray
     histograms: "Dict[Hist]"
     output_directory: str = "./output"
-    grouped_image_data: "Optional[np.array]" = None
     sample_counts: "Optional[Dict]" = None
 
     def __post_init__(self):
@@ -234,56 +233,6 @@ class ImageTrainingPlotter(PlotterBase):
 
         self.saver.save(fig, "sample_counts.pdf")
 
-    def plot_images(
-        self,
-        nevents: int = 5,
-        image_shape: tuple = (40, 20),
-        imtype: str = "mis_classified",
-    ):
-        """
-        Plot several event images together with truth labels and predicted scores.
-
-        Args:
-            nevents (int, optional): Number of events to plot. Defaults to 5.
-            image_shape (tuple, optional): Shape of each event image. Defaults to (40,20).
-            imtype (str, optional): The type of image: mis_classified or correctly_classified.
-        """
-        # self.grouped_image_data contains a list of dictionaries per batch
-        # Get data from the first available batch
-        image_data = self.grouped_image_data[0][imtype]
-        images = image_data["features"][:nevents, :]
-
-        # Reshape images into original size
-        new_shape = (images.shape[0], *image_shape)
-        images = np.reshape(images, new_shape)
-
-        etabins = np.linspace(-5, 5, image_shape[0])
-        phibins = np.linspace(-np.pi, np.pi, image_shape[1])
-        for idx in tqdm(range(len(images)), desc=f"Plotting {imtype} images"):
-            fig, ax = plt.subplots()
-            cmap = ax.pcolormesh(
-                etabins,
-                phibins,
-                images[idx].T,
-                norm=matplotlib.colors.LogNorm(1e-3, 1e0),
-            )
-
-            truth_labels = image_data["truth_labels"]
-            scores = image_data["scores"]
-
-            self._plot_label(ax, truth_labels[idx], scores[idx])
-            self._add_ax_labels(ax)
-
-            cb = fig.colorbar(cmap)
-            cb.set_label("Transformed Pixels")
-
-            outdir = pjoin(self.output_directory, imtype)
-            if not os.path.exists(outdir):
-                os.makedirs(outdir)
-            outpath = pjoin(outdir, f"image_ievent_{idx}.pdf")
-            fig.savefig(outpath)
-            plt.close(fig)
-
     def plot_scores(self):
         """Plots score distributions."""
         for name in tqdm(self.histogram_names, desc="Plotting score histograms"):
@@ -338,7 +287,7 @@ class ImageTrainingPlotter(PlotterBase):
 
     def plot_weights(self):
         """Plots a histogram of weights per class."""
-        sequence_types = ["training", "validation"]
+        sequence_types = self.truth_scores.keys()
         for sequence_type in tqdm(sequence_types, desc="Plotting weights"):
             labels = self.truth_scores[sequence_type].argmax(axis=1)
             fig, ax = plt.subplots()
@@ -367,12 +316,9 @@ class ImageTrainingPlotter(PlotterBase):
             self.saver.save(fig, f"weight_dist_{sequence_type}.pdf")
 
     def plot(self) -> None:
-        for imtype in self.grouped_image_data[0].keys():
-            self.plot_images(imtype=imtype)
-
         self.plot_scores()
         self.plot_confusion_matrix()
-        self.plot_sample_counts()
+        # self.plot_sample_counts()
         self.plot_weights()
 
 

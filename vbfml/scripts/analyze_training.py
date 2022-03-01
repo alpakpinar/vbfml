@@ -80,7 +80,6 @@ def plot(training_path: str, force_analyze: bool = False):
         "output_directory": output_directory,
     }
     if arch == "conv":
-        plotter_args["grouped_image_data"] = analyzer.data["grouped_image_data"]
         plotter_args["sample_counts"] = analyzer.data["sample_counts_per_sequence"]
         plotter_args["label_encoding"] = analyzer.data["label_encoding"]
 
@@ -90,11 +89,11 @@ def plot(training_path: str, force_analyze: bool = False):
     if arch == "dense":
         plotter.plot_covariance(analyzer.data["covariance"])
 
-    accumulator_from_cache = ImageAccumulatorFromAnalyzerCache(
-        analyzer.data["grouped_image_data"], output_directory
-    )
-    accumulator_from_cache.accumulate()
-    accumulator_from_cache.plot()
+    # accumulator_from_cache = ImageAccumulatorFromAnalyzerCache(
+    # analyzer.data["grouped_image_data"], output_directory
+    # )
+    # accumulator_from_cache.accumulate()
+    # accumulator_from_cache.plot()
 
     # Plot training history
     loader = TrainingLoader(training_path)
