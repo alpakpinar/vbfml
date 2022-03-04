@@ -172,6 +172,10 @@ def do_setup(output_directory: str, input_dir: str, model_config: str, frac_qcdv
     save(training_sequence, prepend_path("training_sequence.pkl"))
     save(validation_sequence, prepend_path("validation_sequence.pkl"))
 
+    # Save model type identifier for later uses
+    with open(prepend_path("model_identifier.txt"), "w+") as f:
+        f.write(mconfig.get("architecture"))
+
 
 def create_model(learning_rate: float, n_features: int, n_classes: int, dropout: float):
     model = sequential_dense_model(
