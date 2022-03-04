@@ -2,20 +2,33 @@
 import copy
 import os
 import re
-from datetime import datetime
+import shutil
+import itertools
+import warnings
 
 import click
 import tensorflow as tf
 import numpy as np
+import pandas as pd
+
 from keras import backend as K
+from datetime import datetime
+from tabulate import tabulate
+from typing import List
+from tqdm import tqdm
+
 from vbfml.models import sequential_dense_model, sequential_convolutional_model
 from vbfml.training.data import TrainingLoader
 from vbfml.training.input import build_sequence, load_datasets_bucoffea
+from vbfml.helpers.deployment import pack_repo
+from vbfml.helpers.condor import condor_submit
+
 from vbfml.training.util import (
     append_history,
     normalize_classes,
     save,
     select_and_label_datasets,
+    PrintingCallback,
 )
 
 from vbfml.util import (
@@ -26,6 +39,12 @@ from vbfml.util import (
     git_diff,
     git_diff_staged,
 )
+
+# Ignore pandas performance warnings for now
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+
+# Tensorflow can be more silent
+tf.autograph.set_verbosity(0)
 
 def get_gridsearch_directory(tag: str) -> str:
     return os.path.join("./output", f"gridsearch_{tag}")
@@ -38,14 +57,6 @@ def get_gridsearch_directory(tag: str) -> str:
     required=False,
     help="A string-valued tag used to identify the run. If a run with this tag exists, will use existing run.",
 )
-@click.pass_context
-def cli(ctx, tag):
-    ctx.ensure_object(dict)
-    ctx.obj["TAG"] = tag
-
-
-@cli.command()
-@click.pass_context
 @click.option(
     "--input-dir",
     default=vbfml_path("root/2021-11-13_vbfhinv_treesForML"),
@@ -58,9 +69,25 @@ def cli(ctx, tag):
     required=False,
     help="Path to the .yml file that has the model configuration parameters.",
 )
-def setup(ctx, input_dir: str, model_config: str):
+@click.option(
+    "--frac_qcdv_events",
+    default=0.5,
+    required=False,
+    help="Fraction of the QCD V events to use.",
+)
+@click.pass_context
+def cli(ctx, tag: str, input_dir: str, model_config: str, frac_qcdv_events: float):
+    ctx.ensure_object(dict)
+    ctx.obj["TAG"] = tag
+    ctx.obj["INPUT_DIR"] = input_dir
+    ctx.obj["MODEL_CONFIG"] = model_config
+    ctx.obj["FRAC_QCDV_EVENTS"] = frac_qcdv_events
+
+
+def do_setup(output_directory: str, input_dir: str, model_config: str, frac_qcdv_events: float):
     """
-    Creates a new working area. Prerequisite for later training.
+    Creates a new working area with training and valdation sequences. 
+    Prerequisite for later training.
     """
     all_datasets = load_datasets_bucoffea(directory=input_dir)
 
@@ -69,9 +96,11 @@ def setup(ctx, input_dir: str, model_config: str):
         "v_qcd_nlo_17": "(WJetsToLNu_Pt-\d+To.*|Z\dJetsToNuNu_M-50_LHEFilterPtZ-\d+To\d+)_MatchEWPDG20-amcatnloFXFX_2017",
     }
     datasets = select_and_label_datasets(all_datasets, dataset_labels)
+    # Use X% of QCD V events, as specified from the command line
+    # Default is 50% (should be 3-4 hours runtime on a GPU)
     for dataset_info in datasets:
         if re.match(dataset_labels["v_qcd_nlo_17"], dataset_info.name):
-            dataset_info.n_events = int(np.floor(0.01 * dataset_info.n_events))
+            dataset_info.n_events = int(np.floor(frac_qcdv_events * dataset_info.n_events))
 
     # Object containing data for different models
     # (set of features, dropout rate etc.)
@@ -117,8 +146,6 @@ def setup(ctx, input_dir: str, model_config: str):
     validation_sequence.batch_size = validation_params["batch_size"]
     validation_sequence.batch_buffer_size = validation_params["batch_buffer_size"]
 
-    output_directory = get_gridsearch_directory(ctx.obj["TAG"])
-
     try:
         os.makedirs(output_directory)
     except FileExistsError:
@@ -137,8 +164,6 @@ def setup(ctx, input_dir: str, model_config: str):
             "features.pkl",
         ),
     )
-    with open("features.txt", "w") as f:
-        f.write("\n".join(features) + "\n")
 
     # Training and validation sequences
     # Clear buffer before saving to save space
@@ -175,18 +200,24 @@ def create_model(learning_rate: float, n_features: int, n_classes: int, dropout:
 
     return model
 
-def create_convolutional_model(dropout: float, l2_reg_factor: float):
+def create_convolutional_model(
+    n_layers_for_conv: int,
+    num_filters: int,
+    kernel_size: int,
+    n_layers_for_dense: int,
+    num_nodes_for_dense: int,
+    dropout: float, 
+):
     model = sequential_convolutional_model(
-        n_layers_for_conv=1,
-        n_filters_for_conv=[4],
-        filter_size_for_conv=[4],
+        n_layers_for_conv=n_layers_for_conv,
+        n_filters_for_conv=[num_filters] * n_layers_for_conv,
+        filter_size_for_conv=[kernel_size] * n_layers_for_conv,
         pool_size_for_conv=[2],
-        n_layers_for_dense=1,
-        n_nodes_for_dense=[100],
+        n_layers_for_dense=n_layers_for_dense,
+        n_nodes_for_dense=[num_nodes_for_dense] * n_layers_for_dense,
+        dropout=dropout,
         image_shape=(40,20,1),
         n_classes=2,
-        dropout=dropout,
-        l2_reg_factor=l2_reg_factor,
     )
 
     optimizer = tf.keras.optimizers.Adam(
@@ -211,60 +242,132 @@ def create_convolutional_model(dropout: float, l2_reg_factor: float):
 
 @cli.command()
 @click.pass_context
-def search(ctx):
+@click.option(
+    "--dryrun",
+    is_flag=True,
+    help="Dry run flag, will create the files but won't submit anything."
+)
+@click.option(
+    "--test",
+    is_flag=True,
+    help="Test run flag, will submit only up to 5 jobs."
+)
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    help="""
+    If a model directory already exists, overwrite it. 
+    If this is not specified, that will cause a RuntimeError instead.
+    """
+)
+def search(ctx, dryrun: bool, test: bool, overwrite: bool):
     """
     Run grid search in a previously created working area.
+
+    Will prepare models with the given parameter set, and will send 
+    training jobs to HTcondor to train each model.
     """
+    import htcondor
+
+    NUM_TEST_JOBS = 5
+
     output_directory = get_gridsearch_directory(ctx.obj["TAG"])
 
-    # Retrieve the training+validation sequences from the training directory,
-    # which is setup earlier
-    loader = TrainingLoader(output_directory)
+    # Set up the working area in a temporary directory
+    # We will set up the sequences once and for each model directory,
+    # simply copy the pkl files over.
+    temp_dir = os.path.join(output_directory, "temp")
+    do_setup(
+        output_directory=temp_dir,
+        input_dir=ctx.obj["INPUT_DIR"],
+        model_config=ctx.obj["MODEL_CONFIG"],
+        frac_qcdv_events=ctx.obj["FRAC_QCDV_EVENTS"],
+    )
 
-    training_sequence = loader.get_sequence("training")
-    validation_sequence = loader.get_sequence("validation")
-    assert training_sequence._feature_scaler
-    assert validation_sequence._feature_scaler
-    steps_total = len(training_sequence)
+    param_grid = {
+        'n_layers_for_conv' : [2],
+        'num_filters' : [32, 64],
+        'kernel_size' : [3],
+        'n_layers_for_dense' : [2, 3],
+        'num_nodes_for_dense' : [200, 300],
+        'dropout' : [0.25, 0.5],
+    }
 
-    features = loader.get_features()
+    # Get all possible parameter combinations
+    keys, values = zip(*param_grid.items())
+    combinations = [dict(zip(keys, v)) for v in itertools.product(*values)]
 
     models = {}
-    for l2_reg_factor in [1e-8, 1e-7, 1e-6]:
-        for dropout in [0, 0.2, 0.4]:
-            key = f"l2-{str(l2_reg_factor)[-1]}_do-{dropout}"
-            models[key] = create_convolutional_model(
-                dropout=dropout,
-                l2_reg_factor=l2_reg_factor,
-            )
+    for i in tqdm(range(len(combinations)), desc="Setting up workspaces"):
+        # Only up to 5 jobs are processed for a test run
+        if test and i > NUM_TEST_JOBS - 1:
+            break
+        key = f'model_v{i}'
 
-    steps_total = len(training_sequence)
-    steps_per_epoch = 1000
-    training_passes = 10
-    epochs = training_passes * steps_total // steps_per_epoch
-    validation_freq = epochs // (training_passes)
+        model_directory = os.path.join(output_directory, key)
+        if os.path.exists(model_directory) and not overwrite:
+            raise RuntimeError(f'Model directory already exists: {model_directory}')
 
-    model_directory = os.path.join(output_directory, "models")
-    try:
-        os.makedirs(model_directory)
-    except FileExistsError:
-        pass
-    for key, model in models.items():
-        history = model.fit(
-            x=training_sequence,
-            steps_per_epoch=steps_per_epoch,
-            epochs=epochs,
-            max_queue_size=0,
-            shuffle=False,
-            validation_data=validation_sequence,
-            validation_freq=validation_freq,
-        )
-        model.save(os.path.join(model_directory, key))
+        try:
+            os.makedirs(model_directory)
+        except FileExistsError:
+            pass
+        
+        # Copy over the sequence files to this directory
+        sequence_files = [os.path.join(temp_dir, f) for f in os.listdir(temp_dir) if f.endswith('.pkl')]
+        for f in sequence_files:
+            shutil.copy(f, model_directory)
 
-        history = append_history(
-            {}, model.history.history, validation_frequence=validation_freq
-        )
-        save(history, os.path.join(output_directory, f"history_{key}.pkl"))
+        models[key] = create_convolutional_model(**combinations[i])
+        
+        # Tabulate the model parameters and dump to a file
+        parameters = combinations[i]
+        table = []
+        for k,v in parameters.items():
+            table.append([k,v])
+
+        model_info_file = os.path.join(model_directory, "version.txt")
+        with open(model_info_file, "w+") as f:
+            f.write(f"Model v{i} parameters:\n")
+            f.write(tabulate(table))
+            f.write("\n")
+
+        # Save the model to the relevant directory
+        models[key].save(os.path.join(model_directory, "models", "latest"))
+
+        # List of input files/directories we want to ship to the execution machine
+        input_files = []
+
+        # Pack the repository for deployment to execution machine
+        gridpack_path = os.path.join(model_directory, 'vbfml.tgz')
+        if not os.path.exists(gridpack_path):
+            pack_repo(gridpack_path, os.path.abspath(model_directory))
+        input_files.append(gridpack_path)
+
+        # Submission details
+        filedir = os.path.join(model_directory, "files")
+        if not os.path.exists(filedir):
+            os.makedirs(filedir)
+    
+    # Cleanup the temp directory
+    shutil.rmtree(temp_dir)
+
+    # for key, model in models.items():
+    #     history = model.fit(
+    #         x=training_sequence,
+    #         steps_per_epoch=steps_per_epoch,
+    #         epochs=epochs,
+    #         max_queue_size=0,
+    #         shuffle=False,
+    #         validation_data=validation_sequence,
+    #         validation_freq=validation_freq,
+    #     )
+    #     model.save(os.path.join(model_directory, key))
+
+    #     history = append_history(
+    #         {}, model.history.history, validation_frequence=validation_freq
+    #     )
+    #     save(history, os.path.join(output_directory, f"history_{key}.pkl"))
 
 
 if __name__ == "__main__":
