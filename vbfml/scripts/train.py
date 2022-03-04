@@ -34,6 +34,8 @@ from vbfml.util import (
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
+pjoin = os.path.join
+
 
 def get_training_directory(tag: str) -> str:
     return os.path.join("./output", f"model_{tag}")
@@ -190,6 +192,26 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
         f.write("git diff --staged:\n\n")
         f.write(git_diff_staged() + "\n")
 
+    # Save the arch parameters for this model as a table
+    arch_params = mconfig.get("arch_parameters")
+    table = []
+    for k, v in arch_params.items():
+        table.append([k, v])
+
+    with open(os.path.join(training_directory, "arch.txt"), "w") as f:
+        f.write("Arch parameters:\n\n")
+        f.write(tabulate(table, headers=["Parameter Name", "Parameter Value"]))
+        f.write("\n")
+
+    # Save a plot of the model architecture
+    from keras.utils.vis_utils import plot_model
+
+    plot_dir = os.path.join(training_directory, "plots")
+    if not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
+    plot_file = os.path.join(plot_dir, "model.png")
+    plot_model(model, to_file=plot_file, show_shapes=True, show_layer_names=True)
+
 
 @cli.command()
 @click.pass_context
@@ -208,7 +230,22 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
 @click.option(
     "--learning-rate", type=float, default=None, help="Set new learning rate."
 )
-def train(ctx, steps_per_epoch: int, training_passes: int, learning_rate: float):
+@click.option(
+    "--no-verbose-output",
+    is_flag=True,
+    help="""
+    Do not use the regular Keras output, instead, 
+    use the customized printing callback.
+    Mainly used for HTCondor submissions.
+    """,
+)
+def train(
+    ctx,
+    steps_per_epoch: int,
+    training_passes: int,
+    learning_rate: float,
+    no_verbose_output: bool,
+):
     """
     Train in a previously created working area.
     """
@@ -246,17 +283,23 @@ def train(ctx, steps_per_epoch: int, training_passes: int, learning_rate: float)
 
     validation_freq = 1  # epochs // training_passes
 
-    model.fit(
-        x=training_sequence,
-        steps_per_epoch=steps_per_epoch,
-        epochs=epochs,
-        max_queue_size=0,
-        shuffle=False,
-        verbose=0,
-        validation_data=validation_sequence,
-        validation_freq=validation_freq,
-        callbacks=[PrintingCallback()],
-    )
+    fit_args = {
+        "x": training_sequence,
+        "steps_per_epoch": steps_per_epoch,
+        "epochs": epochs,
+        "max_queue_size": 0,
+        "shuffle": False,
+        "validation_data": validation_sequence,
+        "validation_freq": validation_freq,
+    }
+
+    # Use the less-verbose printing
+    if no_verbose_output:
+        fit_args["verbose"] = 0
+        fit_args["callbacks"] = [PrintingCallback()]
+
+    # Run the training
+    model.fit(**fit_args)
 
     model.save(
         os.path.join(training_directory, "models/latest"), include_optimizer=True

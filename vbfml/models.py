@@ -68,7 +68,6 @@ def sequential_convolutional_model(
     n_classes: int,
     dropout: float = 0,
     image_shape: tuple = (40, 20, 1),
-    l2_reg_factor: float = 0,
 ) -> Sequential:
     """Definition of the convolutional neural network model.
 
@@ -101,16 +100,27 @@ def sequential_convolutional_model(
     model.add(Reshape(image_shape, input_shape=(num_pixels,)))
 
     for ilayer in range(n_layers_for_conv):
+        # We'll use conv+conv+pool architecture
+        # Two convolutional layers followed by one max pooling layer
         model.add(
             Conv2D(
                 n_filters_for_conv[ilayer],
                 filter_size_for_conv[ilayer],
                 padding="same",
-                kernel_regularizer=regularizers.l2(l2_reg_factor),
             )
         )
-        model.add(MaxPooling2D(pool_size=pool_size_for_conv[ilayer]))
+        model.add(
+            Conv2D(
+                n_filters_for_conv[ilayer],
+                filter_size_for_conv[ilayer],
+                padding="same",
+            )
+        )
 
+        model.add(MaxPooling2D(pool_size=2))
+
+    # Flatten the output from convolutional layers
+    # and feed it to the dense network
     model.add(Flatten())
 
     for ilayer in range(n_layers_for_dense):
@@ -118,8 +128,6 @@ def sequential_convolutional_model(
             Dense(
                 n_nodes_for_dense[ilayer],
                 activation="relu",
-                kernel_regularizer=regularizers.l2(l2_reg_factor),
-                bias_regularizer=regularizers.l2(l2_reg_factor),
             )
         )
         if dropout:

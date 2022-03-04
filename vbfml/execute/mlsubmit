@@ -69,6 +69,7 @@ def do_submit(args):
         'train',
         f'--steps-per-epoch {args.steps_per_epoch}',
         f'--training-passes {args.training_passes}',
+        '--no-verbose-output',
     ]
 
     submission_settings = {
