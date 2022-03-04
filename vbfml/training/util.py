@@ -192,10 +192,10 @@ class PrintingCallback(tf.keras.callbacks.Callback):
     )
     """
 
-    SHOW_NUMBER: int = 2
+    SHOW_NUMBER: int = 1
 
     def on_epoch_end(self, epoch, logs=None):
-        if epoch % self.SHOW_NUMBER == 0:
+        if epoch % self.SHOW_NUMBER == 0 or epoch == 0:
             print(
-                f'Epoch: {epoch}, loss: {logs["loss"]}, accuracy: {logs["categorical_accuracy"]}'
+                f'Epoch: {epoch:5} Loss: {logs["loss"]:.4e}, accuracy: {logs["categorical_accuracy"]:.4f}, val_loss: {logs["val_loss"]:.4e}, val_accuracy: {logs["val_categorical_accuracy"]:.4f}'
             )
