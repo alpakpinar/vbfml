@@ -43,15 +43,14 @@ def get_training_directory(tag: str) -> str:
 
 @click.group()
 @click.option(
-    "--tag",
-    default=datetime.now().strftime("%Y-%m-%d_%H-%M"),
-    required=False,
-    help="A string-valued tag used to identify the run. If a run with this tag exists, will use existing run.",
+    "--training-directory",
+    required=True,
+    help="A string for naming the training directory.",
 )
 @click.pass_context
-def cli(ctx, tag):
+def cli(ctx, training_directory):
     ctx.ensure_object(dict)
-    ctx.obj["TAG"] = tag
+    ctx.obj["TRAINING_DIRECTORY"] = training_directory
 
 
 @cli.command()
@@ -149,7 +148,7 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
     )
     model.summary()
 
-    training_directory = get_training_directory(ctx.obj["TAG"])
+    training_directory = ctx.obj["TRAINING_DIRECTORY"]
 
     # The trained model
     model.save(
@@ -249,7 +248,7 @@ def train(
     """
     Train in a previously created working area.
     """
-    training_directory = get_training_directory(ctx.obj["TAG"])
+    training_directory = ctx.obj["TRAINING_DIRECTORY"]
 
     loader = TrainingLoader(training_directory)
 
