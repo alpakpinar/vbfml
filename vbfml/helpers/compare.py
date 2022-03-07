@@ -61,7 +61,7 @@ class HistorySet:
             x, y = history[f"x_{quantity}"], history[f"y_{quantity}"]
             ax.plot(x, y, marker="o", label=key)
 
-        ax.legend(ncols=(len(histories) - 1) // 5)
+        ax.legend(ncols=(len(histories) - 1) // 5 + 1)
         ax.set_xlabel("Training Time (a.u.)", fontsize=14)
         ax.set_ylabel(quantity, fontsize=14)
 
