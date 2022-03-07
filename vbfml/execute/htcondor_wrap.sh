@@ -39,6 +39,11 @@ time ./train.py ${ARGS[@]}
 
 # Move the trained model directory back to the top directory
 # so that it gets transferred
-mv output/model_* ${JOB_DIR}
+
+# mv output/model_* ${JOB_DIR}
+find -name 'model_v*' -type d | xargs -I {} mv {} ${JOB_DIR}
 cd ${JOB_DIR}
+echo "Directory content---"
+ls -lah .
+echo "===================="
 echo "Run done: $(date)"

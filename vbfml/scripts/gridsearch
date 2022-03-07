@@ -329,7 +329,10 @@ def search(
 
     models = {}
     jdl_to_submit = []
-    for i in tqdm(range(len(combinations)), desc="Setting up workspaces"):
+
+    num_jobs = NUM_TEST_JOBS if test else len(combinations)
+
+    for i in tqdm(range(num_jobs), desc="Setting up workspaces"):
         # Only up to 5 jobs are processed for a test run
         if test and i > NUM_TEST_JOBS - 1:
             break
@@ -399,7 +402,7 @@ def search(
         ]
 
         submission_settings = {
-            "Initialdir": model_directory,
+            "Initialdir": output_directory,
             "executable": vbfml_path("execute/htcondor_wrap.sh"),
             "arguments": " ".join(arguments),
             "should_transfer_files": "YES",
