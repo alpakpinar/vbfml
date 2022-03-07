@@ -402,7 +402,7 @@ def search(
         ]
 
         submission_settings = {
-            "Initialdir": output_directory,
+            "Initialdir": os.path.abspath(output_directory),
             "executable": vbfml_path("execute/htcondor_wrap.sh"),
             "arguments": " ".join(arguments),
             "should_transfer_files": "YES",
