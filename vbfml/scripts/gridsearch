@@ -333,9 +333,6 @@ def search(
     num_jobs = NUM_TEST_JOBS if test else len(combinations)
 
     for i in tqdm(range(num_jobs), desc="Setting up workspaces"):
-        # Only up to 5 jobs are processed for a test run
-        if test and i > NUM_TEST_JOBS - 1:
-            break
         key = f"model_v{i}"
 
         model_directory = pjoin(output_directory, key)
