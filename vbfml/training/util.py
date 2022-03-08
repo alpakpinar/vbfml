@@ -4,6 +4,7 @@ from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
 from typing import Dict, List
+from dataclasses import dataclass
 
 import boost_histogram as bh
 import tensorflow as tf
@@ -174,3 +175,27 @@ def append_history(
         new_history[f"x_{key}"] = new_x
         new_history[f"y_{key}"] = new_y
     return new_history
+
+
+@dataclass
+class PrintingCallback(tf.keras.callbacks.Callback):
+    """
+    Keras callback to control training output.
+    Especially useful if we don't want to log the verbose output of Keras to HTCondor logs.
+    To use this callback during model training, use:
+
+    >>> model.fit(
+        ...,
+        verbose=0,
+        callbacks=[PrintingCallback()],
+        ...
+    )
+    """
+
+    SHOW_NUMBER: int = 1
+
+    def on_epoch_end(self, epoch, logs=None):
+        if epoch % self.SHOW_NUMBER == 0 or epoch == 0:
+            print(
+                f'Epoch: {epoch:5} Loss: {logs["loss"]:.4e}, accuracy: {logs["categorical_accuracy"]:.4f}, val_loss: {logs["val_loss"]:.4e}, val_accuracy: {logs["val_categorical_accuracy"]:.4f}'
+            )

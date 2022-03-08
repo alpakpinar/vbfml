@@ -1,8 +1,13 @@
 import os
 import pickle
-from collections import defaultdict
+import keras
+from collections import defaultdict, Counter, OrderedDict
 from dataclasses import dataclass, field
 from typing import Dict, Optional
+
+from sklearn.metrics._plot.confusion_matrix import ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix
+from matplotlib import pyplot as plt
 
 import hist
 import numpy as np
@@ -10,6 +15,8 @@ import sklearn
 from tqdm import tqdm
 from vbfml.input.sequences import MultiDatasetSequence
 from vbfml.training.data import TrainingLoader
+
+pjoin = os.path.join
 
 # Hard coded sane default binnings
 # If it extends more, might warrant
@@ -48,11 +55,10 @@ axis_bins = {
 
 
 @dataclass
-class TrainingAnalyzer:
+class TrainingAnalyzerBase:
     """
-    Analyzer to make histograms based on
-    training / validation / test data sets.
-
+    Base class for training analyzers.
+    Contains methods that are common to all analyzers.
     """
 
     directory: str
@@ -80,6 +86,34 @@ class TrainingAnalyzer:
 
         return histogram
 
+    def _fill_score_histograms(
+        self,
+        histograms: Dict[str, hist.Hist],
+        scores: np.ndarray,
+        labels: np.ndarray,
+        weights: np.ndarray,
+    ) -> None:
+        """Create and fill score histograms.
+
+        Args:
+            histograms (Dict[str, hist.Hist]): The dictionary of histogram objects.
+            scores (np.ndarray): Array of predicted scores.
+            labels (np.ndarray): Array of truth labels.
+            weights (np.ndarray): Array of sample weights.
+        """
+        n_classes = scores.shape[1]
+        for scored_class in range(n_classes):
+            name = f"score_{scored_class}"
+            if not name in histograms:
+                histograms[name] = self._make_histogram(name)
+            histograms[name].fill(
+                **{
+                    name: scores[:, scored_class],
+                    "label": labels,
+                    "weight": weights,
+                }
+            )
+
     def load_from_cache(self) -> bool:
         """Histograms loaded from disk cache."""
         success = False
@@ -97,6 +131,15 @@ class TrainingAnalyzer:
         with open(self.cache, "wb") as f:
             return pickle.dump(self.data, f)
 
+
+@dataclass
+class TrainingAnalyzer(TrainingAnalyzerBase):
+    """
+    Analyzer to make histograms based on
+    training / validation / test data sets.
+
+    """
+
     def analyze(self):
         """
         Loads all relevant data sets and analyze them.
@@ -104,7 +147,7 @@ class TrainingAnalyzer:
         histograms = {}
         for sequence_type in ["training", "validation"]:
             sequence = self.loader.get_sequence(sequence_type)
-            sequence.scale_features = False
+            sequence.scale_features = "none"
             sequence.batch_size = int(1e6)
             sequence.batch_buffer_size = 10
             (
@@ -143,26 +186,6 @@ class TrainingAnalyzer:
                     feature_name: features[:, ifeat].flatten(),
                     "label": labels,
                     "weight": weights.flatten(),
-                }
-            )
-
-    def _fill_score_histograms(
-        self,
-        histograms: Dict[str, hist.Hist],
-        scores: np.ndarray,
-        labels: np.ndarray,
-        weights: np.ndarray,
-    ) -> None:
-        n_classes = scores.shape[1]
-        for scored_class in range(n_classes):
-            name = f"score_{scored_class}"
-            if not name in histograms:
-                histograms[name] = self._make_histogram(name)
-            histograms[name].fill(
-                **{
-                    name: scores[:, scored_class],
-                    "label": labels,
-                    "weight": weights,
                 }
             )
 
@@ -249,3 +272,186 @@ class TrainingAnalyzer:
             # self._fill_composition_histograms(histograms, scores, labels, weights)
 
         return histograms, predicted_scores, validation_scores, weights
+
+
+@dataclass
+class ImageTrainingAnalyzer(TrainingAnalyzerBase):
+    def _group_images(
+        self,
+        features: np.ndarray,
+        predicted_scores: np.ndarray,
+        truth_labels: np.ndarray,
+        weights: np.ndarray,
+    ):
+        """
+        Groups the list of images into "correctly classified" and "mis-classified".
+        Returns a dictionary containing the list of images for both.
+        """
+        predicted_labels = predicted_scores.argmax(axis=1)
+        wrong_clf = predicted_labels != truth_labels
+
+        # Return data grouped into a few classes:
+        # Mis-classified images and correctly classified images
+        grouping = {}
+        grouping["mis_classified"] = {
+            "features": features[wrong_clf],
+            "scores": predicted_scores[wrong_clf],
+            "truth_labels": truth_labels[wrong_clf],
+            "weights": weights[wrong_clf],
+        }
+
+        grouping["correctly_classified"] = {
+            "features": features[~wrong_clf],
+            "scores": predicted_scores[~wrong_clf],
+            "truth_labels": truth_labels[~wrong_clf],
+            "weights": weights[~wrong_clf],
+        }
+
+        # Also take a look at the images where the model strongly predicts wrongly
+        n_classes = predicted_scores.shape[1]
+
+        # Strongly mis-classified samples
+        for i in range(n_classes):
+            scores = predicted_scores[:, i]
+            tag = f"truth_{i}_strongly_mis_clf"
+            mask = (scores < 0.1) & (truth_labels == i)
+
+            grouping[tag] = {
+                "features": features[mask],
+                "scores": predicted_scores[mask],
+                "truth_labels": truth_labels[mask],
+                "weights": weights[mask],
+            }
+
+        # Strongly well-classified samples
+        for i in range(n_classes):
+            scores = predicted_scores[:, i]
+            tag = f"truth_{i}_strongly_clf"
+            mask = (scores > 0.9) & (truth_labels == i)
+
+            grouping[tag] = {
+                "features": features[mask],
+                "scores": predicted_scores[mask],
+                "truth_labels": truth_labels[mask],
+                "weights": weights[mask],
+            }
+
+        return grouping
+
+    def _analyze_sequence(self, sequence: MultiDatasetSequence, sequence_type: str):
+        """
+        Analyzes a specific sequence.
+        """
+        histograms = {}
+        model = self.loader.get_model()
+
+        predicted_scores = []
+        truth_scores = []
+        sample_weights = []
+
+        # Obtain the label encoding for this sequence
+        label_encoding = {}
+        for key, label in sequence.label_encoding.items():
+            if not isinstance(key, int):
+                continue
+            label_encoding[key] = label
+
+        for ibatch in tqdm(
+            range(len(sequence)), desc=f"Analyze batches of {sequence_type} sequence"
+        ):
+            features, labels_onehot, weights = sequence[ibatch]
+            labels = labels_onehot.argmax(axis=1)
+
+            # Count the occurence of number of classes in the training and validation sequences
+            counter = Counter()
+            # Count the instances from each class while taking weights into account
+            for label, weight in zip(labels, weights):
+                counter.update({label: weight})
+
+            scores = model.predict(features)
+            sample_weights.append(weights)
+
+            predicted_scores.append(scores)
+            truth_scores.append(labels_onehot)
+
+            self._fill_score_histograms(histograms, scores, labels, weights)
+
+        def pretty_labels(index):
+            """
+            0 -> EWK V+jets/VBF H(inv),
+            1 -> QCD V+jets
+            """
+            if index == 0:
+                return "EWK V/VBF H"
+            return "QCD V"
+
+        # Normalize the counter values + add the pretty labels
+        sample_counts = OrderedDict()
+        total_count = sum(counter.values())
+
+        for key, count in counter.items():
+            sample_counts[pretty_labels(key)] = (count / total_count)[0]
+
+        # Sort by key
+        sample_counts = sorted(sample_counts.items())
+
+        sample_weights = np.vstack(sample_weights).flatten()
+        predicted_scores = np.vstack(predicted_scores)
+        truth_scores = np.vstack(truth_scores)
+        return (
+            histograms,
+            sample_counts,
+            label_encoding,
+            predicted_scores,
+            truth_scores,
+            sample_weights,
+        )
+
+    def analyze(self):
+        """
+        Loads all relevant data sets and analyze them.
+        """
+        histograms = {}
+        sample_weights = {}
+        sample_counts_per_sequence = {}
+
+        truth_scores = {}
+        predicted_scores = {}
+
+        # We'll analyze the training and validation sequences and save histograms
+        # for each sequence type.
+        # For images, we're typically interested in:
+        # - Features (i.e. list of 40x20 images)
+        # - List of prediction scores
+        # - List of labels
+        # - Score distributions for a given class
+
+        for sequence_type in ["validation"]:
+            sequence = self.loader.get_sequence(sequence_type)
+            # sequence.scale_features = "norm"
+            sequence.batch_size = 10000
+            sequence.batch_buffer_size = 1
+
+            (
+                histogram_out,
+                sample_counts,
+                label_encoding,
+                _predicted_scores,
+                _truth_scores,
+                weights,
+            ) = self._analyze_sequence(sequence, sequence_type)
+
+            histograms[sequence_type] = histogram_out
+            sample_counts_per_sequence[sequence_type] = sample_counts
+            sample_weights[sequence_type] = weights
+
+            truth_scores[sequence_type] = _truth_scores
+            predicted_scores[sequence_type] = _predicted_scores
+
+            self.data["weights"] = sample_weights
+            self.data["histograms"] = histograms
+            self.data["sample_counts_per_sequence"] = sample_counts_per_sequence
+            self.data["label_encoding"] = label_encoding
+
+            self.data["truth_scores"] = truth_scores
+            self.data["predicted_scores"] = predicted_scores

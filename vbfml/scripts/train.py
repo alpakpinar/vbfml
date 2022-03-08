@@ -2,6 +2,9 @@
 import copy
 import os
 import re
+import warnings
+import numpy as np
+import pandas as pd
 from datetime import datetime
 
 import click
@@ -10,7 +13,7 @@ from keras import backend as K
 from tabulate import tabulate
 from tqdm import tqdm
 
-from vbfml.models import sequential_dense_model
+from vbfml.models import sequential_dense_model, sequential_convolutional_model
 from vbfml.training.data import TrainingLoader
 from vbfml.training.input import build_sequence, load_datasets_bucoffea
 from vbfml.training.util import (
@@ -18,7 +21,20 @@ from vbfml.training.util import (
     normalize_classes,
     save,
     select_and_label_datasets,
+    PrintingCallback,
 )
+from vbfml.util import (
+    ModelConfiguration,
+    ModelFactory,
+    vbfml_path,
+    git_rev_parse,
+    git_diff,
+    git_diff_staged,
+)
+
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+
+pjoin = os.path.join
 
 
 def get_training_directory(tag: str) -> str:
@@ -27,15 +43,14 @@ def get_training_directory(tag: str) -> str:
 
 @click.group()
 @click.option(
-    "--tag",
-    default=datetime.now().strftime("%Y-%m-%d_%H-%M"),
-    required=False,
-    help="A string-valued tag used to identify the run. If a run with this tag exists, will use existing run.",
+    "--training-directory",
+    required=True,
+    help="A string for naming the training directory.",
 )
 @click.pass_context
-def cli(ctx, tag):
+def cli(ctx, training_directory):
     ctx.ensure_object(dict)
-    ctx.obj["TAG"] = tag
+    ctx.obj["TRAINING_DIRECTORY"] = training_directory
 
 
 @cli.command()
@@ -44,39 +59,23 @@ def cli(ctx, tag):
     "--learning-rate", default=1e-3, required=False, help="Learning rate for training."
 )
 @click.option("--dropout", default=0.5, required=False, help="Dropout rate.")
-def setup(ctx, learning_rate: float, dropout: float):
+@click.option(
+    "--input-dir",
+    default=vbfml_path("root/2021-11-13_vbfhinv_treesForML"),
+    required=False,
+    help="Input directory containing the ROOT files for training and validation.",
+)
+@click.option(
+    "--model-config",
+    required=True,
+    help="Path to the .yml file that has the model configuration parameters.",
+)
+def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_config: str):
     """
     Creates a new working area. Prerequisite for later training.
     """
 
-    features = [
-        "mjj",
-        "dphijj",
-        "detajj",
-        "mjj_maxmjj",
-        "dphijj_maxmjj",
-        "detajj_maxmjj",
-        "recoil_pt",
-        "dphi_ak40_met",
-        "dphi_ak41_met",
-        "ht",
-        "leadak4_pt",
-        # "leadak4_phi",
-        "leadak4_eta",
-        "trailak4_pt",
-        # "trailak4_phi",
-        "trailak4_eta",
-        "leadak4_mjjmax_pt",
-        # "leadak4_mjjmax_phi",
-        "leadak4_mjjmax_eta",
-        "trailak4_mjjmax_pt",
-        # "trailak4_mjjmax_phi",
-        "trailak4_mjjmax_eta",
-    ]
-
-    all_datasets = load_datasets_bucoffea(
-        directory="/data/cms/vbfml/2021-08-25_treesForML_v2/"
-    )
+    all_datasets = load_datasets_bucoffea(input_dir)
 
     dataset_labels = {
         "ewk_17": "(EWK.*2017|VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017)",
@@ -85,40 +84,54 @@ def setup(ctx, learning_rate: float, dropout: float):
     datasets = select_and_label_datasets(all_datasets, dataset_labels)
     for dataset_info in datasets:
         if re.match(dataset_labels["v_qcd_nlo_17"], dataset_info.name):
-            dataset_info.n_events = 0.01 * dataset_info.n_events
+            dataset_info.n_events = int(np.floor(0.01 * dataset_info.n_events))
+
+    # Object containing data for different models
+    # (set of features, dropout rate etc.)
+    # Loaded from the YML configuration file
+    mconfig = ModelConfiguration(model_config)
+
+    features = mconfig.get("features")
+
+    training_params = mconfig.get("training_parameters")
+    validation_params = mconfig.get("validation_parameters")
 
     training_sequence = build_sequence(
-        datasets=copy.deepcopy(datasets), features=features
+        datasets=copy.deepcopy(datasets),
+        features=features,
+        weight_expression=mconfig.get("weight_expression"),
+        shuffle=training_params["shuffle"],
+        scale_features=training_params["scale_features"],
     )
     validation_sequence = build_sequence(
-        datasets=copy.deepcopy(datasets), features=features
+        datasets=copy.deepcopy(datasets),
+        features=features,
+        weight_expression=mconfig.get("weight_expression"),
+        shuffle=validation_params["shuffle"],
+        scale_features=validation_params["scale_features"],
     )
     normalize_classes(training_sequence)
     normalize_classes(validation_sequence)
+
     # Training sequence
-    training_sequence.read_range = (0.0, 0.5)
-    training_sequence.scale_features = True
-    training_sequence.batch_size = 20
-    training_sequence.batch_buffer_size = 1e6
+    train_size = training_params["train_size"]
+
+    training_sequence.read_range = (0.0, train_size)
+    training_sequence.batch_size = training_params["batch_size"]
+    training_sequence.batch_buffer_size = training_params["batch_buffer_size"]
     training_sequence[0]
 
     # Validation sequence
-    validation_sequence.read_range = (0.5, 1.0)
-    validation_sequence.scale_features = True
+    validation_sequence.read_range = (train_size, 1.0)
     validation_sequence._feature_scaler = copy.deepcopy(
         training_sequence._feature_scaler
     )
-    validation_sequence.batch_size = 1e6
-    validation_sequence.batch_buffer_size = 10
+    validation_sequence.batch_size = validation_params["batch_size"]
+    validation_sequence.batch_buffer_size = validation_params["batch_buffer_size"]
 
     # Build model
-    model = sequential_dense_model(
-        n_layers=3,
-        n_nodes=[4, 4, 2],
-        n_features=len(features),
-        n_classes=len(training_sequence.dataset_labels()),
-        dropout=dropout,
-    )
+    model = ModelFactory.build(mconfig)
+
     optimizer = tf.keras.optimizers.Adam(
         learning_rate=learning_rate,
         beta_1=0.9,
@@ -135,7 +148,7 @@ def setup(ctx, learning_rate: float, dropout: float):
     )
     model.summary()
 
-    training_directory = get_training_directory(ctx.obj["TAG"])
+    training_directory = ctx.obj["TRAINING_DIRECTORY"]
 
     # The trained model
     model.save(
@@ -166,6 +179,38 @@ def setup(ctx, learning_rate: float, dropout: float):
     save(training_sequence, prepend_path("training_sequence.pkl"))
     save(validation_sequence, prepend_path("validation_sequence.pkl"))
 
+    # Save model type identifier for later uses
+    with open(prepend_path("model_identifier.txt"), "w+") as f:
+        f.write(mconfig.get("architecture"))
+
+    # Save repo version information to version.txt
+    with open(os.path.join(training_directory, "version.txt"), "w") as f:
+        f.write(f"Commit hash: {git_rev_parse()}\n")
+        f.write("git diff:\n\n")
+        f.write(git_diff() + "\n")
+        f.write("git diff --staged:\n\n")
+        f.write(git_diff_staged() + "\n")
+
+    # Save the arch parameters for this model as a table
+    arch_params = mconfig.get("arch_parameters")
+    table = []
+    for k, v in arch_params.items():
+        table.append([k, v])
+
+    with open(os.path.join(training_directory, "arch.txt"), "w") as f:
+        f.write("Arch parameters:\n\n")
+        f.write(tabulate(table, headers=["Parameter Name", "Parameter Value"]))
+        f.write("\n")
+
+    # Save a plot of the model architecture
+    from keras.utils.vis_utils import plot_model
+
+    plot_dir = os.path.join(training_directory, "plots")
+    if not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
+    plot_file = os.path.join(plot_dir, "model.png")
+    plot_model(model, to_file=plot_file, show_shapes=True, show_layer_names=True)
+
 
 @cli.command()
 @click.pass_context
@@ -178,17 +223,32 @@ def setup(ctx, learning_rate: float, dropout: float):
 @click.option(
     "--training-passes",
     type=int,
-    default=1,
+    default=10,
     help="Number of iterations through the whole training set.",
 )
 @click.option(
     "--learning-rate", type=float, default=None, help="Set new learning rate."
 )
-def train(ctx, steps_per_epoch: int, training_passes: int, learning_rate: float):
+@click.option(
+    "--no-verbose-output",
+    is_flag=True,
+    help="""
+    Do not use the regular Keras output, instead, 
+    use the customized printing callback.
+    Mainly used for HTCondor submissions.
+    """,
+)
+def train(
+    ctx,
+    steps_per_epoch: int,
+    training_passes: int,
+    learning_rate: float,
+    no_verbose_output: bool,
+):
     """
     Train in a previously created working area.
     """
-    training_directory = get_training_directory(ctx.obj["TAG"])
+    training_directory = ctx.obj["TRAINING_DIRECTORY"]
 
     loader = TrainingLoader(training_directory)
 
@@ -222,16 +282,23 @@ def train(ctx, steps_per_epoch: int, training_passes: int, learning_rate: float)
 
     validation_freq = 1  # epochs // training_passes
 
-    model.fit(
-        x=training_sequence,
-        steps_per_epoch=steps_per_epoch,
-        epochs=epochs,
-        max_queue_size=0,
-        shuffle=False,
-        validation_data=validation_sequence,
-        validation_freq=validation_freq,
-        callbacks=[checkpoint1, checkpoint2],
-    )
+    fit_args = {
+        "x": training_sequence,
+        "steps_per_epoch": steps_per_epoch,
+        "epochs": epochs,
+        "max_queue_size": 0,
+        "shuffle": False,
+        "validation_data": validation_sequence,
+        "validation_freq": validation_freq,
+    }
+
+    # Use the less-verbose printing
+    if no_verbose_output:
+        fit_args["verbose"] = 0
+        fit_args["callbacks"] = [PrintingCallback()]
+
+    # Run the training
+    model.fit(**fit_args)
 
     model.save(
         os.path.join(training_directory, "models/latest"), include_optimizer=True

@@ -19,9 +19,13 @@
 
 Note: Set up a [python virtual environment](https://docs.python.org/3/tutorial/venv.html) before installing to make your life easier.
 
-```
+```bash
 git clone git@github.com:AndreasAlbert/vbfml.git
 python3 -m pip install -e vbfml
+
+# Install pre-commit hooks to automatically
+# format code when committing
+pre-commit install 
 ```
 
 ## Contributing

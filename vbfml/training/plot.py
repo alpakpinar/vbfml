@@ -1,17 +1,24 @@
-from typing import Dict, Tuple, List
 import os
-from dataclasses import dataclass
-import matplotlib
+import warnings
+import matplotlib.colors
+import matplotlib.cbook
 import mplhep as hep
 import numpy as np
+
+from dataclasses import dataclass
+from collections import OrderedDict
+from typing import Dict, Optional, Tuple, List
 from hist import Hist
 from matplotlib import pyplot as plt
+from sklearn.metrics._plot.confusion_matrix import ConfusionMatrixDisplay
 from tqdm import tqdm
-from scipy import integrate
 from sklearn import metrics
-import time
 
-plt.style.use(hep.style.CMS)
+# plt.style.use(hep.style.CMS)
+
+warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
+
+pjoin = os.path.join
 
 
 def keys_to_list(keys):
@@ -29,17 +36,37 @@ colors = ["b", "r", "k", "g"]
 
 
 @dataclass
-class TrainingHistogramPlotter:
+class PlotSaver:
+    outdir: str
+
+    def __post_init__(self):
+        if not os.path.exists(self.outdir):
+            os.makedirs(self.outdir)
+
+    def save(self, fig: plt.figure, outfilename: str):
+        """Save a given figure object.
+
+        Args:
+            fig (plt.figure): The figure object.
+            outfilename (str): The path to save the file.
+        """
+        outpath = pjoin(self.outdir, outfilename)
+        fig.savefig(outpath)
+        plt.close(fig)
+
+
+@dataclass
+class PlotterBase:
     """
-    Tool to make standard plots based on histograms created with
-    the TrainingAnalyzer
+    Base class for plotters.
     """
 
-    weights: "list"
-    predicted_scores: "list"
-    validation_scores: "list"
-    histograms: "list[Hist]"
+    weights: np.ndarray
+    predicted_scores: np.ndarray
+    truth_scores: np.ndarray
+    histograms: "Dict[Hist]"
     output_directory: str = "./output"
+    sample_counts: "Optional[Dict]" = None
 
     def __post_init__(self):
         self.sequence_types = keys_to_list(self.histograms.keys())
@@ -49,6 +76,8 @@ class TrainingHistogramPlotter:
         self.histogram_names = sorted(list(set(histogram_names)))
 
         self.output_directory = os.path.abspath(self.output_directory)
+
+        self.saver = PlotSaver(self.output_directory)
 
     def create_output_directory(self, subdirectory: str) -> None:
         directory = os.path.join(self.output_directory, subdirectory)
@@ -67,6 +96,238 @@ class TrainingHistogramPlotter:
                 sequence_type, histogram_name
             )
         return histograms
+
+
+@dataclass
+class ImageTrainingPlotter(PlotterBase):
+    """
+    Plotter for image training results, created with ImageTrainingAnalyzer
+    """
+
+    label_encoding: Optional[Dict[str, int]] = None
+
+    def plot_confusion_matrix(
+        self, normalize: str = "true", sequence_type: str = "validation"
+    ):
+        """
+        Plots the confusion matrix based on truth and predicted labels,
+        as computed on the validation set.
+
+        Args:
+            normalize (str, optional): Whether to normalize the rows in the matrix. Defaults to 'true'.
+        """
+        truth_labels = self.truth_scores[sequence_type].argmax(axis=1)
+        predicted_labels = self.predicted_scores[sequence_type].argmax(axis=1)
+
+        # Let's plot weighted and unweighted confusion metrics
+        for cmtype in ["weighted", "unweighted"]:
+            cm_args = {"normalize": normalize}
+            if cmtype == "weighted":
+                cm_args["sample_weight"] = self.weights[sequence_type].flatten()
+
+            cm = metrics.confusion_matrix(truth_labels, predicted_labels, **cm_args)
+
+            fig, ax = plt.subplots()
+
+            disp = ConfusionMatrixDisplay(
+                confusion_matrix=cm,
+                display_labels=self.label_encoding.values(),
+            )
+
+            disp.plot(ax=ax)
+            ax.text(
+                0,
+                1,
+                sequence_type,
+                fontsize=14,
+                ha="left",
+                va="bottom",
+                transform=ax.transAxes,
+            )
+
+            ax.text(
+                1,
+                1,
+                f"# of Events: {len(truth_labels)}",
+                fontsize=14,
+                ha="right",
+                va="bottom",
+                transform=ax.transAxes,
+            )
+
+            self.saver.save(fig, f"confusion_matrix_{cmtype}.pdf")
+
+    def _add_ax_labels(self, ax: plt.axis):
+        """Include axis labels for 2D eta/phi plots.
+
+        Args:
+            ax (plt.axis): The ax object to plot on.
+        """
+        ax.set_xlabel(r"PF Candidate $\eta$")
+        ax.set_ylabel(r"PF Candidate $\phi$")
+
+    def _plot_label(self, ax: plt.axis, truth_label: int, prediction_scores: list):
+        """Add label info on the plot.
+
+        Args:
+            ax (plt.axis): The ax object to plot on.
+            truth_label (int): The class label.
+            prediction_scores (int): The predicted class label.
+        """
+        ax.text(
+            0,
+            1,
+            self.label_encoding[truth_label],
+            fontsize=14,
+            ha="left",
+            va="bottom",
+            transform=ax.transAxes,
+        )
+
+        score_text = f"""{self.label_encoding[0]}: {prediction_scores[0]:.3f}
+        {self.label_encoding[1]}: {prediction_scores[1]:.3f}"""
+
+        ax.text(
+            1,
+            1,
+            score_text,
+            fontsize=10,
+            ha="right",
+            va="bottom",
+            transform=ax.transAxes,
+        )
+
+    def plot_sample_counts(self):
+        """
+        Creates a pie chart for the frequency of occurence of each sample class,
+        separately in training and validation sequences.
+        """
+        fig, axes = plt.subplots(1, 2)
+
+        training_sample_counts = self.sample_counts["training"]
+        validation_sample_counts = self.sample_counts["validation"]
+
+        def make_autopct(values):
+            def my_autopct(pct):
+                return f"{pct:.2f}%"
+
+            return my_autopct
+
+        def make_pie_chart(ax, values, labels):
+            """Helper function to make pie chart."""
+            ax.pie(values, labels=labels, autopct=make_autopct(values))
+
+        make_pie_chart(
+            axes[0],
+            values=[x[1] for x in training_sample_counts],
+            labels=[x[0] for x in training_sample_counts],
+        )
+        axes[0].set_title("Training", fontsize=14)
+
+        make_pie_chart(
+            axes[1],
+            values=[x[1] for x in validation_sample_counts],
+            labels=[x[0] for x in validation_sample_counts],
+        )
+        axes[1].set_title("Validation", fontsize=14)
+
+        self.saver.save(fig, "sample_counts.pdf")
+
+    def plot_scores(self):
+        """Plots score distributions."""
+        for name in tqdm(self.histogram_names, desc="Plotting score histograms"):
+            histograms = self.get_histograms_across_sequences(name)
+
+            for sequence, histogram in histograms.items():
+                label_axis = [axis for axis in histogram.axes if axis.name == "label"][
+                    0
+                ]
+
+                for label in label_axis.edges[:-1]:
+                    label = int(label)
+                    color = colors[label % len(colors)]
+
+                    histogram_for_label = histogram[{"label": int(label)}]
+
+                    edges = histogram_for_label.axes[0].edges
+                    values = merge_flow_bins(histogram_for_label.values(flow=True))
+
+                    if np.all(values == 0):
+                        continue
+                    norm = np.sum(values)
+
+                    fig, ax = plt.subplots()
+
+                    hep.histplot(
+                        values / norm,
+                        edges,
+                        label=f"{self.label_encoding[label]}, {sequence}",
+                        color=color,
+                        ls="-",
+                        ax=ax,
+                    )
+
+                    ax.set_xlabel("Score Value")
+                    ax.set_ylabel("Normalized Counts")
+                    ax.legend()
+
+                    ax.text(
+                        0,
+                        1,
+                        f"score_{self.label_encoding[label]}",
+                        fontsize=14,
+                        ha="left",
+                        va="bottom",
+                        transform=ax.transAxes,
+                    )
+
+                    ax.axvline(0.5, ymin=0, ymax=1, color="k", ls="--", lw=2)
+
+                    self.saver.save(fig, f"score_dist_{sequence}_{label}.pdf")
+
+    def plot_weights(self):
+        """Plots a histogram of weights per class."""
+        sequence_types = self.truth_scores.keys()
+        for sequence_type in tqdm(sequence_types, desc="Plotting weights"):
+            labels = self.truth_scores[sequence_type].argmax(axis=1)
+            fig, ax = plt.subplots()
+
+            weights = self.weights[sequence_type]
+
+            bins = np.logspace(-8, 0)
+            for label in [0, 1]:
+                ax.hist(
+                    weights[labels == label],
+                    bins=bins,
+                    label=self.label_encoding[label],
+                    histtype="step",
+                )
+
+            ax.legend(title="Class")
+
+            ax.set_xscale("log")
+            ax.set_xlim(1e-8, 1e0)
+            ax.set_yscale("log")
+            ax.set_ylim(1e-1, 1e7)
+
+            ax.set_xlabel(f"Event Weight ({sequence_type})", fontsize=14)
+            ax.set_ylabel("Counts", fontsize=14)
+
+            self.saver.save(fig, f"weight_dist_{sequence_type}.pdf")
+
+    def plot(self) -> None:
+        self.plot_scores()
+        self.plot_confusion_matrix()
+        # self.plot_sample_counts()
+        self.plot_weights()
+
+
+@dataclass
+class TrainingHistogramPlotter(PlotterBase):
+    """
+    Tool to make standard plots based on histograms created with
+    the TrainingAnalyzer
+    """
 
     def plot_by_sequence_types(self) -> None:
         """
@@ -258,30 +519,28 @@ class TrainingHistogramPlotter:
         for sclass in tqdm(range(score_classes), desc="Plotting ROC curves"):
             # combine batch scores for each class
             p_score = np.array(self.predicted_scores[0][:, sclass])
-            v_score = np.array(self.validation_scores[0][:, sclass])
+            v_score = np.array(self.truth_scores[0][:, sclass])
             sample_weights = np.array(self.weights)
             predicted_scores_combined = p_score
-            validation_scores_combined = v_score
+            truth_scores_combined = v_score
             for batch in range(1, number_batches):
                 sample_weights = np.append(sample_weights, sample_weights)
                 p_score = np.asarray(self.predicted_scores[batch][:, sclass])
-                v_score = np.asarray(self.validation_scores[batch][:, sclass])
+                v_score = np.asarray(self.truth_scores[batch][:, sclass])
                 predicted_scores_combined = np.append(
                     predicted_scores_combined, p_score
                 )
-                validation_scores_combined = np.append(
-                    validation_scores_combined, v_score
-                )
+                truth_scores_combined = np.append(truth_scores_combined, v_score)
             np.reshape(predicted_scores_combined, (len(predicted_scores_combined), 1))
-            np.reshape(validation_scores_combined, (len(validation_scores_combined), 1))
+            np.reshape(truth_scores_combined, (len(truth_scores_combined), 1))
             # make ROC curve
             fpr[sclass], tpr[sclass], thresholds = metrics.roc_curve(
-                validation_scores_combined,
+                truth_scores_combined,
                 predicted_scores_combined,
                 sample_weight=sample_weights,
             )
             auc = metrics.roc_auc_score(
-                validation_scores_combined,
+                truth_scores_combined,
                 predicted_scores_combined,
                 sample_weight=sample_weights,
             )
@@ -305,60 +564,59 @@ class TrainingHistogramPlotter:
 
 
 def plot_history(history, outdir):
+    """Utility function to plot loss and accuracy metrics."""
+    outdir = os.path.join(outdir, "history")
+    try:
+        os.makedirs(outdir)
+    except FileExistsError:
+        pass
 
-    fig = plt.figure(figsize=(12, 10))
-    ax = plt.gca()
-
-    accuracy_types = [
-        key for key in history.keys() if "acc" in key and not "val" in key
+    loss_metrics = [
+        ("Training", "x_loss", "y_loss"),
+        ("Validation", "x_val_loss", "y_val_loss"),
     ]
-    accuracy_types = [x.replace("x_", "").replace("y_", "") for x in accuracy_types]
 
-    for accuracy_type in tqdm(accuracy_types, desc="Plotting History"):
-        ax.plot(
-            history["x_loss"],
-            history["y_loss"],
-            color="b",
-            ls="--",
-            marker="s",
-            label="Training",
-        )
-        ax.plot(
-            history["x_val_loss"],
-            history["y_val_loss"],
-            color="b",
-            label="Validation",
-            marker="o",
-        )
+    acc_metrics = [
+        ("Training", "x_categorical_accuracy", "y_categorical_accuracy"),
+        ("Validation", "x_val_categorical_accuracy", "y_val_categorical_accuracy"),
+    ]
 
-        ax2 = ax.twinx()
-        ax2.plot(
-            history[f"x_{accuracy_type}"],
-            history[f"y_{accuracy_type}"],
-            color="r",
-            ls="--",
-            marker="s",
-            label="Training",
-        )
-        ax2.plot(
-            history[f"x_val_{accuracy_type}"],
-            history[f"y_val_{accuracy_type}"],
-            color="r",
-            label="Validation",
-            marker="o",
-        )
-        ax.set_xlabel("Training time (a.u.)")
-        ax.set_ylabel("Loss")
-        ax.set_yscale("log")
-        ax2.set_ylabel(f"Accuracy ({accuracy_type})")
-        ax2.set_ylim(0, 1)
-        ax.legend(title="Loss")
-        ax2.legend(title="Accuracy")
-        outdir = os.path.join(outdir, "history")
-        try:
-            os.makedirs(outdir)
-        except FileExistsError:
-            pass
+    metrics = {"Loss": loss_metrics, "Accuracy": acc_metrics}
 
-        for ext in "png", "pdf":
-            fig.savefig(os.path.join(outdir, f"history_{accuracy_type}.{ext}"))
+    def shift_by_one(xlist):
+        return [x + 1 for x in xlist]
+
+    for tag, metriclist in tqdm(metrics.items(), desc="Plotting history"):
+        fig, ax = plt.subplots()
+
+        for label, metric_x, metric_y in metriclist:
+            # Annoyting: x_loss and x_val_loss shift by one (same for accuracy)
+            # Fix that here before plotting
+
+            if label == "Training":
+                history[metric_x] = shift_by_one(history[metric_x])
+
+            ax.plot(
+                history[metric_x],
+                history[metric_y],
+                label=label,
+                marker="o",
+            )
+
+            if tag == "Accuracy":
+                ax.axhline(1.0, xmin=0, xmax=1, color="k", ls="--")
+
+        ax.legend(title=tag)
+        ax.grid(True)
+
+        ax.set_xlabel("Training Time (a.u.)", fontsize=14)
+        ax.set_ylabel(tag, fontsize=14)
+
+        if tag == "Loss":
+            ax.set_yscale("log")
+        else:
+            ax.set_ylim(0, 1.1)
+
+        outpath = os.path.join(outdir, f"history_{tag.lower()}.pdf")
+        fig.savefig(outpath)
+        plt.close(fig)

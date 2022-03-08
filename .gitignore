@@ -9,3 +9,6 @@ bkp*
 .coverage
 output/
 logs/
+pkl/
+root/
+submission/
