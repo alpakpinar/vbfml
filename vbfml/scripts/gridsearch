@@ -258,7 +258,7 @@ def create_convolutional_model(
 @click.option(
     "--steps-per-epoch",
     type=int,
-    default=int(1e3),
+    default=int(1e4),
     help="Number of batches in an epoch.",
 )
 @click.option(
