@@ -346,7 +346,7 @@ def search(
 
         # Copy over the sequence files to this directory
         sequence_files = [
-            pjoin(temp_dir, f) for f in os.listdir(temp_dir) if f.endswith(".pkl")
+            pjoin(temp_dir, f) for f in os.listdir(temp_dir) if f.endswith(".pkl") or f.endswith(".txt")
         ]
         for f in sequence_files:
             shutil.copy(f, model_directory)
