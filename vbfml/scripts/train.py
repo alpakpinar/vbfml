@@ -43,6 +43,7 @@ def get_training_directory(tag: str) -> str:
 
 @click.group()
 @click.option(
+    "-d",
     "--training-directory",
     required=True,
     help="A string for naming the training directory.",
