@@ -411,7 +411,7 @@ def search(
             "log": os.path.abspath(pjoin(filedir, "log.txt")),
             "request_cpus": 1,
             "request_memory": 2500,
-            "+MaxRuntime": f"{60*60*24}",
+            "+MaxRuntime": f"{60*60*48}",
             # "on_exit_remove" : "((ExitBySignal == False) && (ExitCode == 0)) || (NumJobStarts >= 2)",
             # "request_GPUs": 1,
         }
