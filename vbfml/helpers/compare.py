@@ -39,42 +39,51 @@ class HistorySet:
                 continue
 
     def plot(
-        self, quantity: str = "loss", model_range: Tuple[int, int] = (0, -1)
+        self,
+        quantity: str = "loss",
+        max_plots: int = 5,
     ) -> None:
         """
         For the set of models, plot the training metric (quantity).
-        model_range argument can be specified if only a subset of models
-        are to be plotted on the same plot.
+        max_plots argument specifies the maximum number of plots allowed in the same figure.
         """
         if len(self) == 0:
             raise RuntimeError(
                 "No histories found, did you forget to call accumulate_histories()?"
             )
 
-        model_range_start, model_range_end = model_range
-        if model_range_end > 0 and model_range_end < len(dirs):
-            histories = list(self.histories.items())[model_range_start:model_range_end]
-            histories = dict(histories)
+        # If we have many history sets, divide them into separate figures
+        # to avoid cluttering
+        if len(self) <= max_plots:
+            histories_to_plot = [list(self.histories.items())]
+        else:
+            histories_to_plot = []
+            num_figs = len(self) // max_plots + 1
+            for i in range(num_figs):
+                start, end = i * max_plots, (i + 1) * max_plots
+                histories_to_plot.append(list(self.histories.items())[start:end])
 
-        fig, ax = plt.subplots()
-        for key, history in self.histories.items():
-            x, y = history[f"x_{quantity}"], history[f"y_{quantity}"]
-            ax.plot(x, y, marker="o", label=key)
+        for ifig, _history in enumerate(histories_to_plot):
+            histories = dict(_history)
+            fig, ax = plt.subplots()
 
-        ax.legend(ncol=(len(self.histories) - 1) // 5 + 1)
-        ax.set_xlabel("Training Time (a.u.)", fontsize=14)
-        ax.set_ylabel(quantity, fontsize=14)
+            for key, history in histories.items():
+                x, y = history[f"x_{quantity}"], history[f"y_{quantity}"]
+                ax.plot(x, y, marker="o", label=key)
 
-        if "loss" in quantity:
-            ax.set_yscale("log")
-            ax.set_ylim(3e-5, 8e-5)
-        elif "accuracy" in quantity:
-            ax.set_ylim(0, 1.1)
+            ax.legend()
+            ax.set_xlabel("Training Time (a.u.)", fontsize=14)
+            ax.set_ylabel(quantity, fontsize=14)
 
-        # Save figure
-        outdir = pjoin(self.output_directory, "plots")
-        if not os.path.exists(outdir):
-            os.makedirs(outdir)
-        outpath = pjoin(outdir, f"{quantity}.pdf")
-        fig.savefig(outpath)
-        plt.close(fig)
+            if "loss" in quantity:
+                ax.set_yscale("log")
+            elif "accuracy" in quantity:
+                ax.set_ylim(0, 1.1)
+
+            # Save figure
+            outdir = pjoin(self.output_directory, "plots")
+            if not os.path.exists(outdir):
+                os.makedirs(outdir)
+            outpath = pjoin(outdir, f"{quantity}_{ifig}.pdf")
+            fig.savefig(outpath)
+            plt.close(fig)

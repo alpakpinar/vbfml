@@ -35,7 +35,7 @@ def main():
         "val_categorical_accuracy",
     ]
     for quantity in tqdm(quantities, desc="Plotting training metrics"):
-        h.plot(quantity)
+        h.plot(quantity, max_plots=5)
 
 
 if __name__ == "__main__":
