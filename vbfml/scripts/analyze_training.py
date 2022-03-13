@@ -8,7 +8,6 @@ import pandas as pd
 
 from vbfml.training.analysis import TrainingAnalyzer, ImageTrainingAnalyzer
 from vbfml.training.accumulate import (
-    ImageAccumulator,
     ImageAccumulatorFromAnalyzerCache,
 )
 from vbfml.training.data import TrainingLoader
@@ -98,13 +97,6 @@ def plot(training_path: str, force_analyze: bool = False):
     # Plot training history
     loader = TrainingLoader(training_path)
     plot_history(loader.get_history(), output_directory)
-
-    # Construct+plot accumulated images (only for convNets)
-    if arch == "conv":
-        acc = ImageAccumulator(training_path)
-        for groupby in ["truth_label", "predicted_label"]:
-            acc.accumulate(groupby=groupby)
-            acc.plot(groupby=groupby)
 
 
 if __name__ == "__main__":
