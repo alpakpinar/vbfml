@@ -568,6 +568,78 @@ class TrainingHistogramPlotter(PlotterBase):
                 fig.savefig(os.path.join(outdir, f"ROC_score_{sclass}.{ext}"))
 
 
+@dataclass
+class ImagePlotter:
+    n_eta_bins: int = 40
+    n_phi_bins: int = 20
+    eta_range: Tuple[float] = (-5, 5)
+    phi_range: Tuple[float] = (-np.pi, np.pi)
+
+    def _reshape(self, image: np.ndarray) -> np.ndarray:
+        im_shape = (self.n_eta_bins, self.n_phi_bins)
+        return image.reshape(im_shape)
+
+    def plot(
+        self,
+        image: np.ndarray,
+        outdir: str,
+        filename: str,
+        vmin: Optional[float] = 1e-2,
+        vmax: Optional[float] = 1e1,
+        cbar_label: Optional[str] = None,
+        left_label: Optional[str] = None,
+        right_label: Optional[str] = None,
+    ) -> None:
+        """
+        Plots and saves the image as PDF.
+        """
+        image = self._reshape(image)
+
+        fig, ax = plt.subplots()
+        eta_bins = np.linspace(self.eta_range[0], self.eta_range[1], self.n_eta_bins)
+        phi_bins = np.linspace(self.phi_range[0], self.phi_range[1], self.n_phi_bins)
+
+        cmap = ax.pcolormesh(
+            eta_bins, phi_bins, image.T, norm=matplotlib.colors.LogNorm(vmin, vmax)
+        )
+
+        ax.set_xlabel(r"PF Candidate $\eta$", fontsize=14)
+        ax.set_ylabel(r"PF Candidate $\phi$", fontsize=14)
+
+        cb = fig.colorbar(cmap)
+        if cbar_label:
+            cb.set_label(cbar_label, fontsize=14)
+
+        if left_label:
+            ax.text(
+                0,
+                1,
+                left_label,
+                fontsize=14,
+                ha="left",
+                va="bottom",
+                transform=ax.transAxes,
+            )
+
+        if right_label:
+            ax.text(
+                1,
+                1,
+                right_label,
+                fontsize=14,
+                ha="right",
+                va="bottom",
+                transform=ax.transAxes,
+            )
+
+        # Save the figure
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+        outpath = pjoin(outdir, filename)
+        fig.savefig(outpath)
+        plt.close(fig)
+
+
 def plot_history(history, outdir):
     """Utility function to plot loss and accuracy metrics."""
     outdir = os.path.join(outdir, "history")
