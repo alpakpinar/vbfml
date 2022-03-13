@@ -13,32 +13,13 @@ from glob import glob
 from pprint import pprint
 from tqdm import tqdm
 
+from vbfml.util import get_process_tag_from_file
 from vbfml.training.data import TrainingLoader
 from vbfml.input.uproot import UprootReaderMultiFile
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
 pjoin = os.path.join
-
-
-def get_process_tag_from_file(filename: str) -> str:
-    """
-    Given a ROOT filename, return the process tag showing
-    the ground truth for this process (e.g. EWK Z(vv)).
-    """
-    basename = os.path.basename(filename)
-    mapping = {
-        ".*VBF_HToInv.*M125.*": "VBF Hinv",
-        ".*EWKZ2Jets.*ZToNuNu.*": "EWK Zvv",
-        ".*Z\dJetsToNuNu.*PtZ.*": "QCD Zvv",
-        ".*WJetsToLNu_Pt.*": "QCD Wlv",
-    }
-
-    for regex, label in mapping.items():
-        if re.match(regex, basename):
-            return label
-
-    raise RuntimeError(f"Could not find a process tag for file: {basename}")
 
 
 @click.group()

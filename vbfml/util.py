@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import os
+import re
 import yaml
 import vbfml
 import pandas as pd
@@ -27,6 +28,26 @@ def git_diff():
 
 def git_diff_staged():
     return subprocess.check_output(["git", "diff", "--staged"]).decode("utf-8")
+
+
+def get_process_tag_from_file(filename: str) -> str:
+    """
+    Given a ROOT filename, return the process tag showing
+    the ground truth for this process (e.g. EWK Z(vv)).
+    """
+    basename = os.path.basename(filename)
+    mapping = {
+        ".*VBF_HToInv.*M125.*": "VBF Hinv",
+        ".*EWKZ2Jets.*ZToNuNu.*": "EWK Zvv",
+        ".*Z\dJetsToNuNu.*PtZ.*": "QCD Zvv",
+        ".*WJetsToLNu_Pt.*": "QCD Wlv",
+    }
+
+    for regex, label in mapping.items():
+        if re.match(regex, basename):
+            return label
+
+    raise RuntimeError(f"Could not find a process tag for file: {basename}")
 
 
 @dataclass

@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+import copy
+import os
+import re
+import warnings
+import click
+import pickle
+
+import tensorflow as tf
+import numpy as np
+import pandas as pd
+
+from tqdm import tqdm
+from matplotlib import pyplot as plt
+from typing import Tuple
+
+from vbfml.util import get_process_tag_from_file
+from vbfml.training.data import TrainingLoader
+from vbfml.training.plot import ImagePlotter
+from vbfml.input.uproot import UprootReaderMultiFile
+
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+
+pjoin = os.path.join
+
+
+def gather_data(input_dir: str) -> Tuple:
+    """
+    Load data from pickle caches and return.
+    """
+    with open(pjoin(input_dir, "df_non_feature.pkl"), "rb") as f:
+        df = pickle.load(f) 
+
+    with open(pjoin(input_dir, "predictions.pkl"), "rb") as f:
+        predictions = pickle.load(f)
+    
+    return df, predictions
+
+@click.group()
+def cli():
+    pass
+
+
+@cli.command()
+@click.pass_context
+@click.argument("input_file")
+@click.argument("model_path")
+@click.option(
+    "-n",
+    "--n-events",
+    required=False,
+    default=int(1e4),
+    help="Number of events to process.",
+)
+def predict(ctx, input_file: str, model_path: str, n_events: int) -> None:
+    """
+    Read n_events # of events from the input_file, make predictions
+    with the pre-trained model (read from model_path) and save the
+    predictions.
+    """
+    loader = TrainingLoader(model_path)
+    model = loader.get_model()
+
+    # Process tag
+    process_tag = get_process_tag_from_file(input_file)
+    print(f"Tag for the process   : {process_tag}")
+    print(f"# of events to read   : {n_events}")
+
+    reader = UprootReaderMultiFile(files=[input_file], branches=None, treename="sr_vbf")
+    df = reader.read_events(0, n_events)
+
+    # Add weight column
+    df["weight"] = df["weight_total"] * df["xs"] / df["sumw"]
+
+    # Feature columns
+    image_pixels = df.filter(regex="JetIm.*pixels.*").to_numpy()
+
+    # Get the rest of the dataframe and save it for later use
+    df_non_feature = df[df.columns.drop(list(df.filter(regex="(JetImage|xs|sumw|weight_total).*")))]
+
+    # Make predictions with the pre-trained model
+    predictions = model.predict(image_pixels).argmax(axis=1)
+
+    outdir = pjoin(
+        model_path, f"predictions_{process_tag.replace(' ', '_').lower()}"
+    )
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    # Dump the input file argument to a txt file
+    input_list_file = pjoin(outdir, "input_root_files.txt")
+    with open(input_list_file, "w+") as f:
+        f.write(f"{input_file}\n")
+    
+    # Save dataframe with high-level features (e.g. mjj)
+    df_cache = pjoin(outdir, "df_non_feature.pkl")
+    with open(df_cache, 'wb+') as f:
+        pickle.dump(df_non_feature, f)
+
+    # Save the predictions into a pkl file
+    cache = pjoin(outdir, "predictions.pkl")
+    with open(cache, 'wb+') as f:
+        pickle.dump(predictions, f)
+
+    # Also save the image arrays for later use
+    images_cache = pjoin(outdir, "images.pkl")
+    with open(images_cache, 'wb+') as f:
+        pickle.dump(image_pixels, f)
+
+
+@cli.command()
+@click.pass_context
+@click.argument("input_dir")
+def plot(ctx, input_dir: str) -> None:
+    """
+    Make histogram of high-level features, split by the predicted class,
+    and plot the histograms.
+    """
+    # Gather the data
+    df, predictions = gather_data(input_dir)
+
+    with open(pjoin(input_dir, "input_root_files.txt"), "r") as f:
+        inputfile = f.readlines()[0]
+
+    process_tag = get_process_tag_from_file(inputfile)
+
+    outdir = pjoin(input_dir, "plots")
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    # Based on the predictions, we make histograms for different classes
+    quantities = {
+        "mjj": (r"$M_{jj} \ (GeV)$", np.linspace(200, 5200)),
+        "detajj": (r"$\Delta \eta_{jj}$", np.linspace(1, 10)),
+        "leadak4_eta": (r"Leading Jet $\eta$", np.linspace(-5, 5)),
+        "trailak4_eta": (r"Trailing Jet $\eta$", np.linspace(-5, 5)),
+    }
+
+    for quantity, (xlabel, bins) in tqdm(
+        quantities.items(), desc="Plotting histograms"
+    ):
+        fig, ax = plt.subplots()
+        for icls, sample_cls in enumerate(["ewk_17", "v_nlo_qcd_17"]):
+            mask = predictions == icls
+            ax.hist(
+                df[quantity][mask],
+                histtype="step",
+                weights=df["weight"][mask],
+                bins=bins,
+                label=sample_cls,
+            )
+
+        ax.set_xlabel(xlabel, fontsize=14)
+        ax.set_ylabel("Weighted Counts", fontsize=14)
+
+        ax.legend(title="Predicted Class")
+
+        ax.text(
+            1,
+            1,
+            f"# Events: {len(predictions)}",
+            fontsize=14,
+            ha="right",
+            va="bottom",
+            transform=ax.transAxes,
+        )
+        ax.text(
+            0,
+            1,
+            process_tag,
+            fontsize=14,
+            ha="left",
+            va="bottom",
+            transform=ax.transAxes,
+        )
+
+        ax.set_ylim(bottom=0)
+
+        outpath = pjoin(outdir, f"{quantity}.pdf")
+        fig.savefig(outpath)
+        plt.close(fig)
+
+
+@cli.command()
+@click.pass_context
+@click.argument("input_dir")
+@click.option(
+    "-q", "--quantity",
+    required=True,
+    help="The quantity to compute the threshold."
+)
+@click.option(
+    "-t", "--threshold",
+    type=float,
+    required=True,
+    help="The threshold value."
+)
+def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
+    """
+    Given the set of predictions and the high-level features (e.g. mjj),
+    compute the average image per class (QCD V / EWK V) for events that
+    satisfy:
+
+    quantity > threshold.
+    """
+    # Gather the data
+    df, predictions = gather_data(input_dir)
+
+    with open(pjoin(input_dir, "input_root_files.txt"), "r") as f:
+        inputfile = f.readlines()[0]
+
+    process_tag = get_process_tag_from_file(inputfile)
+
+    outdir = pjoin(input_dir, "averaged")
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    plotter = ImagePlotter()
+
+    # Load the images
+    with open(pjoin(input_dir, "images.pkl"), "rb") as f:
+        image_pixels = pickle.load(f)
+
+    # Get the images for the events where quantity > threshold
+    # and compute the average for these images.
+    mask = df[quantity] > threshold
+    classes = ['ewk_17', 'v_nlo_qcd_17']
+    for iclass, class_label in enumerate(tqdm(classes, desc="Plotting averaged images")):
+        image_mask = mask & (predictions == iclass)
+        images = image_pixels[image_mask]
+        weights = df["weight"][image_mask]
+
+        avg_image = np.average(images, axis=0, weights=weights)
+        outdir = pjoin(input_dir, "plots")
+
+        plotter.plot(
+            image=avg_image,
+            outdir=outdir,
+            filename=f"{class_label}_{quantity}_gt_{threshold}.pdf",
+            cbar_label="Average Energy (GeV)",
+            left_label=process_tag,
+            right_label=class_label,
+        )
+
+if __name__ == '__main__':
+    cli()
