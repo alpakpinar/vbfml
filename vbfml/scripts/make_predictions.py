@@ -116,12 +116,12 @@ def predict(input_files: str, training_path: str, n_events: int):
         ax.set_xlabel(xlabel, fontsize=14)
         ax.set_ylabel("Weighted Counts", fontsize=14)
 
-        ax.legend()
+        ax.legend(title="Predicted Class")
 
         ax.text(
             1,
             1,
-            f"# Events: {n_events}",
+            f"# Events: {len(predictions)}",
             fontsize=14,
             ha="right",
             va="bottom",
@@ -136,6 +136,8 @@ def predict(input_files: str, training_path: str, n_events: int):
             va="bottom",
             transform=ax.transAxes,
         )
+
+        ax.set_ylim(bottom=0)
 
         outpath = pjoin(outdir, f"{quantity}.pdf")
         fig.savefig(outpath)
