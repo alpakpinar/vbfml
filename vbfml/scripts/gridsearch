@@ -258,7 +258,7 @@ def create_convolutional_model(
 @click.option(
     "--steps-per-epoch",
     type=int,
-    default=int(1e3),
+    default=int(5e3),
     help="Number of batches in an epoch.",
 )
 @click.option(
@@ -346,7 +346,7 @@ def search(
 
         # Copy over the sequence files to this directory
         sequence_files = [
-            pjoin(temp_dir, f) for f in os.listdir(temp_dir) if f.endswith(".pkl")
+            pjoin(temp_dir, f) for f in os.listdir(temp_dir) if f.endswith(".pkl") or f.endswith(".txt")
         ]
         for f in sequence_files:
             shutil.copy(f, model_directory)
@@ -409,10 +409,11 @@ def search(
             "Output": os.path.abspath(pjoin(filedir, "out.txt")),
             "Error": os.path.abspath(pjoin(filedir, "err.txt")),
             "log": os.path.abspath(pjoin(filedir, "log.txt")),
+            "request_cpus": 1,
             "request_memory": 2500,
-            "+MaxRuntime": f"{60*60*24}",
+            "+MaxRuntime": f"{60*60*48}",
             # "on_exit_remove" : "((ExitBySignal == False) && (ExitCode == 0)) || (NumJobStarts >= 2)",
-            "request_GPUs": 1,
+            # "request_GPUs": 1,
         }
 
         # Prepare the jdl job file

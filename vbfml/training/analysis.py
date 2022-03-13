@@ -426,11 +426,11 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         # - List of labels
         # - Score distributions for a given class
 
-        for sequence_type in ["validation"]:
+        for sequence_type in ["training", "validation"]:
             sequence = self.loader.get_sequence(sequence_type)
             # sequence.scale_features = "norm"
             sequence.batch_size = 10000
-            sequence.batch_buffer_size = 1
+            sequence.batch_buffer_size = 10
 
             (
                 histogram_out,
@@ -448,10 +448,10 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
             truth_scores[sequence_type] = _truth_scores
             predicted_scores[sequence_type] = _predicted_scores
 
-            self.data["weights"] = sample_weights
-            self.data["histograms"] = histograms
-            self.data["sample_counts_per_sequence"] = sample_counts_per_sequence
-            self.data["label_encoding"] = label_encoding
+        self.data["weights"] = sample_weights
+        self.data["histograms"] = histograms
+        self.data["sample_counts_per_sequence"] = sample_counts_per_sequence
+        self.data["label_encoding"] = label_encoding
 
-            self.data["truth_scores"] = truth_scores
-            self.data["predicted_scores"] = predicted_scores
+        self.data["truth_scores"] = truth_scores
+        self.data["predicted_scores"] = predicted_scores

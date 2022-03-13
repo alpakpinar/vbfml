@@ -107,7 +107,10 @@ class ImageTrainingPlotter(PlotterBase):
     label_encoding: Optional[Dict[str, int]] = None
 
     def plot_confusion_matrix(
-        self, normalize: str = "true", sequence_type: str = "validation"
+        self,
+        normalize: str = "true",
+        sequence_type: str = "validation",
+        weighted: bool = True,
     ):
         """
         Plots the confusion matrix based on truth and predicted labels,
@@ -115,47 +118,49 @@ class ImageTrainingPlotter(PlotterBase):
 
         Args:
             normalize (str, optional): Whether to normalize the rows in the matrix. Defaults to 'true'.
+            sequence_type (str, optional): The type of sequence: "training" or "validation". Defaults to "validation".
+            weighted (bool, optional): If set to True (default), the confusion matrix will be computed with the weights.
         """
         truth_labels = self.truth_scores[sequence_type].argmax(axis=1)
         predicted_labels = self.predicted_scores[sequence_type].argmax(axis=1)
 
-        # Let's plot weighted and unweighted confusion metrics
-        for cmtype in ["weighted", "unweighted"]:
-            cm_args = {"normalize": normalize}
-            if cmtype == "weighted":
-                cm_args["sample_weight"] = self.weights[sequence_type].flatten()
+        cmtype = "weighted" if weighted else "unweighted"
 
-            cm = metrics.confusion_matrix(truth_labels, predicted_labels, **cm_args)
+        cm_args = {"normalize": normalize}
+        if cmtype == "weighted":
+            cm_args["sample_weight"] = self.weights[sequence_type].flatten()
 
-            fig, ax = plt.subplots()
+        cm = metrics.confusion_matrix(truth_labels, predicted_labels, **cm_args)
 
-            disp = ConfusionMatrixDisplay(
-                confusion_matrix=cm,
-                display_labels=self.label_encoding.values(),
-            )
+        fig, ax = plt.subplots()
 
-            disp.plot(ax=ax)
-            ax.text(
-                0,
-                1,
-                sequence_type,
-                fontsize=14,
-                ha="left",
-                va="bottom",
-                transform=ax.transAxes,
-            )
+        disp = ConfusionMatrixDisplay(
+            confusion_matrix=cm,
+            display_labels=self.label_encoding.values(),
+        )
 
-            ax.text(
-                1,
-                1,
-                f"# of Events: {len(truth_labels)}",
-                fontsize=14,
-                ha="right",
-                va="bottom",
-                transform=ax.transAxes,
-            )
+        disp.plot(ax=ax)
+        ax.text(
+            0,
+            1,
+            sequence_type,
+            fontsize=14,
+            ha="left",
+            va="bottom",
+            transform=ax.transAxes,
+        )
 
-            self.saver.save(fig, f"confusion_matrix_{cmtype}.pdf")
+        ax.text(
+            1,
+            1,
+            f"# of Events: {len(truth_labels)}",
+            fontsize=14,
+            ha="right",
+            va="bottom",
+            transform=ax.transAxes,
+        )
+
+        self.saver.save(fig, f"confusion_matrix_{cmtype}.pdf")
 
     def _add_ax_labels(self, ax: plt.axis):
         """Include axis labels for 2D eta/phi plots.
@@ -318,7 +323,7 @@ class ImageTrainingPlotter(PlotterBase):
     def plot(self) -> None:
         self.plot_scores()
         self.plot_confusion_matrix()
-        # self.plot_sample_counts()
+        self.plot_sample_counts()
         self.plot_weights()
 
 
