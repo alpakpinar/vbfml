@@ -82,11 +82,11 @@ def predict(input_files: str, training_path: str, n_events: int):
     predictions = model.predict(image_pixels).argmax(axis=1)
 
     # Based on the predictions, we make histograms for different classes
-    quantities_labels = {
-        "mjj": r"$M_{jj} \ (GeV)$",
-        "detajj": r"$\Delta \eta_{jj}$",
-        "leadak4_eta": r"Leading Jet $\eta$",
-        "trailak4_eta": r"Trailing Jet $\eta$",
+    quantities = {
+        "mjj": (r"$M_{jj} \ (GeV)$", np.linspace(200, 5200)),
+        "detajj": (r"$\Delta \eta_{jj}$", np.linspace(1, 10)),
+        "leadak4_eta": (r"Leading Jet $\eta$", np.linspace(-5, 5)),
+        "trailak4_eta": (r"Trailing Jet $\eta$", np.linspace(-5, 5)),
     }
 
     outdir = pjoin(
@@ -100,16 +100,17 @@ def predict(input_files: str, training_path: str, n_events: int):
     with open(input_file, "w+") as f:
         f.write(f"{input_files}\n")
 
-    for quantity, xlabel in tqdm(quantities_labels.items(), desc="Plotting histograms"):
+    for quantity, (xlabel, bins) in tqdm(
+        quantities.items(), desc="Plotting histograms"
+    ):
         fig, ax = plt.subplots()
-        n_bins = 50
         for icls, sample_cls in enumerate(["ewk_17", "v_nlo_qcd_17"]):
             mask = predictions == icls
             ax.hist(
                 df[quantity][mask],
                 histtype="step",
                 weights=df["weight"][mask],
-                bins=n_bins,
+                bins=bins,
                 label=sample_cls,
             )
 
