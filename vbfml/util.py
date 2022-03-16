@@ -39,6 +39,7 @@ def get_process_tag_from_file(filename: str) -> str:
     mapping = {
         ".*VBF_HToInv.*M125.*": "VBF Hinv",
         ".*EWKZ2Jets.*ZToNuNu.*": "EWK Zvv",
+        ".*EWKW(Minus|Plus)2Jets.*WToLNu.*": "EWK Wlv",
         ".*Z\dJetsToNuNu.*PtZ.*": "QCD Zvv",
         ".*WJetsToLNu_Pt.*": "QCD Wlv",
     }
