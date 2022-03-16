@@ -3,7 +3,7 @@ import pickle
 import keras
 from collections import defaultdict, Counter, OrderedDict
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import List, Dict, Optional
 
 from sklearn.metrics._plot.confusion_matrix import ConfusionMatrixDisplay
 from sklearn.metrics import confusion_matrix
@@ -407,7 +407,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
             sample_weights,
         )
 
-    def analyze(self):
+    def analyze(self, sequence_types: List[str]):
         """
         Loads all relevant data sets and analyze them.
         """
@@ -426,7 +426,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         # - List of labels
         # - Score distributions for a given class
 
-        for sequence_type in ["training", "validation"]:
+        for sequence_type in sequence_types:
             sequence = self.loader.get_sequence(sequence_type)
             # sequence.scale_features = "norm"
             sequence.batch_size = 10000

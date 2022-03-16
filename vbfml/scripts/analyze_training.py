@@ -6,6 +6,8 @@ import click
 import warnings
 import pandas as pd
 
+from typing import List
+
 from vbfml.training.analysis import TrainingAnalyzer, ImageTrainingAnalyzer
 from vbfml.training.accumulate import (
     ImageAccumulatorFromAnalyzerCache,
@@ -44,12 +46,13 @@ def cli():
 
 @cli.command()
 @click.argument("training_path")
-def analyze(training_path):
+@click.option("-s", "--sequence-types", multiple=True, default=["validation"])
+def analyze(training_path: str, sequence_types: List[str]):
     arch = get_model_arch(training_path)
 
     analyzerInstances = {"conv": ImageTrainingAnalyzer, "dense": TrainingAnalyzer}
     analyzer = analyzerInstances[arch](training_path)
-    analyzer.analyze()
+    analyzer.analyze(sequence_types)
     analyzer.write_to_cache()
 
 
