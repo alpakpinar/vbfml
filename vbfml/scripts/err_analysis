@@ -16,9 +16,10 @@ from matplotlib import pyplot as plt
 from typing import Tuple
 
 from vbfml.util import get_process_tag_from_file
+from vbfml.training.util import summarize_datasets, select_and_label_datasets
 from vbfml.training.data import TrainingLoader
 from vbfml.training.plot import ImagePlotter
-from vbfml.input.uproot import UprootReaderMultiFile
+from vbfml.training.input import build_sequence, load_datasets_bucoffea
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
@@ -53,44 +54,94 @@ def cli():
     required=True,
     help="Tag to identify the process.",
 )
-@click.option(
-    "-n",
-    "--n-events",
-    required=False,
-    default=int(1e4),
-    help="Number of events to process.",
-)
-def predict(ctx, input_files: str, model_path: str, tag: str, n_events: int) -> None:
+def predict(ctx, input_files: str, model_path: str, tag: str) -> None:
     """
-    Read n_events # of events from the input_file, make predictions
+    Read events from the input_files, make predictions
     with the pre-trained model (read from model_path) and save the
-    predictions.
+    predictions, together with other event data for later use.
+
+    input_files can be either a single file, or can contain an asterisk (*)
+    to specify multiple files.
     """
+    # Create a list of DatasetInfo objects for the files that we are interested in
+    directory, file_pattern = os.path.dirname(input_files), os.path.basename(
+        input_files
+    )
+    datasets = load_datasets_bucoffea(directory, file_pattern)
+    dataset_labels = {
+        "ewk_17": "(EWK.*2017|VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017)",
+        "v_qcd_nlo_17": "(WJetsToLNu_Pt-\d+To.*|Z\dJetsToNuNu_M-50_LHEFilterPtZ-\d+To\d+)_MatchEWPDG20-amcatnloFXFX_2017",
+    }
+    datasets = select_and_label_datasets(datasets, dataset_labels)
+    summarize_datasets(datasets)
+
+    high_level_features = [
+        "mjj",
+        "detajj",
+        "leadak4_eta",
+        "trailak4_eta",
+    ]
+
+    image_features = ["JetImage_pixels"]
+
+    # Validation sequence: Read the last 20% of events
+    read_range = (0.8, 1.0)
+
+    # Two separate validation sequences for high_level features (e.g. mjj) and image features:
+    # We'll make the predictions based on the image features, but we'll plot the
+    # high-level quantities at the end
+    validation_sequences = {}
+
+    validation_sequences["high_level"] = build_sequence(
+        datasets=copy.deepcopy(datasets),
+        features=high_level_features,
+        weight_expression="weight_total*xs/sumw",
+        shuffle=True,
+        scale_features="none",
+    )
+    validation_sequences["high_level"].batch_size = int(1e6)
+    validation_sequences["high_level"].batch_buffer_size = 1
+
+    validation_sequences["image"] = build_sequence(
+        datasets=copy.deepcopy(datasets),
+        features=image_features,
+        weight_expression="weight_total*xs/sumw",
+        shuffle=True,
+        scale_features="norm",
+    )
+
+    validation_sequences["image"].batch_size = int(1e3)
+    validation_sequences["image"].batch_buffer_size = 10
+
+    for sequence in validation_sequences.values():
+        sequence.read_range = read_range
+
+    # Load the pre-trained model
     loader = TrainingLoader(model_path)
     model = loader.get_model()
 
-    # Process tag
-    print(f"Tag for the process   : {tag}")
-    print(f"# of events to read   : {n_events}")
+    predictions = []
+    image_pixels = []
+    for ibatch in tqdm(
+        range(len(validation_sequences["image"])), desc="Making predictions"
+    ):
+        features, _, _ = validation_sequences["image"][ibatch]
+        predictions.append(model.predict(features).argmax(axis=1))
+        image_pixels.append(features)
 
-    infiles = glob(input_files)
+    predictions = np.concatenate(predictions)
+    image_pixels = np.concatenate(image_pixels)
 
-    reader = UprootReaderMultiFile(files=infiles, branches=None, treename="sr_vbf")
-    df = reader.read_events(0, n_events)
-
-    # Add weight column
-    df["weight"] = df["weight_total"] * df["xs"] / df["sumw"]
-
-    # Feature columns
-    image_pixels = df.filter(regex="JetIm.*pixels.*").to_numpy()
-
-    # Get the rest of the dataframe and save it for later use
-    df_non_feature = df[
-        df.columns.drop(list(df.filter(regex="(JetImage|xs|sumw|weight_total).*")))
-    ]
-
-    # Make predictions with the pre-trained model
-    predictions = model.predict(image_pixels).argmax(axis=1)
+    # High-level features
+    features = {f: [] for f in high_level_features}
+    for ibatch in tqdm(
+        range(len(validation_sequences["high_level"])),
+        desc="Obtaining high-level features",
+    ):
+        # Fill the sequence buffer if the batch is not there
+        validation_sequences["high_level"][ibatch]
+        df_non_feature = validation_sequences["high_level"].buffer.get_batch_df(ibatch)
+        df_non_feature.drop(columns=["label"], inplace=True)
 
     outdir = pjoin(model_path, f"predictions_{tag.lower()}")
     if not os.path.exists(outdir):
@@ -99,7 +150,7 @@ def predict(ctx, input_files: str, model_path: str, tag: str, n_events: int) -> 
     # Dump the input file argument to a txt file
     input_list_file = pjoin(outdir, "input_root_files.txt")
     with open(input_list_file, "w+") as f:
-        for infile in infiles:
+        for infile in glob(input_files):
             f.write(f"{infile}\n")
 
     # Save dataframe with high-level features (e.g. mjj)
