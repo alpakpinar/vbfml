@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from tqdm import tqdm
+from glob import glob
 from matplotlib import pyplot as plt
 from typing import Tuple
 
@@ -29,12 +30,13 @@ def gather_data(input_dir: str) -> Tuple:
     Load data from pickle caches and return.
     """
     with open(pjoin(input_dir, "df_non_feature.pkl"), "rb") as f:
-        df = pickle.load(f) 
+        df = pickle.load(f)
 
     with open(pjoin(input_dir, "predictions.pkl"), "rb") as f:
         predictions = pickle.load(f)
-    
+
     return df, predictions
+
 
 @click.group()
 def cli():
@@ -43,8 +45,14 @@ def cli():
 
 @cli.command()
 @click.pass_context
-@click.argument("input_file")
+@click.argument("input_files")
 @click.argument("model_path")
+@click.option(
+    "-t",
+    "--tag",
+    required=True,
+    help="Tag to identify the process.",
+)
 @click.option(
     "-n",
     "--n-events",
@@ -52,7 +60,7 @@ def cli():
     default=int(1e4),
     help="Number of events to process.",
 )
-def predict(ctx, input_file: str, model_path: str, n_events: int) -> None:
+def predict(ctx, input_files: str, model_path: str, tag: str, n_events: int) -> None:
     """
     Read n_events # of events from the input_file, make predictions
     with the pre-trained model (read from model_path) and save the
@@ -62,11 +70,12 @@ def predict(ctx, input_file: str, model_path: str, n_events: int) -> None:
     model = loader.get_model()
 
     # Process tag
-    process_tag = get_process_tag_from_file(input_file)
-    print(f"Tag for the process   : {process_tag}")
+    print(f"Tag for the process   : {tag}")
     print(f"# of events to read   : {n_events}")
 
-    reader = UprootReaderMultiFile(files=[input_file], branches=None, treename="sr_vbf")
+    infiles = glob(input_files)
+
+    reader = UprootReaderMultiFile(files=infiles, branches=None, treename="sr_vbf")
     df = reader.read_events(0, n_events)
 
     # Add weight column
@@ -76,35 +85,36 @@ def predict(ctx, input_file: str, model_path: str, n_events: int) -> None:
     image_pixels = df.filter(regex="JetIm.*pixels.*").to_numpy()
 
     # Get the rest of the dataframe and save it for later use
-    df_non_feature = df[df.columns.drop(list(df.filter(regex="(JetImage|xs|sumw|weight_total).*")))]
+    df_non_feature = df[
+        df.columns.drop(list(df.filter(regex="(JetImage|xs|sumw|weight_total).*")))
+    ]
 
     # Make predictions with the pre-trained model
     predictions = model.predict(image_pixels).argmax(axis=1)
 
-    outdir = pjoin(
-        model_path, f"predictions_{process_tag.replace(' ', '_').lower()}"
-    )
+    outdir = pjoin(model_path, f"predictions_{tag.lower()}")
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
     # Dump the input file argument to a txt file
     input_list_file = pjoin(outdir, "input_root_files.txt")
     with open(input_list_file, "w+") as f:
-        f.write(f"{input_file}\n")
-    
+        for infile in infiles:
+            f.write(f"{infile}\n")
+
     # Save dataframe with high-level features (e.g. mjj)
     df_cache = pjoin(outdir, "df_non_feature.pkl")
-    with open(df_cache, 'wb+') as f:
+    with open(df_cache, "wb+") as f:
         pickle.dump(df_non_feature, f)
 
     # Save the predictions into a pkl file
     cache = pjoin(outdir, "predictions.pkl")
-    with open(cache, 'wb+') as f:
+    with open(cache, "wb+") as f:
         pickle.dump(predictions, f)
 
     # Also save the image arrays for later use
     images_cache = pjoin(outdir, "images.pkl")
-    with open(images_cache, 'wb+') as f:
+    with open(images_cache, "wb+") as f:
         pickle.dump(image_pixels, f)
 
 
@@ -119,10 +129,7 @@ def plot(ctx, input_dir: str) -> None:
     # Gather the data
     df, predictions = gather_data(input_dir)
 
-    with open(pjoin(input_dir, "input_root_files.txt"), "r") as f:
-        inputfile = f.readlines()[0]
-
-    process_tag = get_process_tag_from_file(inputfile)
+    process_tag = os.path.basename(input_dir.rstrip("/")).replace("predictions_", "")
 
     outdir = pjoin(input_dir, "plots")
     if not os.path.exists(outdir):
@@ -185,15 +192,10 @@ def plot(ctx, input_dir: str) -> None:
 @click.pass_context
 @click.argument("input_dir")
 @click.option(
-    "-q", "--quantity",
-    required=True,
-    help="The quantity to compute the threshold."
+    "-q", "--quantity", required=True, help="The quantity to compute the threshold."
 )
 @click.option(
-    "-t", "--threshold",
-    type=float,
-    required=True,
-    help="The threshold value."
+    "-t", "--threshold", type=float, required=True, help="The threshold value."
 )
 def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
     """
@@ -224,8 +226,10 @@ def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
     # Get the images for the events where quantity > threshold
     # and compute the average for these images.
     mask = df[quantity] > threshold
-    classes = ['ewk_17', 'v_nlo_qcd_17']
-    for iclass, class_label in enumerate(tqdm(classes, desc="Plotting averaged images")):
+    classes = ["ewk_17", "v_nlo_qcd_17"]
+    for iclass, class_label in enumerate(
+        tqdm(classes, desc="Plotting averaged images")
+    ):
         image_mask = mask & (predictions == iclass)
         images = image_pixels[image_mask]
         weights = df["weight"][image_mask]
@@ -242,14 +246,16 @@ def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
             right_label=class_label,
         )
 
+
 @cli.command()
 @click.pass_context
 @click.argument("input_dir")
 @click.option(
-    "-s", "--sequence-type",
+    "-s",
+    "--sequence-type",
     required=False,
     default="validation",
-    help="The type of sequence: training or validation."
+    help="The type of sequence: training or validation.",
 )
 def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     """
@@ -265,5 +271,6 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
 
     model.evaluate(sequence)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     cli()
