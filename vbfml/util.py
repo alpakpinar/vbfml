@@ -149,6 +149,9 @@ class MultiBatchBuffer:
         self.min_batch = min_batch
         self.max_batch = min_batch + len(df) // self.batch_size
 
+        if len(df) % self.batch_size > 0:
+            self.max_batch += 1
+
     def __contains__(self, batch_index):
         if self.df is None:
             return False
@@ -156,7 +159,7 @@ class MultiBatchBuffer:
             return False
         if batch_index < 0:
             return False
-        return self.min_batch <= batch_index <= self.max_batch
+        return self.min_batch <= batch_index < self.max_batch
 
     def clear(self):
         self.df = None
