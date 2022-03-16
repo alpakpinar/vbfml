@@ -77,7 +77,7 @@ def get_gridsearch_directory(tag: str) -> str:
 )
 @click.option(
     "--frac-qcdv-events",
-    default=0.5,
+    default=1.0,
     required=False,
     help="Fraction of the QCD V events to use.",
 )
@@ -256,15 +256,10 @@ def create_convolutional_model(
 @cli.command()
 @click.pass_context
 @click.option(
-    "--steps-per-epoch",
+    "-n",
+    "--num-epochs",
     type=int,
-    default=int(5e3),
-    help="Number of batches in an epoch.",
-)
-@click.option(
-    "--training-passes",
-    type=int,
-    default=10,
+    default=20,
     help="Number of iterations through the whole training set.",
 )
 @click.option(
@@ -285,8 +280,7 @@ def create_convolutional_model(
 )
 def search(
     ctx,
-    steps_per_epoch: int,
-    training_passes: int,
+    num_epochs: int,
     dryrun: bool,
     test: bool,
     overwrite: bool,
@@ -315,12 +309,12 @@ def search(
     )
 
     param_grid = {
-        "n_layers_for_conv": [2],
+        "n_layers_for_conv": [2, 3],
         "num_filters": [32, 64],
         "kernel_size": [3],
-        "n_layers_for_dense": [2, 3],
+        "n_layers_for_dense": [3],
         "num_nodes_for_dense": [200, 300],
-        "dropout": [0.25, 0.5],
+        "dropout": [0.2, 0.4],
     }
 
     # Get all possible parameter combinations
@@ -346,7 +340,9 @@ def search(
 
         # Copy over the sequence files to this directory
         sequence_files = [
-            pjoin(temp_dir, f) for f in os.listdir(temp_dir) if f.endswith(".pkl") or f.endswith(".txt")
+            pjoin(temp_dir, f)
+            for f in os.listdir(temp_dir)
+            if f.endswith(".pkl") or f.endswith(".txt")
         ]
         for f in sequence_files:
             shutil.copy(f, model_directory)
@@ -393,8 +389,7 @@ def search(
         arguments = [
             f"--training-directory {os.path.relpath(model_directory)}",
             "train",
-            f"--steps-per-epoch {steps_per_epoch}",
-            f"--training-passes {training_passes}",
+            f"--num-epochs {num_epochs}",
             "--no-verbose-output",
         ]
 

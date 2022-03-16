@@ -209,8 +209,14 @@ class ImageTrainingPlotter(PlotterBase):
         """
         fig, axes = plt.subplots(1, 2)
 
-        training_sample_counts = self.sample_counts["training"]
-        validation_sample_counts = self.sample_counts["validation"]
+        try:
+            training_sample_counts = self.sample_counts["training"]
+            validation_sample_counts = self.sample_counts["validation"]
+        except KeyError:
+            print(
+                "WARNING: Training or validation sequence missing in cache, skipping sample count plots."
+            )
+            return
 
         def make_autopct(values):
             def my_autopct(pct):

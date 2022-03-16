@@ -37,20 +37,18 @@ warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 pjoin = os.path.join
 
 
-def get_training_directory(tag: str) -> str:
-    return os.path.join("./output", f"model_{tag}")
-
-
 @click.group()
 @click.option(
     "-d",
     "--training-directory",
     required=True,
-    help="A string for naming the training directory.",
+    help="Name of the output directory to save data and the model.",
 )
 @click.pass_context
 def cli(ctx, training_directory):
     ctx.ensure_object(dict)
+    if not os.path.exists(training_directory):
+        os.makedirs(training_directory)
     ctx.obj["TRAINING_DIRECTORY"] = training_directory
 
 
@@ -67,6 +65,7 @@ def cli(ctx, training_directory):
     help="Input directory containing the ROOT files for training and validation.",
 )
 @click.option(
+    "-m",
     "--model-config",
     required=True,
     help="Path to the .yml file that has the model configuration parameters.",
@@ -222,7 +221,8 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
     help="Number of batches in an epoch.",
 )
 @click.option(
-    "--training-passes",
+    "-n",
+    "--num-epochs",
     type=int,
     default=10,
     help="Number of iterations through the whole training set.",
@@ -242,7 +242,7 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
 def train(
     ctx,
     steps_per_epoch: int,
-    training_passes: int,
+    num_epochs: int,
     learning_rate: float,
     no_verbose_output: bool,
 ):
@@ -263,30 +263,13 @@ def train(
     validation_sequence = loader.get_sequence("validation")
     assert training_sequence._feature_scaler
     assert validation_sequence._feature_scaler
-    steps_total = len(training_sequence)
-    epochs = training_passes * steps_total // steps_per_epoch
 
-    checkpoint1 = tf.keras.callbacks.ModelCheckpoint(
-        os.path.join(
-            training_directory, "models", "checkpoint_epoch{epoch:02d}_loss{loss:.2e}"
-        ),
-        save_weights_only=False,
-        mode="auto",
-        save_freq=steps_total,
-    )
-    checkpoint2 = tf.keras.callbacks.ModelCheckpoint(
-        os.path.join(training_directory, "models", "checkpoint_latest"),
-        save_weights_only=False,
-        mode="auto",
-        save_freq=steps_total,
-    )
-
-    validation_freq = 1  # epochs // training_passes
+    validation_freq = 1  # Frequency of validation
 
     fit_args = {
         "x": training_sequence,
-        "steps_per_epoch": steps_per_epoch,
-        "epochs": epochs,
+        # "steps_per_epoch": steps_per_epoch,
+        "epochs": num_epochs,
         "max_queue_size": 0,
         "shuffle": False,
         "validation_data": validation_sequence,
