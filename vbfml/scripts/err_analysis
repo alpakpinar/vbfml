@@ -242,5 +242,28 @@ def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
             right_label=class_label,
         )
 
+@cli.command()
+@click.pass_context
+@click.argument("input_dir")
+@click.option(
+    "-s", "--sequence-type",
+    required=False,
+    default="validation",
+    help="The type of sequence: training or validation."
+)
+def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
+    """
+    Evalute the accuracy of the pre-trained model on full sequence.
+    """
+    loader = TrainingLoader(input_dir)
+
+    model = loader.get_model()
+    sequence = loader.get_sequence(sequence_type)
+
+    sequence.batch_size = int(1e3)
+    sequence.batch_buffer_size = 100
+
+    model.evaluate(sequence)
+
 if __name__ == '__main__':
     cli()
