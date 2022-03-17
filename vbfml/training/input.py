@@ -46,14 +46,16 @@ def dataset_from_file_name_bucoffea(filepath: str) -> str:
     return dataset_name
 
 
-def load_datasets_bucoffea(directory: str) -> "list[DatasetInfo]":
+def load_datasets_bucoffea(
+    directory: str, file_pattern: str = "*root"
+) -> "list[DatasetInfo]":
     """
     Load data sets based on a directory of ROOT files from bucoffea.
 
     Data set names are decoded from the file names, assuming one file per data set.
     By default, the labels and names of the data sets are set equal.
     """
-    files = glob.glob(f"{directory}/*root")
+    files = glob.glob(f"{directory}/{file_pattern}")
     datasets = []
     for file in files:
         dataset_name = dataset_from_file_name_bucoffea(file)
