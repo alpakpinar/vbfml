@@ -18,22 +18,12 @@ from matplotlib import pyplot as plt
 
 from vbfml.training.input import build_sequence, load_datasets_bucoffea
 from vbfml.training.util import summarize_datasets, select_and_label_datasets
+from vbfml.plot.util import Quantity
 
 warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
 pjoin = os.path.join
-
-eta_bins = np.linspace(-5, 5, 50)
-pt_bins = np.logspace(2, 3, 20)
-axis_bins = {
-    "mjj": np.logspace(2, 4, 20),
-    "detajj": np.linspace(1, 10, 20),
-    "leadak4_eta": eta_bins,
-    "trailak4_eta": eta_bins,
-    "leadak4_pt": pt_bins,
-    "trailak4_pt": pt_bins,
-}
 
 # Dataset labels as fed for the neural network
 dataset_labels_coarse = {
@@ -53,13 +43,10 @@ dataset_labels = {
 
 def make_histogram(quantity_name: str) -> hist.Hist:
     """Creates an empty histogram for a given quantity."""
-    try:
-        bins = axis_bins[quantity_name]
-    except KeyError:
-        raise RuntimeError(f"Bins could not be found for quantity: {quantity_name}")
+    quantity = Quantity(quantity_name)
 
     histogram = hist.Hist(
-        hist.axis.Variable(bins, name=quantity_name, label=quantity_name),
+        hist.axis.Variable(quantity.bins, name=quantity_name, label=quantity.label),
         hist.axis.StrCategory(dataset_labels.keys(), name="label", label="label"),
         storage=hist.storage.Weight(),
     )
@@ -154,7 +141,11 @@ def fill(ctx, input_dir: str, normalize: bool) -> None:
 
     # Save the histograms to cache
     outtag = os.path.basename(input_dir.rstrip("/"))
-    outdir = f"./output/{outtag}"
+    if normalize:
+        outdir = f"./output/{outtag}/normalized"
+    else:
+        outdir = f"./output/{outtag}"
+
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
@@ -194,7 +185,6 @@ def plot(ctx, cache_file: str) -> None:
         h_signal = histogram[{"label": signal_proc}]
         hep.histplot(h_signal, ax=ax, label=get_legend_label(signal_proc), color="k")
 
-        ax.set_xlabel(quantity)
         ax.set_ylabel("Weighted Counts")
 
         ax.legend(title="Dataset")
