@@ -5,6 +5,14 @@ from dataclasses import dataclass
 
 @dataclass
 class Quantity:
+    """
+    Class to hold binning and labeling information for a given quantity.
+    >>> quantity = Quantity(name)
+    >>> # Access bins and labels
+    >>> quantity.bins
+    >>> quantity.labels
+    """
+
     name: str
 
     def _set_bins(self) -> None:
