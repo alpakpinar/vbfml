@@ -17,7 +17,11 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 
 from vbfml.training.input import build_sequence, load_datasets_bucoffea
-from vbfml.training.util import summarize_datasets, select_and_label_datasets
+from vbfml.training.util import (
+    summarize_datasets,
+    select_and_label_datasets,
+    normalize_classes,
+)
 from vbfml.plot.util import Quantity
 
 warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
