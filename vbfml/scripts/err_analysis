@@ -16,6 +16,7 @@ from matplotlib import pyplot as plt
 from typing import Tuple
 
 from vbfml.util import get_process_tag_from_file
+from vbfml.plot.util import Quantity
 from vbfml.training.util import summarize_datasets, select_and_label_datasets
 from vbfml.training.data import TrainingLoader
 from vbfml.training.plot import ImagePlotter
@@ -46,8 +47,18 @@ def cli():
 
 @cli.command()
 @click.pass_context
-@click.argument("input_files")
-@click.argument("model_path")
+@click.option(
+    "-i",
+    "--input-files",
+    required=True,
+    help="Path to the directory with the input ROOT files.",
+)
+@click.option(
+    "-m",
+    "--model-path",
+    required=True,
+    help="Path to the model directory.",
+)
 @click.option(
     "-t",
     "--tag",
@@ -78,8 +89,15 @@ def predict(ctx, input_files: str, model_path: str, tag: str) -> None:
     high_level_features = [
         "mjj",
         "detajj",
+        "njet",
+        "recoil_pt",
+        "recoil_phi",
+        "leadak4_pt",
+        "trailak4_pt",
         "leadak4_eta",
         "trailak4_eta",
+        "leadak4_phi",
+        "trailak4_phi",
     ]
 
     image_features = ["JetImage_pixels"]
@@ -187,29 +205,27 @@ def plot(ctx, input_dir: str) -> None:
         os.makedirs(outdir)
 
     # Based on the predictions, we make histograms for different classes
-    quantities = {
-        "mjj": (r"$M_{jj} \ (GeV)$", np.linspace(200, 5200)),
-        "detajj": (r"$\Delta \eta_{jj}$", np.linspace(1, 10)),
-        "leadak4_eta": (r"Leading Jet $\eta$", np.linspace(-5, 5)),
-        "trailak4_eta": (r"Trailing Jet $\eta$", np.linspace(-5, 5)),
-    }
+    quantities = [x for x in list(df.columns) if x != "weight"]
 
-    for quantity, (xlabel, bins) in tqdm(
-        quantities.items(), desc="Plotting histograms"
+    for quantity_name in tqdm(
+        quantities, desc="Plotting histograms"
     ):
+        quantity = Quantity(quantity_name)
         fig, ax = plt.subplots()
         for icls, sample_cls in enumerate(["ewk_17", "v_nlo_qcd_17"]):
             mask = predictions == icls
             ax.hist(
-                df[quantity][mask],
+                df[quantity_name][mask],
                 histtype="step",
                 weights=df["weight"][mask],
-                bins=bins,
+                bins=quantity.bins,
                 label=sample_cls,
             )
 
-        ax.set_xlabel(xlabel, fontsize=14)
+        ax.set_xlabel(quantity.label, fontsize=14)
         ax.set_ylabel("Weighted Counts", fontsize=14)
+
+        ax.set_yscale('log')
 
         ax.legend(title="Predicted Class")
 
@@ -232,9 +248,7 @@ def plot(ctx, input_dir: str) -> None:
             transform=ax.transAxes,
         )
 
-        ax.set_ylim(bottom=0)
-
-        outpath = pjoin(outdir, f"{quantity}.pdf")
+        outpath = pjoin(outdir, f"{quantity_name}.pdf")
         fig.savefig(outpath)
         plt.close(fig)
 
