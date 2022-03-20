@@ -57,3 +57,10 @@ class ParamGridParser(TestCase):
         self.assertEqual(len(keys), 1)
         # And it has to be named as "param_grid"
         self.assertEqual(keys[0], "param_grid")
+
+    def test_branch_types(self):
+        keys = list(self.grid.keys())
+        param_grid = self.grid[keys[0]]
+        # Each branch must be a list
+        for k, v in param_grid.items():
+            self.assertIsInstance(v, list)
