@@ -1,5 +1,9 @@
-import pickle
+import os
 import re
+import copy
+import pickle
+import numpy as np
+
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
@@ -13,6 +17,9 @@ from tabulate import tabulate
 from tqdm import tqdm
 
 from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
+from vbfml.util import ModelConfiguration
+
+pjoin = os.path.join
 
 
 def load(fpath: str) -> object:
@@ -175,6 +182,105 @@ def append_history(
         new_history[f"x_{key}"] = new_x
         new_history[f"y_{key}"] = new_y
     return new_history
+
+
+def do_setup(
+    output_directory: str, input_dir: str, model_config: str, frac_qcdv_events: float
+):
+    """
+    Creates a new working area with training and valdation sequences.
+    Prerequisite for later training.
+    """
+    from vbfml.training.input import build_sequence, load_datasets_bucoffea
+
+    all_datasets = load_datasets_bucoffea(directory=input_dir)
+
+    dataset_labels = {
+        "ewk_17": "(EWK.*2017|VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017)",
+        "v_qcd_nlo_17": "(WJetsToLNu_Pt-\d+To.*|Z\dJetsToNuNu_M-50_LHEFilterPtZ-\d+To\d+)_MatchEWPDG20-amcatnloFXFX_2017",
+    }
+    datasets = select_and_label_datasets(all_datasets, dataset_labels)
+    # Use X% of QCD V events, as specified from the command line
+    # Default is 50% (should be 3-4 hours runtime on a GPU)
+    for dataset_info in datasets:
+        if re.match(dataset_labels["v_qcd_nlo_17"], dataset_info.name):
+            dataset_info.n_events = int(
+                np.floor(frac_qcdv_events * dataset_info.n_events)
+            )
+
+    # Object containing data for different models
+    # (set of features, dropout rate etc.)
+    # Loaded from the YML configuration file
+    mconfig = ModelConfiguration(model_config)
+
+    features = mconfig.get("features")
+
+    training_params = mconfig.get("training_parameters")
+    validation_params = mconfig.get("validation_parameters")
+
+    training_sequence = build_sequence(
+        datasets=copy.deepcopy(datasets),
+        features=features,
+        weight_expression=mconfig.get("weight_expression"),
+        shuffle=training_params["shuffle"],
+        scale_features=training_params["scale_features"],
+    )
+    validation_sequence = build_sequence(
+        datasets=copy.deepcopy(datasets),
+        features=features,
+        weight_expression=mconfig.get("weight_expression"),
+        shuffle=validation_params["shuffle"],
+        scale_features=validation_params["scale_features"],
+    )
+    normalize_classes(training_sequence)
+    normalize_classes(validation_sequence)
+
+    # Training sequence
+    train_size = training_params["train_size"]
+
+    training_sequence.read_range = (0.0, train_size)
+    training_sequence.batch_size = training_params["batch_size"]
+    training_sequence.batch_buffer_size = training_params["batch_buffer_size"]
+    training_sequence[0]
+
+    # Validation sequence
+    validation_sequence.read_range = (train_size, 1.0)
+    validation_sequence.scale_features = True
+    validation_sequence._feature_scaler = copy.deepcopy(
+        training_sequence._feature_scaler
+    )
+    validation_sequence.batch_size = validation_params["batch_size"]
+    validation_sequence.batch_buffer_size = validation_params["batch_buffer_size"]
+
+    try:
+        os.makedirs(output_directory)
+    except FileExistsError:
+        pass
+
+    def prepend_path(fname):
+        return pjoin(output_directory, fname)
+
+    # Feature scaling object for future evaluation
+    save(training_sequence._feature_scaler, prepend_path("feature_scaler.pkl"))
+
+    # List of features
+    save(
+        features,
+        prepend_path(
+            "features.pkl",
+        ),
+    )
+
+    # Training and validation sequences
+    # Clear buffer before saving to save space
+    for seq in training_sequence, validation_sequence:
+        seq.buffer.clear()
+    save(training_sequence, prepend_path("training_sequence.pkl"))
+    save(validation_sequence, prepend_path("validation_sequence.pkl"))
+
+    # Save model type identifier for later uses
+    with open(prepend_path("model_identifier.txt"), "w+") as f:
+        f.write(mconfig.get("architecture"))
 
 
 @dataclass
