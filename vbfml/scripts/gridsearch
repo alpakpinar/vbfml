@@ -80,13 +80,6 @@ def get_gridsearch_directory(tag: str) -> str:
     help="Path to the .yml file that has the model configuration parameters.",
 )
 @click.option(
-    "-p",
-    "--param-grid",
-    default=vbfml_path("config/gridsearch/param_grid.yml"),
-    required=False,
-    help="Path to the .yml file that has the model configuration parameters.",
-)
-@click.option(
     "--frac-qcdv-events",
     default=1.0,
     required=False,
@@ -98,14 +91,12 @@ def cli(
     tag: str,
     input_dir: str,
     model_config: str,
-    param_grid: str,
     frac_qcdv_events: float,
 ):
     ctx.ensure_object(dict)
     ctx.obj["TAG"] = tag
     ctx.obj["INPUT_DIR"] = input_dir
     ctx.obj["MODEL_CONFIG"] = model_config
-    ctx.obj["PARAM_GRID"] = param_grid
     ctx.obj["FRAC_QCDV_EVENTS"] = frac_qcdv_events
 
 
@@ -138,13 +129,13 @@ def create_model(learning_rate: float, n_features: int, n_classes: int, dropout:
 
 
 def create_convolutional_model(
-    n_layers_for_conv: int=3,
-    num_filters: int=32,
-    kernel_size: int=3,
-    n_layers_for_dense: int=3,
-    num_nodes_for_dense: int=200,
-    dropout: float=0.,
-    learning_rate: float=1e-3,
+    n_layers_for_conv: int = 3,
+    num_filters: int = 32,
+    kernel_size: int = 3,
+    n_layers_for_dense: int = 3,
+    num_nodes_for_dense: int = 200,
+    dropout: float = 0.0,
+    learning_rate: float = 1e-3,
 ):
     model = sequential_convolutional_model(
         n_layers_for_conv=n_layers_for_conv,
@@ -186,6 +177,13 @@ def create_convolutional_model(
     help="Number of iterations through the whole training set.",
 )
 @click.option(
+    "-p",
+    "--param-grid",
+    default=vbfml_path("config/gridsearch/param_grid.yml"),
+    required=False,
+    help="Path to the .yml file that has the model configuration parameters.",
+)
+@click.option(
     "--dryrun",
     is_flag=True,
     help="Dry run flag, will create the files but won't submit anything.",
@@ -204,6 +202,7 @@ def create_convolutional_model(
 def search(
     ctx,
     num_epochs: int,
+    param_grid: str,
     dryrun: bool,
     test: bool,
     overwrite: bool,
@@ -232,18 +231,17 @@ def search(
     )
 
     # Load the parameter grid for grid search from the .yml file
-    param_grid_file = ctx.obj["PARAM_GRID"]
-    loader = YamlLoader(param_grid_file)
+    loader = YamlLoader(param_grid)
     branch = "param_grid"
     try:
-        param_grid = loader.load()[branch]
+        grid = loader.load()[branch]
     except KeyError:
         raise RuntimeError(
             f'In {param_grid_file}, please specify grid parameters under "{branch}" branch'
         )
 
     # Get all possible parameter combinations
-    keys, values = zip(*param_grid.items())
+    keys, values = zip(*grid.items())
     combinations = [dict(zip(keys, v)) for v in itertools.product(*values)]
 
     models = {}
