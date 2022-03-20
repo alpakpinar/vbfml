@@ -207,25 +207,27 @@ def plot(ctx, input_dir: str) -> None:
     # Based on the predictions, we make histograms for different classes
     quantities = [x for x in list(df.columns) if x != "weight"]
 
-    for quantity_name in tqdm(
-        quantities, desc="Plotting histograms"
-    ):
+    for quantity_name in tqdm(quantities, desc="Plotting histograms"):
         quantity = Quantity(quantity_name)
         fig, ax = plt.subplots()
         for icls, sample_cls in enumerate(["ewk_17", "v_nlo_qcd_17"]):
             mask = predictions == icls
-            ax.hist(
-                df[quantity_name][mask],
-                histtype="step",
-                weights=df["weight"][mask],
-                bins=quantity.bins,
-                label=sample_cls,
-            )
+            try:
+                ax.hist(
+                    df[quantity_name][mask],
+                    histtype="step",
+                    weights=df["weight"][mask],
+                    bins=quantity.bins,
+                    label=sample_cls,
+                )
+            except KeyError:
+                print(f"WARNING: Cannot find {quantity_name} in dataframe, skipping.")
+                continue
 
         ax.set_xlabel(quantity.label, fontsize=14)
         ax.set_ylabel("Weighted Counts", fontsize=14)
 
-        ax.set_yscale('log')
+        ax.set_yscale("log")
 
         ax.legend(title="Predicted Class")
 
