@@ -37,6 +37,7 @@ from vbfml.training.util import (
 from vbfml.util import (
     ModelConfiguration,
     ModelFactory,
+    YamlLoader,
     vbfml_path,
     git_rev_parse,
     git_diff,
@@ -65,14 +66,23 @@ def get_gridsearch_directory(tag: str) -> str:
     help="A string-valued tag used to identify the run. If a run with this tag exists, will use existing run.",
 )
 @click.option(
+    "-i",
     "--input-dir",
     default=vbfml_path("root/2021-11-13_vbfhinv_treesForML"),
     required=False,
     help="Input directory containing the ROOT files for training and validation.",
 )
 @click.option(
+    "-m",
     "--model-config",
     default=vbfml_path("config/convolutional_model.yml"),
+    required=False,
+    help="Path to the .yml file that has the model configuration parameters.",
+)
+@click.option(
+    "-p",
+    "--param-grid",
+    default=vbfml_path("config/gridsearch/param_grid.yml"),
     required=False,
     help="Path to the .yml file that has the model configuration parameters.",
 )
@@ -83,11 +93,19 @@ def get_gridsearch_directory(tag: str) -> str:
     help="Fraction of the QCD V events to use.",
 )
 @click.pass_context
-def cli(ctx, tag: str, input_dir: str, model_config: str, frac_qcdv_events: float):
+def cli(
+    ctx,
+    tag: str,
+    input_dir: str,
+    model_config: str,
+    param_grid: str,
+    frac_qcdv_events: float,
+):
     ctx.ensure_object(dict)
     ctx.obj["TAG"] = tag
     ctx.obj["INPUT_DIR"] = input_dir
     ctx.obj["MODEL_CONFIG"] = model_config
+    ctx.obj["PARAM_GRID"] = param_grid
     ctx.obj["FRAC_QCDV_EVENTS"] = frac_qcdv_events
 
 
@@ -120,12 +138,13 @@ def create_model(learning_rate: float, n_features: int, n_classes: int, dropout:
 
 
 def create_convolutional_model(
-    n_layers_for_conv: int,
-    num_filters: int,
-    kernel_size: int,
-    n_layers_for_dense: int,
-    num_nodes_for_dense: int,
-    dropout: float,
+    n_layers_for_conv: int=3,
+    num_filters: int=32,
+    kernel_size: int=3,
+    n_layers_for_dense: int=3,
+    num_nodes_for_dense: int=200,
+    dropout: float=0.,
+    learning_rate: float=1e-3,
 ):
     model = sequential_convolutional_model(
         n_layers_for_conv=n_layers_for_conv,
@@ -140,7 +159,7 @@ def create_convolutional_model(
     )
 
     optimizer = tf.keras.optimizers.Adam(
-        # learning_rate=learning_rate,
+        learning_rate=learning_rate,
         beta_1=0.9,
         beta_2=0.999,
         epsilon=1e-07,
@@ -212,14 +231,16 @@ def search(
         frac_qcdv_events=ctx.obj["FRAC_QCDV_EVENTS"],
     )
 
-    param_grid = {
-        "n_layers_for_conv": [2, 3],
-        "num_filters": [32, 64],
-        "kernel_size": [3],
-        "n_layers_for_dense": [3],
-        "num_nodes_for_dense": [200, 300],
-        "dropout": [0.2, 0.4],
-    }
+    # Load the parameter grid for grid search from the .yml file
+    param_grid_file = ctx.obj["PARAM_GRID"]
+    loader = YamlLoader(param_grid_file)
+    branch = "param_grid"
+    try:
+        param_grid = loader.load()[branch]
+    except KeyError:
+        raise RuntimeError(
+            f'In {param_grid_file}, please specify grid parameters under "{branch}" branch'
+        )
 
     # Get all possible parameter combinations
     keys, values = zip(*param_grid.items())

@@ -1,0 +1,9 @@
+# .yml file specifying the parameter grid for grid search
+param_grid:
+  n_layers_for_conv: [2, 3]
+  num_filters: [32]
+  kernel_size: [3]
+  n_layers_for_dense: [3]
+  num_nodes_for_dense: [200]
+  dropout: [0.]
+  learning_rate: [0.001, 0.01, 0.1]
