@@ -11,7 +11,9 @@ class TestConfigParser(TestCase):
         config_dir = vbfml_path("config")
 
         # We'll test each configuration file
-        config_files = [pjoin(config_dir, f) for f in os.listdir(config_dir)]
+        config_files = [
+            pjoin(config_dir, f) for f in os.listdir(config_dir) if f.endswith(".yml")
+        ]
         for cf in config_files:
             self.mconfigs.append(ModelConfiguration(cf))
 
