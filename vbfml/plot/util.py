@@ -16,8 +16,7 @@ class Quantity:
     name: str
 
     def _set_bins(self) -> None:
-        pt_bins = np.logspace(2, 3, 20)
-        jet_pt_bins = np.linspace(0, 1000)
+        pt_bins = np.logspace(1, 3, 20)
         eta_bins = np.linspace(-5, 5, 50)
         phi_bins = np.linspace(-np.pi, np.pi, 30)
         axis_bins = {
@@ -38,8 +37,8 @@ class Quantity:
             "recoil_pt": pt_bins,
             "recoil_phi": phi_bins,
             "njet": np.arange(0, 10),
-            "leadak4_pt": jet_pt_bins,
-            "trailak4_pt": jet_pt_bins,
+            "leadak4_pt": pt_bins,
+            "trailak4_pt": pt_bins,
             "leadak4_eta": eta_bins,
             "trailak4_eta": eta_bins,
             "leadak4_phi": phi_bins,
