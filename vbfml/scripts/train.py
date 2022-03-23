@@ -21,6 +21,7 @@ from vbfml.training.util import (
     normalize_classes,
     save,
     select_and_label_datasets,
+    summarize_datasets,
     PrintingCallback,
 )
 from vbfml.util import (
@@ -78,13 +79,16 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
     all_datasets = load_datasets_bucoffea(input_dir)
 
     dataset_labels = {
-        "ewk_17": "(EWK.*2017|VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017)",
+        "ewk_17": "EWK.*2017",
+        "vbf_h_17": "VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017",
         "v_qcd_nlo_17": "(WJetsToLNu_Pt-\d+To.*|Z\dJetsToNuNu_M-50_LHEFilterPtZ-\d+To\d+)_MatchEWPDG20-amcatnloFXFX_2017",
     }
     datasets = select_and_label_datasets(all_datasets, dataset_labels)
     for dataset_info in datasets:
         if re.match(dataset_labels["v_qcd_nlo_17"], dataset_info.name):
             dataset_info.n_events = int(np.floor(0.01 * dataset_info.n_events))
+
+    summarize_datasets(datasets)
 
     # Object containing data for different models
     # (set of features, dropout rate etc.)
@@ -215,12 +219,6 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
 @cli.command()
 @click.pass_context
 @click.option(
-    "--steps-per-epoch",
-    type=int,
-    default=int(1e3),
-    help="Number of batches in an epoch.",
-)
-@click.option(
     "-n",
     "--num-epochs",
     type=int,
@@ -241,7 +239,6 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
 )
 def train(
     ctx,
-    steps_per_epoch: int,
     num_epochs: int,
     learning_rate: float,
     no_verbose_output: bool,
@@ -268,7 +265,6 @@ def train(
 
     fit_args = {
         "x": training_sequence,
-        # "steps_per_epoch": steps_per_epoch,
         "epochs": num_epochs,
         "max_queue_size": 0,
         "shuffle": False,
