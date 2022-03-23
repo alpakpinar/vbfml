@@ -255,7 +255,13 @@ class ImageTrainingPlotter(PlotterBase):
                 ]
 
                 for label in label_axis.edges[:-1]:
+                    # h_label: For which class does this histogram hold the predicted scores?
+                    # label: Ground truth labels
+                    # In the end, we want to look at score distributions for the ground truth label
+                    h_label = int(name.split("_")[-1])
                     label = int(label)
+                    if h_label != label:
+                        continue
                     color = colors[label % len(colors)]
 
                     histogram_for_label = histogram[{"label": int(label)}]
@@ -292,7 +298,10 @@ class ImageTrainingPlotter(PlotterBase):
                         transform=ax.transAxes,
                     )
 
-                    ax.axvline(0.5, ymin=0, ymax=1, color="k", ls="--", lw=2)
+                    vertical_thresh = 1 / len(self.histogram_names)
+                    ax.axvline(
+                        vertical_thresh, ymin=0, ymax=1, color="k", ls="--", lw=2
+                    )
 
                     self.saver.save(fig, f"score_dist_{sequence}_{label}.pdf")
 

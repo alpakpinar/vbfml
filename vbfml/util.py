@@ -1,12 +1,13 @@
 from dataclasses import dataclass
+from typing import Dict
 
 import os
 import re
 import yaml
 import vbfml
+import subprocess
 import pandas as pd
 
-import subprocess
 
 from vbfml.models import sequential_convolutional_model, sequential_dense_model
 
@@ -63,6 +64,32 @@ class YamlLoader:
 
 
 @dataclass
+class DatasetAndLabelConfiguration:
+    """
+    Object used to read dataset and label configuration from a given configuration file.
+
+    After the object is initiated, dataset regex and corresponding labels can be
+    retrieved by calling get_datasets():
+    >>> mdataset = DatasetAndLabelConfiguration("datasets.yml")
+    >>> dataset_labels = mdataset.get_datasets()
+    """
+
+    infile: str
+    data: dict = None
+
+    def __post_init__(self) -> None:
+        with open(self.infile, "r") as f:
+            self.data = yaml.load(f, Loader=yaml.FullLoader)
+
+        assert (
+            "datasets" in self.data.keys()
+        ), f"Missing key from in dataset configuration {self.infile}: 'datasets'"
+
+    def get_datasets(self) -> Dict[str, str]:
+        return self.data["datasets"]
+
+
+@dataclass
 class ModelConfiguration:
     """
     Object used to read model configuration data, given a .yml configuration file as an input.
@@ -81,7 +108,21 @@ class ModelConfiguration:
     def __post_init__(self) -> None:
         with open(self.infile, "r") as f:
             self.data = yaml.load(f, Loader=yaml.FullLoader)
-            self._set_model_arch()
+
+        self._set_model_arch()
+        self._set_n_classes()
+
+    def _set_n_classes(self) -> None:
+        """
+        Based on the dataset configuration we have, determine n_classes
+        parameter at runtime.
+        """
+        d_config_path = vbfml_path("config/datasets/datasets.yml")
+        assert os.path.exists(
+            d_config_path
+        ), f"Cannot look up the dataset configuration from file: {d_config_path}"
+        dataset_labels = DatasetAndLabelConfiguration(d_config_path).get_datasets()
+        self.data["arch_parameters"]["n_classes"] = len(dataset_labels)
 
     def _set_model_arch(self) -> None:
         """Set model architecture based on which config file has been passed."""

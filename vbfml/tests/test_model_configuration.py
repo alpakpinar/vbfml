@@ -1,6 +1,11 @@
 import os
 from unittest import TestCase
-from vbfml.util import vbfml_path, ModelConfiguration, YamlLoader
+from vbfml.util import (
+    vbfml_path,
+    ModelConfiguration,
+    YamlLoader,
+    DatasetAndLabelConfiguration,
+)
 
 pjoin = os.path.join
 
@@ -27,6 +32,10 @@ class TestConfigParser(TestCase):
             "arch_parameters": dict,
         }
 
+        d_config_path = vbfml_path("config/datasets/datasets.yml")
+        dataset_config = DatasetAndLabelConfiguration(d_config_path)
+        self.dataset_labels = dataset_config.get_datasets()
+
     def test_exceptions(self):
         with self.assertRaises(AssertionError):
             for mconfig in self.mconfigs:
@@ -41,6 +50,17 @@ class TestConfigParser(TestCase):
         for mconfig in self.mconfigs:
             for key, type in self.features_to_check.items():
                 self.assertIsInstance(mconfig.get(key), type)
+
+    def test_n_classes(self):
+        """
+        Check if n_classes is set properly according to the dataset configuration.
+        """
+        feature_name = "n_classes"
+        for mconfig in self.mconfigs:
+            self.assertIn(feature_name, mconfig.data["arch_parameters"])
+
+            n_classes = mconfig.data["arch_parameters"]["n_classes"]
+            self.assertEqual(len(self.dataset_labels), n_classes)
 
 
 class ParamGridParser(TestCase):
