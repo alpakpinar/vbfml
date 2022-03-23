@@ -17,7 +17,7 @@ from tabulate import tabulate
 from tqdm import tqdm
 
 from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
-from vbfml.util import ModelConfiguration, YamlLoader, vbfml_path
+from vbfml.util import ModelConfiguration, DatasetAndLabelConfiguration, vbfml_path
 
 pjoin = os.path.join
 
@@ -197,7 +197,7 @@ def do_setup(
 
     # Get datasets and corresponding labels from datasets.yml
     datasets_path = vbfml_path("config/datasets/datasets.yml")
-    dataset_labels = YamlLoader(datasets_path).load()["datasets"]
+    dataset_labels = DatasetAndLabelConfiguration(datasets_path).get_datasets()
 
     datasets = select_and_label_datasets(all_datasets, dataset_labels)
     # Use X% of QCD V events, as specified from the command line

@@ -27,7 +27,7 @@ from vbfml.training.util import (
 from vbfml.util import (
     ModelConfiguration,
     ModelFactory,
-    YamlLoader,
+    DatasetAndLabelConfiguration,
     vbfml_path,
     git_rev_parse,
     git_diff,
@@ -81,7 +81,7 @@ def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_confi
 
     # Get datasets and corresponding labels from datasets.yml
     datasets_path = vbfml_path("config/datasets/datasets.yml")
-    dataset_labels = YamlLoader(datasets_path).load()["datasets"]
+    dataset_labels = DatasetAndLabelConfiguration(datasets_path).get_datasets()
 
     datasets = select_and_label_datasets(all_datasets, dataset_labels)
     for dataset_info in datasets:
