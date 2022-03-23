@@ -57,7 +57,6 @@ def cli(ctx, training_directory):
 @click.option(
     "--learning-rate", default=1e-3, required=False, help="Learning rate for training."
 )
-@click.option("--dropout", default=0.5, required=False, help="Dropout rate.")
 @click.option(
     "--input-dir",
     default=vbfml_path("root/2021-11-13_vbfhinv_treesForML"),
@@ -70,7 +69,7 @@ def cli(ctx, training_directory):
     required=True,
     help="Path to the .yml file that has the model configuration parameters.",
 )
-def setup(ctx, learning_rate: float, dropout: float, input_dir: str, model_config: str):
+def setup(ctx, learning_rate: float, input_dir: str, model_config: str):
     """
     Creates a new working area. Prerequisite for later training.
     """
