@@ -3,7 +3,7 @@ from unittest import TestCase
 import numpy as np
 import pandas as pd
 
-from vbfml.util import MultiBatchBuffer
+from vbfml.util import MultiBatchBuffer, DatasetAndLabelConfiguration, vbfml_path
 
 
 class TestMultiBatchBuffer(TestCase):
@@ -45,3 +45,28 @@ class TestMultiBatchBuffer(TestCase):
             list(batch_df_1["a"]),
             list(range(self.buffer.batch_size, 2 * self.buffer.batch_size)),
         )
+
+
+class TestDatasetAndLabelConfiguration(TestCase):
+    def setUp(self):
+        path = vbfml_path("config/datasets/datasets.yml")
+        self.dataset_config = DatasetAndLabelConfiguration(path)
+
+    def test_branches(self):
+        data = self.dataset_config.data
+        regular_exps = []
+        # Each branch must have regex and scale parameters
+        for label, info in data.items():
+            for branch_name in ["regex", "scale"]:
+                self.assertIn(branch_name, info)
+
+                if branch_name == "regex":
+                    regular_exps.append(info[branch_name])
+
+        # Check if all the regular expressions are unique
+        self.assertEqual(len(set(regular_exps)), len(regular_exps))
+
+    def test_n_classes(self):
+        labels = self.dataset_config.get_dataset_labels()
+        scales = self.dataset_config.get_dataset_scales()
+        self.assertEqual(len(labels), len(scales))
