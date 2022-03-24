@@ -219,7 +219,6 @@ def search(
         output_directory=temp_dir,
         input_dir=ctx.obj["INPUT_DIR"],
         model_config=ctx.obj["MODEL_CONFIG"],
-        scale_events={},
     )
 
     # Load the parameter grid for grid search from the .yml file

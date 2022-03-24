@@ -203,22 +203,10 @@ def do_setup(
     output_directory: str,
     input_dir: str,
     model_config: str,
-    scale_events: Dict[str, float] = {},
 ):
     """
     Creates a new working area with training and valdation sequences.
     Prerequisite for later training.
-
-    scale_events parameter holds a dictionary (empty by default), that maps
-    the class name to the fraction of events we want to use for that class.
-
-    e.g. if the user wants to scale "bkg_17" class events by 10%, the scale_events
-    should be specified as:
-
-    >>> do_setup(
-        ...,
-        scale_events = {"bkg_17" : 0.1}
-    )
     """
     from vbfml.training.input import build_sequence, load_datasets_bucoffea
 
