@@ -315,7 +315,8 @@ class ImageTrainingPlotter(PlotterBase):
             weights = self.weights[sequence_type]
 
             bins = np.logspace(-8, 0)
-            for label in [0, 1]:
+            n_classes = self.predicted_scores[sequence_type].shape[1]
+            for label in range(n_classes):
                 ax.hist(
                     weights[labels == label],
                     bins=bins,
