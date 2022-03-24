@@ -136,10 +136,6 @@ def do_submit(args):
     if not os.path.exists(filedir):
         os.makedirs(filedir)
 
-    # Output path to transfer to local machine: The trained model
-    training_dir_name = os.path.basename(subdir.rstrip("/"))
-    output_paths = [training_dir_name]
-
     # Arguments to the shell script
     arguments = [
         f"--training-directory {os.path.abspath(subdir)}",
@@ -155,7 +151,6 @@ def do_submit(args):
         "should_transfer_files": "YES",
         "when_to_transfer_output": "ON_EXIT",
         "transfer_input_files": ", ".join(input_files),
-        "transfer_output_files": ", ".join(output_paths),
         "Output": pjoin(filedir, "out.txt"),
         "Error": pjoin(filedir, "err.txt"),
         "log": pjoin(filedir, "log.txt"),
