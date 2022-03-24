@@ -133,7 +133,6 @@ def scale_datasets(
     labels = dataset_config.get_dataset_labels()
     scales = dataset_config.get_dataset_scales()
     for label, scale in scales.items():
-        print(label, scale)
         for dataset_info in datasets:
             if re.match(labels[label], dataset_info.name):
                 dataset_info.n_events = int(np.floor(scale * dataset_info.n_events))
