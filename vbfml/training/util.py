@@ -124,6 +124,21 @@ def summarize_datasets(datasets: List[DatasetInfo]) -> None:
     )
 
 
+def scale_datasets(
+    datasets: List[DatasetInfo], dataset_config: DatasetAndLabelConfiguration
+) -> None:
+    """
+    Based on the dataset configuration given, scale events for each label in place.
+    """
+    labels = dataset_config.get_dataset_labels()
+    scales = dataset_config.get_dataset_scales()
+    for label, scale in scales.items():
+        print(label, scale)
+        for dataset_info in datasets:
+            if re.match(labels[label], dataset_info.name):
+                dataset_info.n_events = int(np.floor(scale * dataset_info.n_events))
+
+
 def select_and_label_datasets(
     all_datasets: List[DatasetInfo], labels: Dict[str, str]
 ) -> List[DatasetInfo]:
@@ -211,17 +226,13 @@ def do_setup(
 
     # Get datasets and corresponding labels from datasets.yml
     datasets_path = vbfml_path("config/datasets/datasets.yml")
-    dataset_labels = DatasetAndLabelConfiguration(datasets_path).get_datasets()
+    dataset_config = DatasetAndLabelConfiguration(datasets_path)
+
+    dataset_labels = dataset_config.get_dataset_labels()
 
     datasets = select_and_label_datasets(all_datasets, dataset_labels)
-
-    # Scale the number of events of a certain class, if specified
-    for class_name, scale in scale_events.items():
-        # Make sure the scale value is a float, not a string
-        scale = float(scale)
-        for dataset_info in datasets:
-            if re.match(dataset_labels[class_name], dataset_info.name):
-                dataset_info.n_events = int(np.floor(scale * dataset_info.n_events))
+    scale_datasets(datasets, dataset_config)
+    summarize_datasets(datasets)
 
     # Object containing data for different models
     # (set of features, dropout rate etc.)

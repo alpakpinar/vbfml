@@ -51,13 +51,6 @@ def parse_cli():
         help="Number of iterations through the whole training set.",
     )
     parser.add_argument(
-        "-s",
-        "--scale_events",
-        nargs=2,
-        default=None,
-        help="Scale events of a particular class by specifying -s class_name scale.",
-    )
-    parser.add_argument(
         "--name", default=None, help="Job name specifying this particular submission."
     )
     parser.add_argument(
