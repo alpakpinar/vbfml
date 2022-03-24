@@ -1,5 +1,4 @@
 # Datasets and labels corresponding to different classes
 datasets:
-  ewk_17: EWK.*2017
-  vbf_h_17: VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017
-  v_qcd_nlo_17: (WJetsToLNu_Pt-\d+To.*|Z\dJetsToNuNu_M-50_LHEFilterPtZ-\d+To\d+)_MatchEWPDG20-amcatnloFXFX_2017
+  signal_17: VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017
+  bkg_17: ((WJetsToLNu_Pt-\d+To.*|Z\dJetsToNuNu_M-50_LHEFilterPtZ-\d+To\d+)_MatchEWPDG20-amcatnloFXFX_2017|EWK.*2017)

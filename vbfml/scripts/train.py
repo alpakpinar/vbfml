@@ -84,7 +84,7 @@ def setup(ctx, learning_rate: float, input_dir: str, model_config: str):
 
     datasets = select_and_label_datasets(all_datasets, dataset_labels)
     for dataset_info in datasets:
-        if re.match(dataset_labels["v_qcd_nlo_17"], dataset_info.name):
+        if re.match(dataset_labels["bkg_17"], dataset_info.name):
             dataset_info.n_events = int(np.floor(0.01 * dataset_info.n_events))
 
     summarize_datasets(datasets)
