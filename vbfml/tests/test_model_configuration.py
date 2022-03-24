@@ -34,7 +34,7 @@ class TestConfigParser(TestCase):
 
         d_config_path = vbfml_path("config/datasets/datasets.yml")
         dataset_config = DatasetAndLabelConfiguration(d_config_path)
-        self.dataset_labels = dataset_config.get_datasets()
+        self.dataset_labels = dataset_config.get_dataset_labels()
 
     def test_exceptions(self):
         with self.assertRaises(AssertionError):

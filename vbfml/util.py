@@ -85,8 +85,21 @@ class DatasetAndLabelConfiguration:
             "datasets" in self.data.keys()
         ), f"Missing key from in dataset configuration {self.infile}: 'datasets'"
 
-    def get_datasets(self) -> Dict[str, str]:
-        return self.data["datasets"]
+        self.data = self.data["datasets"]
+
+    def get_dataset_labels(self) -> Dict[str, str]:
+        mapping = {}
+        labels = self.data.keys()
+        for label in labels:
+            mapping[label] = self.data[label]["regex"]
+        return mapping
+
+    def get_dataset_scales(self) -> Dict[str, float]:
+        mapping = {}
+        labels = self.data.keys()
+        for label in labels:
+            mapping[label] = self.data[label]["scale"]
+        return mapping
 
 
 @dataclass
@@ -121,7 +134,9 @@ class ModelConfiguration:
         assert os.path.exists(
             d_config_path
         ), f"Cannot look up the dataset configuration from file: {d_config_path}"
-        dataset_labels = DatasetAndLabelConfiguration(d_config_path).get_datasets()
+        dataset_labels = DatasetAndLabelConfiguration(
+            d_config_path
+        ).get_dataset_labels()
         self.data["arch_parameters"]["n_classes"] = len(dataset_labels)
 
     def _set_model_arch(self) -> None:

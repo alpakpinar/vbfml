@@ -21,6 +21,7 @@ from vbfml.training.util import (
     normalize_classes,
     save,
     select_and_label_datasets,
+    scale_datasets,
     summarize_datasets,
     PrintingCallback,
 )
@@ -80,13 +81,12 @@ def setup(ctx, learning_rate: float, input_dir: str, model_config: str):
 
     # Get datasets and corresponding labels from datasets.yml
     datasets_path = vbfml_path("config/datasets/datasets.yml")
-    dataset_labels = DatasetAndLabelConfiguration(datasets_path).get_datasets()
+    dataset_config = DatasetAndLabelConfiguration(datasets_path)
+
+    dataset_labels = dataset_config.get_dataset_labels()
 
     datasets = select_and_label_datasets(all_datasets, dataset_labels)
-    for dataset_info in datasets:
-        if re.match(dataset_labels["v_qcd_nlo_17"], dataset_info.name):
-            dataset_info.n_events = int(np.floor(0.01 * dataset_info.n_events))
-
+    scale_datasets(datasets, dataset_config)
     summarize_datasets(datasets)
 
     # Object containing data for different models

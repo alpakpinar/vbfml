@@ -79,25 +79,17 @@ def get_gridsearch_directory(tag: str) -> str:
     required=False,
     help="Path to the .yml file that has the model configuration parameters.",
 )
-@click.option(
-    "--frac-qcdv-events",
-    default=1.0,
-    required=False,
-    help="Fraction of the QCD V events to use.",
-)
 @click.pass_context
 def cli(
     ctx,
     tag: str,
     input_dir: str,
     model_config: str,
-    frac_qcdv_events: float,
 ):
     ctx.ensure_object(dict)
     ctx.obj["TAG"] = tag
     ctx.obj["INPUT_DIR"] = input_dir
     ctx.obj["MODEL_CONFIG"] = model_config
-    ctx.obj["FRAC_QCDV_EVENTS"] = frac_qcdv_events
 
 
 def create_model(learning_rate: float, n_features: int, n_classes: int, dropout: float):
@@ -227,7 +219,6 @@ def search(
         output_directory=temp_dir,
         input_dir=ctx.obj["INPUT_DIR"],
         model_config=ctx.obj["MODEL_CONFIG"],
-        frac_qcdv_events=ctx.obj["FRAC_QCDV_EVENTS"],
     )
 
     # Load the parameter grid for grid search from the .yml file

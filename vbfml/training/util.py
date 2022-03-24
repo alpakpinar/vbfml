@@ -124,6 +124,20 @@ def summarize_datasets(datasets: List[DatasetInfo]) -> None:
     )
 
 
+def scale_datasets(
+    datasets: List[DatasetInfo], dataset_config: DatasetAndLabelConfiguration
+) -> None:
+    """
+    Based on the dataset configuration given, scale events for each label in place.
+    """
+    labels = dataset_config.get_dataset_labels()
+    scales = dataset_config.get_dataset_scales()
+    for label, scale in scales.items():
+        for dataset_info in datasets:
+            if re.match(labels[label], dataset_info.name):
+                dataset_info.n_events = int(np.floor(scale * dataset_info.n_events))
+
+
 def select_and_label_datasets(
     all_datasets: List[DatasetInfo], labels: Dict[str, str]
 ) -> List[DatasetInfo]:
@@ -185,7 +199,9 @@ def append_history(
 
 
 def do_setup(
-    output_directory: str, input_dir: str, model_config: str, frac_qcdv_events: float
+    output_directory: str,
+    input_dir: str,
+    model_config: str,
 ):
     """
     Creates a new working area with training and valdation sequences.
@@ -197,16 +213,13 @@ def do_setup(
 
     # Get datasets and corresponding labels from datasets.yml
     datasets_path = vbfml_path("config/datasets/datasets.yml")
-    dataset_labels = DatasetAndLabelConfiguration(datasets_path).get_datasets()
+    dataset_config = DatasetAndLabelConfiguration(datasets_path)
+
+    dataset_labels = dataset_config.get_dataset_labels()
 
     datasets = select_and_label_datasets(all_datasets, dataset_labels)
-    # Use X% of QCD V events, as specified from the command line
-    # Default is 50% (should be 3-4 hours runtime on a GPU)
-    for dataset_info in datasets:
-        if re.match(dataset_labels["v_qcd_nlo_17"], dataset_info.name):
-            dataset_info.n_events = int(
-                np.floor(frac_qcdv_events * dataset_info.n_events)
-            )
+    scale_datasets(datasets, dataset_config)
+    summarize_datasets(datasets)
 
     # Object containing data for different models
     # (set of features, dropout rate etc.)
