@@ -54,7 +54,6 @@ def parse_cli():
         "-s",
         "--scale_events",
         nargs=2,
-        type=str,
         default=None,
         help="Scale events of a particular class by specifying -s class_name scale.",
     )
@@ -63,8 +62,7 @@ def parse_cli():
     )
     parser.add_argument(
         "--overwrite",
-        type=bool,
-        default=False,
+        action="store_true",
         help="If a submission directory exists, whether to overwrite. Defaults to False.",
     )
     parser.add_argument(
@@ -97,11 +95,12 @@ def do_submit(args):
         os.makedirs(subdir)
 
     # Set up the training area
+    scale_events = {args.scale_events[0]: args.scale_events[1]}
     do_setup(
         output_directory=subdir,
         input_dir=os.path.abspath(args.input_dir),
         model_config=args.model_config,
-        scale_events=args.scale_events,
+        scale_events=scale_events,
     )
 
     # Set up the model and save into the training directory
