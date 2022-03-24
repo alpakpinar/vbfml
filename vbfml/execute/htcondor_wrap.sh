@@ -36,13 +36,4 @@ echo "===================="
 echo "Setup done: $(date)"
 echo "Executing: ./train.py ${ARGS[@]}"
 time ./train.py ${ARGS[@]}
-
-# Move the trained model directory back to the top directory
-# so that it gets transferred
-
-find -name '*model_*' -type d | xargs -I {} mv {} ${JOB_DIR}
-cd ${JOB_DIR}
-echo "Directory content---"
-ls -lah .
-echo "===================="
 echo "Run done: $(date)"
