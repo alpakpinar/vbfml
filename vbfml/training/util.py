@@ -185,11 +185,25 @@ def append_history(
 
 
 def do_setup(
-    output_directory: str, input_dir: str, model_config: str, frac_qcdv_events: float
+    output_directory: str,
+    input_dir: str,
+    model_config: str,
+    scale_events: Dict[str, float] = {},
 ):
     """
     Creates a new working area with training and valdation sequences.
     Prerequisite for later training.
+
+    scale_events parameter holds a dictionary (empty by default), that maps
+    the class name to the fraction of events we want to use for that class.
+
+    e.g. if the user wants to scale "bkg_17" class events by 10%, the scale_events
+    should be specified as:
+
+    >>> do_setup(
+        ...,
+        scale_events = {"bkg_17" : 0.1}
+    )
     """
     from vbfml.training.input import build_sequence, load_datasets_bucoffea
 
@@ -200,13 +214,14 @@ def do_setup(
     dataset_labels = DatasetAndLabelConfiguration(datasets_path).get_datasets()
 
     datasets = select_and_label_datasets(all_datasets, dataset_labels)
-    # Use X% of QCD V events, as specified from the command line
-    # Default is 50% (should be 3-4 hours runtime on a GPU)
-    for dataset_info in datasets:
-        if re.match(dataset_labels["v_qcd_nlo_17"], dataset_info.name):
-            dataset_info.n_events = int(
-                np.floor(frac_qcdv_events * dataset_info.n_events)
-            )
+
+    # Scale the number of events of a certain class, if specified
+    for class_name, scale in scale_events.items():
+        # Make sure the scale value is a float, not a string
+        scale = float(scale)
+        for dataset_info in datasets:
+            if re.match(dataset_labels[class_name], dataset_info.name):
+                dataset_info.n_events = int(np.floor(scale * dataset_info.n_events))
 
     # Object containing data for different models
     # (set of features, dropout rate etc.)
