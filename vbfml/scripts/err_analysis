@@ -72,7 +72,14 @@ def cli():
     required=True,
     help="Tag to identify the process.",
 )
-def predict(ctx, input_files: str, model_path: str, tag: str) -> None:
+@click.option(
+    "--save-images",
+    is_flag=True,
+    help="If specified, the images will be saved as another pkl file within the directory.",
+)
+def predict(
+    ctx, input_files: str, model_path: str, tag: str, save_images: bool = False
+) -> None:
     """
     Read events from the input_files, make predictions
     with the pre-trained model (read from model_path) and save the
@@ -197,10 +204,11 @@ def predict(ctx, input_files: str, model_path: str, tag: str) -> None:
     with open(cache_file, "wb+") as f:
         pickle.dump(cache, f)
 
-    # Also save the image arrays for later use
-    images_cache = pjoin(outdir, "images.pkl")
-    with open(images_cache, "wb+") as f:
-        pickle.dump(image_pixels, f)
+    # Also save the image arrays for later use, if requested specifically
+    if save_images:
+        images_cache = pjoin(outdir, "images.pkl")
+        with open(images_cache, "wb+") as f:
+            pickle.dump(image_pixels, f)
 
 
 @cli.command()
