@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
@@ -343,7 +344,7 @@ class MultiDatasetSequence(Sequence):
     def _init_label_encoding(self) -> None:
         """Create encoding of string labels <-> integer class indices"""
         labels = self.dataset_labels()
-        label_encoding = dict(enumerate(labels))
+        label_encoding = OrderedDict(enumerate(labels))
         label_encoding.update({v: k for k, v in label_encoding.items()})
         self.label_encoding = label_encoding
 

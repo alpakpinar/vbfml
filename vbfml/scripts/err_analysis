@@ -15,7 +15,11 @@ from glob import glob
 from matplotlib import pyplot as plt
 from typing import Tuple
 
-from vbfml.util import get_process_tag_from_file
+from vbfml.util import (
+    DatasetAndLabelConfiguration,
+    get_process_tag_from_file,
+    vbfml_path,
+)
 from vbfml.plot.util import Quantity
 from vbfml.training.util import summarize_datasets, select_and_label_datasets
 from vbfml.training.data import TrainingLoader
@@ -27,17 +31,20 @@ warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 pjoin = os.path.join
 
 
-def gather_data(input_dir: str) -> Tuple:
+def load_cache(input_dir: str) -> tuple:
     """
-    Load data from pickle caches and return.
+    Load prediction data from cache and return it.
     """
-    with open(pjoin(input_dir, "df_non_feature.pkl"), "rb") as f:
-        df = pickle.load(f)
+    cache_file = pjoin(input_dir, "predict_cache.pkl")
+    assert os.path.exists(cache_file), f"Cannot find file: {cache_file}"
+    with open(cache_file, "rb") as f:
+        cache = pickle.load(f)
 
-    with open(pjoin(input_dir, "predictions.pkl"), "rb") as f:
-        predictions = pickle.load(f)
+    df = cache["df_non_feature"]
+    predictions = cache["predictions"]
+    label_encoding = cache["label_encoding"]
 
-    return df, predictions
+    return df, predictions, label_encoding
 
 
 @click.group()
@@ -65,7 +72,14 @@ def cli():
     required=True,
     help="Tag to identify the process.",
 )
-def predict(ctx, input_files: str, model_path: str, tag: str) -> None:
+@click.option(
+    "--save-images",
+    is_flag=True,
+    help="If specified, the images will be saved as another pkl file within the directory.",
+)
+def predict(
+    ctx, input_files: str, model_path: str, tag: str, save_images: bool = False
+) -> None:
     """
     Read events from the input_files, make predictions
     with the pre-trained model (read from model_path) and save the
@@ -79,10 +93,11 @@ def predict(ctx, input_files: str, model_path: str, tag: str) -> None:
         input_files
     )
     datasets = load_datasets_bucoffea(directory, file_pattern)
-    dataset_labels = {
-        "ewk_17": "(EWK.*2017|VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017)",
-        "v_qcd_nlo_17": "(WJetsToLNu_Pt-\d+To.*|Z\dJetsToNuNu_M-50_LHEFilterPtZ-\d+To\d+)_MatchEWPDG20-amcatnloFXFX_2017",
-    }
+    # Get datasets and corresponding labels from datasets.yml
+    datasets_path = vbfml_path("config/datasets/datasets.yml")
+    dataset_config = DatasetAndLabelConfiguration(datasets_path)
+
+    dataset_labels = dataset_config.get_dataset_labels()
     datasets = select_and_label_datasets(datasets, dataset_labels)
     summarize_datasets(datasets)
 
@@ -138,6 +153,13 @@ def predict(ctx, input_files: str, model_path: str, tag: str) -> None:
     loader = TrainingLoader(model_path)
     model = loader.get_model()
 
+    # Retrieve the label encoding from the original training sequence
+    # so that we have the correct integer to label mapping
+    training_sequence = loader.get_sequence("training")
+    temp = training_sequence.label_encoding
+    # Clean the non-int keys
+    label_encoding = {k: v for k, v in temp.items() if isinstance(k, int)}
+
     predictions = []
     image_pixels = []
     for ibatch in tqdm(
@@ -171,20 +193,22 @@ def predict(ctx, input_files: str, model_path: str, tag: str) -> None:
         for infile in glob(input_files):
             f.write(f"{infile}\n")
 
-    # Save dataframe with high-level features (e.g. mjj)
-    df_cache = pjoin(outdir, "df_non_feature.pkl")
-    with open(df_cache, "wb+") as f:
-        pickle.dump(df_non_feature, f)
+    # Save everything into a cache.pkl file
+    cache = {
+        "predictions": predictions,
+        "df_non_feature": df_non_feature,
+        "label_encoding": label_encoding,
+    }
 
-    # Save the predictions into a pkl file
-    cache = pjoin(outdir, "predictions.pkl")
-    with open(cache, "wb+") as f:
-        pickle.dump(predictions, f)
+    cache_file = pjoin(outdir, "predict_cache.pkl")
+    with open(cache_file, "wb+") as f:
+        pickle.dump(cache, f)
 
-    # Also save the image arrays for later use
-    images_cache = pjoin(outdir, "images.pkl")
-    with open(images_cache, "wb+") as f:
-        pickle.dump(image_pixels, f)
+    # Also save the image arrays for later use, if requested specifically
+    if save_images:
+        images_cache = pjoin(outdir, "images.pkl")
+        with open(images_cache, "wb+") as f:
+            pickle.dump(image_pixels, f)
 
 
 @cli.command()
@@ -195,8 +219,7 @@ def plot(ctx, input_dir: str) -> None:
     Make histogram of high-level features, split by the predicted class,
     and plot the histograms.
     """
-    # Gather the data
-    df, predictions = gather_data(input_dir)
+    df, predictions, label_encoding = load_cache(input_dir)
 
     process_tag = os.path.basename(input_dir.rstrip("/")).replace("predictions_", "")
 
@@ -210,7 +233,7 @@ def plot(ctx, input_dir: str) -> None:
     for quantity_name in tqdm(quantities, desc="Plotting histograms"):
         quantity = Quantity(quantity_name)
         fig, ax = plt.subplots()
-        for icls, sample_cls in enumerate(["ewk_17", "v_nlo_qcd_17"]):
+        for icls, sample_cls in label_encoding.items():
             mask = predictions == icls
             try:
                 ax.hist(
@@ -273,7 +296,7 @@ def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
     quantity > threshold.
     """
     # Gather the data
-    df, predictions = gather_data(input_dir)
+    df, predictions, label_encoding = load_cache(input_dir)
 
     with open(pjoin(input_dir, "input_root_files.txt"), "r") as f:
         inputfile = f.readlines()[0]
