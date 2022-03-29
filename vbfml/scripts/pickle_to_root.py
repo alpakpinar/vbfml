@@ -49,7 +49,7 @@ def main():
         xs = data["xs"]
         sumw = data["sumw"]
 
-        outdir = vbfml_path(f"root/{outtag}/v2")
+        outdir = vbfml_path(f"root/{outtag}")
         if not os.path.exists(outdir):
             os.makedirs(outdir)
         outrootfile = pjoin(outdir, f"tree_{dataset_name}.root")
