@@ -52,12 +52,12 @@ class TestDatasetAndLabelConfiguration(TestCase):
         path = vbfml_path("config/datasets/datasets.yml")
         self.dataset_config = DatasetAndLabelConfiguration(path)
 
-    def test_branches(self):
-        data = self.dataset_config.data
+    def test_datasets(self):
+        datasets = self.dataset_config.data["datasets"]
         regular_exps = []
         # Each branch must have regex and scale parameters
-        for label, info in data.items():
-            for branch_name in ["regex", "scale"]:
+        for label, info in datasets.items():
+            for branch_name in ["regex"]:
                 self.assertIn(branch_name, info)
 
                 if branch_name == "regex":
@@ -66,7 +66,13 @@ class TestDatasetAndLabelConfiguration(TestCase):
         # Check if all the regular expressions are unique
         self.assertEqual(len(set(regular_exps)), len(regular_exps))
 
-    def test_n_classes(self):
-        labels = self.dataset_config.get_dataset_labels()
+    def test_scales(self):
         scales = self.dataset_config.get_dataset_scales()
-        self.assertEqual(len(labels), len(scales))
+        regular_exps = []
+
+        for regex, scale in scales.items():
+            regular_exps.append(regex)
+            self.assertTrue((scale >= 0) & (scale <= 1))
+
+        # Check if all the regular expressions are unique
+        self.assertEqual(len(set(regular_exps)), len(regular_exps))
