@@ -1,6 +1,12 @@
+import os
 import numpy as np
 
+from tqdm import tqdm
+from typing import Optional
 from dataclasses import dataclass
+from matplotlib import pyplot as plt
+
+pjoin = os.path.join
 
 
 @dataclass
@@ -71,3 +77,59 @@ class Quantity:
     def __post_init__(self) -> None:
         self._set_bins()
         self._set_label()
+
+
+@dataclass
+class ScoreDistributionPlotter:
+    """
+    Class for plottng the score distributions.
+    """
+
+    save_to_dir: str
+
+    def plot(
+        self,
+        scores: np.ndarray,
+        score_index: int,
+        score_label: str,
+        n_bins: int = 20,
+        left_label: Optional[str] = None,
+        right_label: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the score distribution among a given index.
+        """
+        n_classes = scores.shape[1]
+
+        fig, ax = plt.subplots()
+        scores_for_i = scores[:, score_index]
+        ax.hist(scores_for_i, bins=n_bins, histtype="step")
+
+        ax.set_xlabel(score_label, fontsize=14)
+        ax.set_ylabel("Counts", fontsize=14)
+
+        if left_label:
+            ax.text(
+                0,
+                1,
+                left_label,
+                fontsize=14,
+                ha="left",
+                va="bottom",
+                transform=ax.transAxes,
+            )
+        if right_label:
+            ax.text(
+                1,
+                1,
+                right_label,
+                fontsize=14,
+                ha="right",
+                va="bottom",
+                transform=ax.transAxes,
+            )
+
+        # Save figure
+        outpath = pjoin(self.save_to_dir, "score_distribution.pdf")
+        fig.savefig(outpath)
+        plt.close(fig)

@@ -6,6 +6,7 @@ import numpy as np
 from vbfml.input.sequences import DatasetInfo, MultiDatasetSequence
 from vbfml.training.util import (
     get_n_events,
+    get_total_n_events,
     get_weight_integral_by_label,
     load,
     normalize_classes,
@@ -101,6 +102,18 @@ class TestSequenceUtils(TestCase):
 
             readback = get_n_events(fname, "non_existing_tree")
             self.assertEqual(readback, 0)
+
+    def test_get_total_n_events(self):
+        """Test that the get_total_n_events correctly returns the number of events in a list of files."""
+        readback = get_total_n_events(self.files, self.treename)
+        total_n_events = 0
+        for values in self.values:
+            total_n_events += len(values)
+
+        self.assertEqual(readback, total_n_events)
+
+        readback = get_total_n_events(self.files, "non_existing_tree")
+        self.assertEqual(readback, 0)
 
     def test_get_weight_integral_by_label(self):
         """Test that the get_weight_integral_by_label function correctly calculates weight sums per data set label"""

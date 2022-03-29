@@ -40,6 +40,14 @@ def get_n_events(filename: str, treename: str) -> int:
         return 0
 
 
+def get_total_n_events(filelist: List[str], treename: str) -> int:
+    """Return the total number of events in a list of files."""
+    n_events = 0
+    for file in filelist:
+        n_events += get_n_events(file, treename)
+    return n_events
+
+
 def get_weight_integral_by_label(sequence: MultiDatasetSequence) -> Dict[str, float]:
     """
     Integrate the weights of all samples, accumulate by their label.
