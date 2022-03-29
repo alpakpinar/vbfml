@@ -124,8 +124,8 @@ def features(ctx) -> None:
     df = reader.read_events(0, int(1e5))
     signal_mask = df["score_1"] > df["score_0"]
     masks = {
-        "signal": signal_mask,
-        "bkg": ~signal_mask,
+        "Signal": signal_mask,
+        "Background": ~signal_mask,
     }
 
     for quantity in tqdm(quantities, desc="Plotting quantities"):
@@ -141,10 +141,11 @@ def features(ctx) -> None:
                 bins=q.bins,
                 label=label,
                 histtype="step",
+                density=True,
             )
 
         ax.set_xlabel(q.label)
-        ax.set_ylabel("Counts")
+        ax.set_ylabel("Normalized Counts")
         ax.legend()
 
         outpath = pjoin(outdir, f"{quantity}.pdf")
