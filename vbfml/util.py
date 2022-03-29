@@ -82,24 +82,32 @@ class DatasetAndLabelConfiguration:
         with open(self.infile, "r") as f:
             self.data = yaml.load(f, Loader=yaml.FullLoader)
 
-        assert (
-            "datasets" in self.data.keys()
-        ), f"Missing key from in dataset configuration {self.infile}: 'datasets'"
-
-        self.data = self.data["datasets"]
+        for key in ["datasets", "scales"]:
+            assert (
+                key in self.data.keys()
+            ), f"Missing key from in dataset configuration {self.infile}: '{key}'"
 
     def get_dataset_labels(self) -> Dict[str, str]:
         mapping = {}
-        labels = self.data.keys()
+        datasets = self.data["datasets"]
+        labels = datasets.keys()
         for label in labels:
-            mapping[label] = self.data[label]["regex"]
+            mapping[label] = datasets[label]["regex"]
         return mapping
 
     def get_dataset_scales(self) -> Dict[str, float]:
+        """
+        Get the dataset scales corresponding to each process.
+        Returns a dictionary that maps:
+
+        { Dataset regex : Scale factor }
+        """
         mapping = {}
-        labels = self.data.keys()
+        scales = self.data["scales"]
+        labels = scales.keys()
         for label in labels:
-            mapping[label] = self.data[label]["scale"]
+            regex, scale = scales[label]["regex"], scales[label]["scale"]
+            mapping[regex] = scale
         return mapping
 
 
