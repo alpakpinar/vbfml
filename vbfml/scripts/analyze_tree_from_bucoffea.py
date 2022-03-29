@@ -14,6 +14,7 @@ from matplotlib import pyplot as plt
 
 from vbfml.input.uproot import UprootReaderMultiFile
 from vbfml.plot.util import ScoreDistributionPlotter, Quantity
+from vbfml.training.util import get_total_n_events
 
 pjoin = os.path.join
 
@@ -74,7 +75,8 @@ def scores(ctx) -> None:
         treename="sr_vbf",
     )
 
-    df = reader.read_events(0, int(1e5))
+    n_events = get_total_n_events(files, "sr_vbf")
+    df = reader.read_events(0, n_events)
 
     scores = df.to_numpy()
 
@@ -121,7 +123,9 @@ def features(ctx) -> None:
         treename="sr_vbf",
     )
 
-    df = reader.read_events(0, int(1e5))
+    n_events = get_total_n_events(files, "sr_vbf")
+    df = reader.read_events(0, n_events)
+
     signal_mask = df["score_1"] > df["score_0"]
     masks = {
         "Signal": signal_mask,
