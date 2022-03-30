@@ -10,3 +10,16 @@ features:
     - detajj
     - leadak4_eta
     - trailak4_eta
+
+# Configurations on score plotting
+scores:
+  branches:
+    - score_0
+    - score_1
+  plot:
+    # index: i will plot score[:,i]
+    index: 0
+    label: 'Background-like Probability'
+    n_bins: 40
+
+

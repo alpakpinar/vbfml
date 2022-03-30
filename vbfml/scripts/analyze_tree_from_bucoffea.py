@@ -88,6 +88,8 @@ def cli(ctx, input_files):
 def scores(ctx) -> None:
     """
     Plot score distributions for the given input ROOT files.
+
+    Plotting configurations can be updated from config/analyze/from_bucoffea.yml.
     """
     input_files = ctx.obj["INPUT_FILES"]
     files = glob(input_files)
@@ -95,11 +97,13 @@ def scores(ctx) -> None:
 
     outdir = make_output_dir(files)
 
-    branches = ["score_0", "score_1"]
+    # Read relevent information from the config file
+    loader = YamlLoader(vbfml_path("config/analyze/from_bucoffea.yml"))
+    config = loader.load()["scores"]
 
     reader = UprootReaderMultiFile(
         files=files,
-        branches=branches,
+        branches=config["branches"],
         treename="sr_vbf",
     )
 
@@ -110,11 +114,12 @@ def scores(ctx) -> None:
 
     # Plot the scores on an overlayed plot
     plotter = ScoreDistributionPlotter(save_to_dir=outdir)
+    plot_config = config["plot"]
     plotter.plot(
         scores,
-        score_index=0,
-        score_label="Background-like Probability",
-        n_bins=20,
+        score_index=plot_config["index"],
+        score_label=plot_config["label"],
+        n_bins=plot_config["n_bins"],
         left_label="MET_2017C",
     )
 
@@ -126,8 +131,8 @@ def features(ctx) -> None:
     Plot feature distributions for the given input ROOT files.
 
     Plots features in an overlay plot for separate cases, as defined
-    by the masks dictionary in the script. Which masks to plot in the
-    figure can be configured from config/analyze/from_bucoffea.yml.
+    by the masks dictionary in the script. Plotting configurations
+    can be updated from config/analyze/from_bucoffea.yml.
     """
     input_files = ctx.obj["INPUT_FILES"]
     files = glob(input_files)
