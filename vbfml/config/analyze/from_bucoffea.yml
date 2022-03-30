@@ -1,0 +1,25 @@
+features:
+  # Which masks we are to run on the feature plots
+  # Definitions for each mask are in the script
+  masks:
+    run_on:
+      - 'Background Like'
+      - 'Very Background Like'
+  plot:
+    - mjj
+    - detajj
+    - leadak4_eta
+    - trailak4_eta
+
+# Configurations on score plotting
+scores:
+  branches:
+    - score_0
+    - score_1
+  plot:
+    # index: i will plot score[:,i]
+    index: 0
+    label: 'Background-like Probability'
+    n_bins: 40
+
+
