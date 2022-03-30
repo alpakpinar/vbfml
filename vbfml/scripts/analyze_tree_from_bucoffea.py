@@ -2,6 +2,7 @@
 
 import os
 import re
+import yaml
 import click
 import uproot
 import numpy as np
@@ -9,9 +10,10 @@ import pandas as pd
 
 from glob import glob
 from tqdm import tqdm
-from typing import List
+from typing import List, Dict
 from matplotlib import pyplot as plt
 
+from vbfml.util import YamlLoader, vbfml_path
 from vbfml.input.uproot import UprootReaderMultiFile
 from vbfml.plot.util import ScoreDistributionPlotter, Quantity
 from vbfml.training.util import get_total_n_events
@@ -41,6 +43,32 @@ def get_non_image_branches(file: str, tree_name: str = "sr_vbf") -> List[str]:
     all_branches = f[tree_name].keys()
     branches = [branch for branch in all_branches if not re.match("JetImage.*", branch)]
     return branches
+
+
+def mask_and_plot_quantity(
+    quantity: Quantity, masks: Dict[str, np.array], data: pd.DataFrame, outdir: str
+) -> None:
+    """
+    For the given set of masks, apply the mask and plot
+    a histogram the masked data.
+    """
+    fig, ax = plt.subplots()
+    for label, mask in masks.items():
+        ax.hist(
+            data[mask],
+            bins=quantity.bins,
+            label=label,
+            histtype="step",
+            density=True,
+        )
+
+    ax.set_xlabel(quantity.label)
+    ax.set_ylabel("Normalized Counts")
+    ax.legend()
+
+    outpath = pjoin(outdir, f"{quantity.name}.pdf")
+    fig.savefig(outpath)
+    plt.close(fig)
 
 
 @click.group()
@@ -96,12 +124,10 @@ def scores(ctx) -> None:
 def features(ctx) -> None:
     """
     Plot feature distributions for the given input ROOT files.
-    Plots features in an overlay plot for two cases:
-    1. Background prediction by model
-    2. Signal prediction by model
 
-    input_files is the pattern for the input ROOT files, which
-    also supports wildcards (*).
+    Plots features in an overlay plot for separate cases, as defined
+    by the masks dictionary in the script. Which masks to plot in the
+    figure can be configured from config/analyze/from_bucoffea.yml.
     """
     input_files = ctx.obj["INPUT_FILES"]
     files = glob(input_files)
@@ -130,31 +156,24 @@ def features(ctx) -> None:
     masks = {
         "Signal": signal_mask,
         "Background": ~signal_mask,
+        "Very Background Like": df["score_0"] > 0.9,
+        "Background Like": (df["score_0"] > 0.5) & (df["score_0"] < 0.9),
     }
+
+    # From the config file, read which masks we want to apply and make an overlay plot
+    loader = YamlLoader(vbfml_path("config/analyze/from_bucoffea.yml"))
+    masknames_to_run = loader.load()["features"]["run_on"]
+
+    masks_to_run = {}
+    for maskname in masknames_to_run:
+        masks_to_run[maskname] = masks[maskname].to_numpy()
 
     for quantity in tqdm(quantities, desc="Plotting quantities"):
         assert quantity in df, f"{quantity} not found in dataframe!"
         data = df[quantity]
         q = Quantity(name=quantity)
 
-        fig, ax = plt.subplots()
-
-        for label, mask in masks.items():
-            ax.hist(
-                data[mask],
-                bins=q.bins,
-                label=label,
-                histtype="step",
-                density=True,
-            )
-
-        ax.set_xlabel(q.label)
-        ax.set_ylabel("Normalized Counts")
-        ax.legend()
-
-        outpath = pjoin(outdir, f"{quantity}.pdf")
-        fig.savefig(outpath)
-        plt.close(fig)
+        mask_and_plot_quantity(q, masks=masks_to_run, data=data, outdir=outdir)
 
 
 if __name__ == "__main__":
