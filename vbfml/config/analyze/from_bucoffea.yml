@@ -1,11 +1,12 @@
 features:
   # Which masks we are to run on the feature plots
   # Definitions for each mask are in the script
-  run_on:
-    - 'Background Like'
-    - 'Very Background Like'
-  all:
-    - 'Signal'
-    - 'Background'
-    - 'Background Like'
-    - 'Very Background Like'
+  masks:
+    run_on:
+      - 'Background Like'
+      - 'Very Background Like'
+  plot:
+    - mjj
+    - detajj
+    - leadak4_eta
+    - trailak4_eta

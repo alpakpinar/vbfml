@@ -135,13 +135,12 @@ def features(ctx) -> None:
 
     outdir = make_output_dir(files)
 
+    # Read relevent information from the config file
+    loader = YamlLoader(vbfml_path("config/analyze/from_bucoffea.yml"))
+    config = loader.load()["features"]
+
     # Quantities to plot
-    quantities = [
-        "mjj",
-        "detajj",
-        "leadak4_eta",
-        "trailak4_eta",
-    ]
+    quantities = config["plot"]
 
     reader = UprootReaderMultiFile(
         files=files,
@@ -161,8 +160,7 @@ def features(ctx) -> None:
     }
 
     # From the config file, read which masks we want to apply and make an overlay plot
-    loader = YamlLoader(vbfml_path("config/analyze/from_bucoffea.yml"))
-    masknames_to_run = loader.load()["features"]["run_on"]
+    masknames_to_run = config["masks"]["run_on"]
 
     masks_to_run = {}
     for maskname in masknames_to_run:
