@@ -138,11 +138,10 @@ def scale_datasets(
     """
     Based on the dataset configuration given, scale events for each label in place.
     """
-    labels = dataset_config.get_dataset_labels()
     scales = dataset_config.get_dataset_scales()
-    for label, scale in scales.items():
+    for regex, scale in scales.items():
         for dataset_info in datasets:
-            if re.match(labels[label], dataset_info.name):
+            if re.match(regex, dataset_info.name):
                 dataset_info.n_events = int(np.floor(scale * dataset_info.n_events))
 
 
