@@ -179,7 +179,6 @@ def predict(
     image_pixels = np.concatenate(image_pixels)
 
     # High-level features
-    features = {f: [] for f in high_level_features}
     for ibatch in tqdm(
         range(len(validation_sequences["high_level"])),
         desc="Obtaining high-level features",
