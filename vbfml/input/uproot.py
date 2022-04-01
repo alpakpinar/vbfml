@@ -1,3 +1,4 @@
+import re
 import numpy as np
 import pandas as pd
 import uproot
@@ -61,6 +62,11 @@ class UprootReaderMultiFile:
         branches_in_file = self._get_tree(0).keys()
         branches_not_found = []
         for branch in self.branches:
+            # Branch could be an arithmetic operation on existing branches (e.g weight)
+            # So just check for fully alpha-numeric strings (or ones containing "_")
+            temp = re.sub("_", "", branch)
+            if not temp.isalnum():
+                continue
             if branch not in branches_in_file:
                 print(
                     f"WARNING: Branch {branch} not found in the input ROOT files, will not read this branch."
