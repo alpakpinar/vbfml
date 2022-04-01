@@ -43,12 +43,21 @@ class Quantity:
             "recoil_pt": pt_bins,
             "recoil_phi": phi_bins,
             "njet": np.arange(0, 10),
+            "njet_pt30": np.arange(0, 10),
+            "njet_central": np.arange(0, 10),
+            "njet_forward": np.arange(0, 10),
             "leadak4_pt": pt_bins,
             "trailak4_pt": pt_bins,
             "leadak4_eta": eta_bins,
             "trailak4_eta": eta_bins,
             "leadak4_phi": phi_bins,
             "trailak4_phi": phi_bins,
+            "dphi_ak40_met": phi_bins,
+            "dphi_ak41_met": phi_bins,
+            "minDPhiJetMet": phi_bins,
+            "ak4_pt2": np.linspace(0, 250, 26),
+            "ak4_eta2": eta_bins,
+            "ak4_phi2": phi_bins,
         }
         try:
             self.bins = axis_bins[self.name]
@@ -68,6 +77,15 @@ class Quantity:
             "recoil_pt": r"Recoil $p_T \ (GeV)$",
             "recoil_phi": r"Recoil $\phi$",
             "njet": "Number of Jets",
+            "njet_pt30": r"Number of Jets With $p_T > 30 \ GeV$",
+            "njet_central": "Number of Central Jets",
+            "njet_forward": "Number of Forward Jets",
+            "dphi_ak40_met": r"$\Delta\phi$(leading jet, MET)",
+            "dphi_ak41_met": r"$\Delta\phi$(trailing jet, MET)",
+            "minDPhiJetMet": r"min$\Delta\phi$(jet, MET)",
+            "ak4_pt2": r"Third Jet $p_T \ (GeV)$",
+            "ak4_eta2": r"Third Jet $\eta$",
+            "ak4_phi2": r"Third Jet $\phi$",
         }
         try:
             self.label = labels[self.name]

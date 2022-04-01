@@ -105,6 +105,9 @@ def predict(
         "mjj",
         "detajj",
         "njet",
+        "njet_pt30",
+        "njet_central",
+        "njet_forward",
         "recoil_pt",
         "recoil_phi",
         "leadak4_pt",
@@ -113,6 +116,9 @@ def predict(
         "trailak4_eta",
         "leadak4_phi",
         "trailak4_phi",
+        "ak4_pt2",
+        "ak4_eta2",
+        "ak4_phi2",
     ]
 
     image_features = ["JetImage_pixels"]
@@ -214,7 +220,8 @@ def predict(
 @cli.command()
 @click.pass_context
 @click.argument("input_dir")
-def plot(ctx, input_dir: str) -> None:
+@click.option("-n", "--normalize", is_flag=True, help="Normalize the histogram plots.")
+def plot(ctx, input_dir: str, normalize: bool) -> None:
     """
     Make histogram of high-level features, split by the predicted class,
     and plot the histograms.
@@ -242,13 +249,17 @@ def plot(ctx, input_dir: str) -> None:
                     weights=df["weight"][mask],
                     bins=quantity.bins,
                     label=sample_cls,
+                    density=normalize,
                 )
             except KeyError:
                 print(f"WARNING: Cannot find {quantity_name} in dataframe, skipping.")
                 continue
 
         ax.set_xlabel(quantity.label, fontsize=14)
-        ax.set_ylabel("Weighted Counts", fontsize=14)
+        if normalize:
+            ax.set_ylabel("Weighted Counts (Norm.)", fontsize=14)
+        else:
+            ax.set_ylabel("Weighted Counts", fontsize=14)
 
         ax.set_yscale("log")
 
