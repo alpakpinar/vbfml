@@ -1,3 +1,4 @@
+import re
 import numpy as np
 import pandas as pd
 import uproot
@@ -22,6 +23,7 @@ class UprootReaderMultiFile:
         self.treename = treename
         self.nevents_per_file = {}
         self._update_nevents_dict_all_files()
+        self._check_branches()
         self.reset_continuous_read()
 
     def _open_file(self, file_index) -> uproot.ReadOnlyDirectory:
@@ -44,6 +46,34 @@ class UprootReaderMultiFile:
         """Save number of events in all files into the cache"""
         for file_index in range(self.n_files):
             self._update_nevents_dict_single_file(file_index)
+
+    def _check_branches(self):
+        """
+        Assumming all the input ROOT files having the same set of branches,
+        reads the branches of the first file in the list, and checks if
+        all entries in self.branches are there.
+
+        If there is a branch in self.branches that is NOT FOUND in the file,
+        this function will remove that entry from self.branches so that we avoid
+        future Uproot KeyErrors. Will throw a warning.
+        """
+        if len(self.files) == 0:
+            return
+        branches_in_file = self._get_tree(0).keys()
+        branches_not_found = []
+        for branch in self.branches:
+            # Branch could be an arithmetic operation on existing branches (e.g weight)
+            # So just check for fully alpha-numeric strings (or ones containing "_")
+            temp = re.sub("_", "", branch)
+            if not temp.isalnum():
+                continue
+            if branch not in branches_in_file:
+                print(
+                    f"WARNING: Branch {branch} not found in the input ROOT files, will not read this branch."
+                )
+                branches_not_found.append(branch)
+
+        self.branches = [b for b in self.branches if b not in branches_not_found]
 
     def _index_into_file(self, global_event_index: int) -> "tuple[int]":
         """
