@@ -110,17 +110,20 @@ def scores(ctx) -> None:
     n_events = get_total_n_events(files, "sr_vbf")
     df = reader.read_events(0, n_events)
 
-    scores = df.to_numpy()
+    scores = df[["score_0", "score_1"]].to_numpy()
+
+    df.rename(columns={"weight_total*xs/sumw": "weight"}, inplace=True)
 
     # Plot the scores on an overlayed plot
     plotter = ScoreDistributionPlotter(save_to_dir=outdir)
     plot_config = config["plot"]
     plotter.plot(
         scores,
+        weights=df["weight"],
         score_index=plot_config["index"],
         score_label=plot_config["label"],
         n_bins=plot_config["n_bins"],
-        left_label="MET_2017C",
+        left_label=r"$Z(\nu\nu)$ + 2 jets",
     )
 
 
