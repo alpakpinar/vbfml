@@ -16,10 +16,11 @@ scores:
   branches:
     - score_0
     - score_1
+    - weight_total*xs/sumw
   plot:
     # index: i will plot score[:,i]
     index: 0
     label: 'Background-like Probability'
-    n_bins: 40
+    n_bins: 50
 
 
