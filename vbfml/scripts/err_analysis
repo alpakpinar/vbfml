@@ -5,6 +5,7 @@ import re
 import warnings
 import click
 import pickle
+import yaml
 
 import tensorflow as tf
 import numpy as np
@@ -121,7 +122,8 @@ def predict(
         "ak4_phi2",
     ]
 
-    image_features = ["JetImage_pixels"]
+    with open('../config/convolutional_model.yml', 'r') as f:
+        image_features = yaml.load(f, Loader=yaml.FullLoader)['features']
 
     # Validation sequence: Read the last 20% of events
     read_range = (0.8, 1.0)
@@ -326,7 +328,7 @@ def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
     # Get the images for the events where quantity > threshold
     # and compute the average for these images.
     mask = df[quantity] > threshold
-    classes = ["ewk_17", "v_nlo_qcd_17"]
+    classes = ["bkg", "signal"]
     for iclass, class_label in enumerate(
         tqdm(classes, desc="Plotting averaged images")
     ):
@@ -335,15 +337,17 @@ def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
         weights = df["weight"][image_mask]
 
         avg_image = np.average(images, axis=0, weights=weights)
-        outdir = pjoin(input_dir, "plots")
+        #outdir = pjoin(input_dir, "plots")
 
         plotter.plot(
             image=avg_image,
             outdir=outdir,
             filename=f"{class_label}_{quantity}_gt_{threshold}.pdf",
+            vmin= 1e-3,
+            vmax= 6e-2,
             cbar_label="Average Energy (GeV)",
             left_label=process_tag,
-            right_label=class_label,
+            right_label="predict : " + class_label + f"({sum(image_mask)}/{len(image_pixels)})",
         )
 
 
