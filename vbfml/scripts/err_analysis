@@ -122,8 +122,9 @@ def predict(
         "ak4_phi2",
     ]
 
-    with open('../config/convolutional_model.yml', 'r') as f:
-        image_features = yaml.load(f, Loader=yaml.FullLoader)['features']
+    #read feature from pkl file
+    with open(model_path+'/features.pkl', 'rb') as f:
+        image_features = pickle.load(f)[0]
 
     # Validation sequence: Read the last 20% of events
     read_range = (0.8, 1.0)
