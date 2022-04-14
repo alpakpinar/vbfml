@@ -617,11 +617,11 @@ class ImagePlotter:
         image = self._reshape(image)
 
         fig, ax = plt.subplots()
-        eta_bins = np.linspace(self.eta_range[0], self.eta_range[1], self.n_eta_bins)
-        phi_bins = np.linspace(self.phi_range[0], self.phi_range[1], self.n_phi_bins)
+        eta_edges = np.linspace(self.eta_range[0], self.eta_range[1], self.n_eta_bins+1)
+        phi_edges = np.linspace(self.phi_range[0], self.phi_range[1], self.n_phi_bins+1)
 
         cmap = ax.pcolormesh(
-            eta_bins, phi_bins, image.T, norm=matplotlib.colors.LogNorm(vmin, vmax)
+            eta_edges, phi_edges, image.T, norm=matplotlib.colors.LogNorm(vmin, vmax)
         )
 
         ax.set_xlabel(r"PF Candidate $\eta$", fontsize=14)
