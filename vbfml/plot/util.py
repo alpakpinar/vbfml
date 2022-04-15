@@ -108,6 +108,7 @@ class ScoreDistributionPlotter:
     def plot(
         self,
         scores: np.ndarray,
+        weights: np.ndarray,
         score_index: int,
         score_label: str,
         n_bins: int = 20,
@@ -121,10 +122,10 @@ class ScoreDistributionPlotter:
 
         fig, ax = plt.subplots()
         scores_for_i = scores[:, score_index]
-        ax.hist(scores_for_i, bins=n_bins, histtype="step")
+        ax.hist(scores_for_i, weights=weights, bins=n_bins, histtype="step")
 
         ax.set_xlabel(score_label, fontsize=14)
-        ax.set_ylabel("Counts", fontsize=14)
+        ax.set_ylabel("Weighted Counts", fontsize=14)
 
         if left_label:
             ax.text(
