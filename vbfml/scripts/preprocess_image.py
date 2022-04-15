@@ -170,7 +170,7 @@ def plot_rotation(input_files: str, name_save: str, numero: int):
 
     for i in range(number_image):
 
-        index = numero-1 if numero else random.randint(0, len(Tree["mjj"]) - 1)
+        index = numero - 1 if numero else random.randint(0, len(Tree["mjj"]) - 1)
         print(f"image_{index+1}")
 
         eta = Tree["leadak4_eta", index]
@@ -276,14 +276,12 @@ def check_met(input_files: str, name_save: str, start: int, stop: int):
     im_shape = (n_eta_bins, n_phi_bins)
     eta_range: Tuple[float] = (-5, 5)
     phi_range: Tuple[float] = (-np.pi, np.pi)
-    eta_centers = (
-        np.linspace(eta_range[0], eta_range[1], n_eta_bins, endpoint = False) 
-        + (eta_range[1]-eta_range[0])/(2*n_eta_bins) 
-    )
-    phi_centers = (
-        np.linspace(phi_range[0], phi_range[1], n_phi_bins, endpoint = False)
-        + (phi_range[1]-phi_range[0])/(2*n_phi_bins)
-    )
+    eta_centers = np.linspace(
+        eta_range[0], eta_range[1], n_eta_bins, endpoint=False
+    ) + (eta_range[1] - eta_range[0]) / (2 * n_eta_bins)
+    phi_centers = np.linspace(
+        phi_range[0], phi_range[1], n_phi_bins, endpoint=False
+    ) + (phi_range[1] - phi_range[0]) / (2 * n_phi_bins)
 
     # load the tree and initilize batch info
     Tree = uproot.open(input_files + ":sr_vbf")
@@ -336,8 +334,10 @@ def check_met(input_files: str, name_save: str, start: int, stop: int):
             batch_size_iterate = batch_size
 
         # check the format of the array to be 'uint8'
-        if (sub_tree['JetImage_pixels_preprocessed'].dtype != 'uint8'):
-            print(f"Warning ! event {(batch_counter-1)*batch_size + j+1} doesn't have format uint8")
+        if sub_tree["JetImage_pixels_preprocessed"].dtype != "uint8":
+            print(
+                f"Warning ! event {(batch_counter-1)*batch_size + j+1} doesn't have format uint8"
+            )
 
         for j in range(batch_size_iterate):
 
@@ -352,8 +352,8 @@ def check_met(input_files: str, name_save: str, start: int, stop: int):
                     for k in range(n_phi_bins):
                         energy_x += (
                             image[i][k]
-                            * np.cos(phi_centers[k])       
-                            / np.cosh(eta_centers[i])           
+                            * np.cos(phi_centers[k])
+                            / np.cosh(eta_centers[i])
                         )
                         energy_y += (
                             image[i][k]
@@ -411,14 +411,13 @@ def met_dist(input_dir: str, name_save: str):
                 print("look at file " + file)
         MET_df = pd.concat([MET_df, pd.DataFrame(MET_new)])
 
-    
     n_bins = 60
     fig, axs = plt.subplots(1, 2, sharey=True, tight_layout=True)
-    #axs[0].set_xlim(-100, 1500)
+    # axs[0].set_xlim(-100, 1500)
     axs[0].set_xlabel("MET_normal")
     plt.suptitle("MET distribution for normal vs processed images")
     axs[0].hist(MET_df["JetImage_pixels"], bins=n_bins)
-    #axs[1].set_xlim(-100, )
+    # axs[1].set_xlim(-100, )
     axs[1].set_xlabel("MET_processed")
     axs[0].set_ylabel("# events")
     axs[1].hist(MET_df["JetImage_pixels_preprocessed"], bins=n_bins)
@@ -432,7 +431,7 @@ def met_dist(input_dir: str, name_save: str):
     plt.xlabel("$\Delta$ MET")
     plt.ylabel("# events")
     plt.savefig(input_dir + "/plot/plot_diff.pdf")
-    
+
 
 if __name__ == "__main__":
     cli()

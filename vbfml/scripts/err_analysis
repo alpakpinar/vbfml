@@ -121,8 +121,8 @@ def predict(
         "ak4_phi2",
     ]
 
-    #read feature from pkl file
-    with open(model_path+'/features.pkl', 'rb') as f:
+    # read feature from pkl file
+    with open(model_path + "/features.pkl", "rb") as f:
         image_features = pickle.load(f)
 
     # Validation sequence: Read the last 20% of events
@@ -337,17 +337,19 @@ def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
         weights = df["weight"][image_mask]
 
         avg_image = np.average(images, axis=0, weights=weights)
-        #outdir = pjoin(input_dir, "plots")
+        # outdir = pjoin(input_dir, "plots")
 
         plotter.plot(
             image=avg_image,
             outdir=outdir,
             filename=f"{class_label}_{quantity}_gt_{threshold}.pdf",
-            vmin= 1e-3,
-            vmax= 6e-2,
+            vmin=1e-3,
+            vmax=6e-2,
             cbar_label="Average Energy (GeV)",
             left_label=process_tag,
-            right_label="predict : " + class_label + f"({sum(image_mask)}/{len(image_pixels)})",
+            right_label="predict : "
+            + class_label
+            + f"({sum(image_mask)}/{len(image_pixels)})",
         )
 
 
