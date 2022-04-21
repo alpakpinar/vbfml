@@ -29,9 +29,25 @@ TARGET_DIR="vbfml/vbfml/scripts"
 echo "Switching to ${TARGET_DIR}"
 cd ${TARGET_DIR}
 
-echo "Directory content---"
+echo "Directory content---script"
 ls -lah .
 echo "===================="
+ls -lah ..
+echo "==================== ../.. (vbfml)"
+ls -lah ../..
+echo "==================== ../../.. (VBF)"
+ls -lah ../../..
+echo "==================== ../../../vbfmlenv"
+ls -lah ../../../vbfmlenv
+echo "==================== ../../../vbfmlenv/bin"
+ls -lah ../../../vbfmlenv/bin
+echo "==================== ../../../vbfmlenv/lib/python3.9/site-packages"
+ls -lah ../../../vbfmlenv/lib/python3.9/site-packages
+echo "==================== ../../root_files/2022-03-31_vbfhinv_10Nov21_nanov8"
+ls -lah ../../root_files/2022-03-31_vbfhinv_10Nov21_nanov8
+echo "==================== ../../vbfml.egg-info"
+ls -lah ../../vbfml.egg-info
+echo "==================== "
 
 echo "Setup done: $(date)"
 echo "Executing: ./train.py ${ARGS[@]}"
