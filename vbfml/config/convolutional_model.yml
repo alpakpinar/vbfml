@@ -1,6 +1,6 @@
 architecture: conv
 training_parameters:
-  batch_size: 10
+  batch_size: 100
   batch_buffer_size: 1000
   scale_features: norm
   shuffle: true
@@ -14,10 +14,10 @@ weight_expression: weight_total*xs/sumw
 features:
 - JetImage_pixels
 arch_parameters:
-  n_layers_for_conv: 3 
-  n_filters_for_conv: [32,32,32]
-  filter_size_for_conv: [3,3,3]
-  pool_size_for_conv: [2,2,2]
+  n_layers_for_conv: 2
+  n_filters_for_conv: [32,32]
+  filter_size_for_conv: [3,3]
+  pool_size_for_conv: [2,2]
   n_layers_for_dense: 3
   n_nodes_for_dense: [200,200,200]
   image_shape: [40, 20, 1]
