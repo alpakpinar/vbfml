@@ -380,6 +380,52 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
 
     model.evaluate(sequence)
 
+@cli.command()
+@click.pass_context
+@click.option(
+    "-i",
+    "--input-dir",
+    required=True,
+    multiple=True,
+    help= "files to compare")
+@click.option(
+    "-n",
+    "--number-epochs",
+    required=False,
+    type = int,
+    default=5,
+    help="The number of last epochs considered in the statistics",
+)
+def compare_hist(ctx, input_dir: str, number_epochs: int) -> None:
+    """
+    Compare the statistics of the history of different models.
+    """
+
+    for dir in input_dir :
+        cache_file = pjoin(dir, "history.pkl")
+        assert os.path.exists(cache_file), f"Cannot find file: {cache_file}"
+        with open(cache_file, "rb") as f:
+            hist = pickle.load(f)
+
+        x = hist['x_val_categorical_accuracy'][-number_epochs :]
+        acc  = hist['y_val_categorical_accuracy'][-number_epochs :]
+        stat = f"[{min(acc)*100:.2f}% <- {sum(acc)/len(acc)*100:.2f}% -> {max(acc)*100:.2f}%]"
+
+        print("\n statistics of model " + os.path.basename(dir) + 
+             f"\n [min <- mean -> max] over last {number_epochs} epochs" + 
+             f"\n accuracy : [{min(acc)*100:.2f}% <- {sum(acc)/len(acc)*100:.2f}% -> {max(acc)*100:.2f}%]" +
+             f"\n standard deviation : {np.std(acc)*100:.2f}%" + 
+             f"\n ended with acc : {acc[number_epochs-1]*100:.2f}%\n")
+        
+        plt.plot(x,acc,'.-', markersize=15, label=os.path.basename(dir))
+
+    plt.legend()
+    plt.title("comparison accuracy")
+    plt.xlabel("epochs")
+    plt.ylabel("accuracy")
+    plt.savefig(input_dir[0]+"/comparison_accuracy.pdf")
+    plt.show()
+
 
 @cli.command()
 @click.pass_context
