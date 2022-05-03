@@ -9,6 +9,7 @@ import pickle
 import tensorflow as tf
 import numpy as np
 import pandas as pd
+from sklearn.metrics import precision_recall_curve, auc, roc_curve
 
 from tqdm import tqdm
 from glob import glob
@@ -73,12 +74,28 @@ def cli():
     help="Tag to identify the process.",
 )
 @click.option(
+    "-r1",
+    "--range-seq1",
+    required=False,
+    type = float,
+    default = 0.8,
+    help="read_range from ",
+)
+@click.option(
+    "-r2",
+    "--range-seq2",
+    required=False,
+    type = float,
+    default = 1.0,
+    help="read_range to",
+)
+@click.option(
     "--save-images",
     is_flag=True,
     help="If specified, the images will be saved as another pkl file within the directory.",
 )
 def predict(
-    ctx, input_files: str, model_path: str, tag: str, save_images: bool = False
+    ctx, input_files: str, model_path: str, tag: str, range_seq1: int, range_seq2: int , save_images: bool = False
 ) -> None:
     """
     Read events from the input_files, make predictions
@@ -88,6 +105,7 @@ def predict(
     input_files can be either a single file, or can contain an asterisk (*)
     to specify multiple files.
     """
+    print(input_files)
     # Create a list of DatasetInfo objects for the files that we are interested in
     directory, file_pattern = os.path.dirname(input_files), os.path.basename(
         input_files
@@ -126,7 +144,7 @@ def predict(
         image_features = pickle.load(f)
 
     # Validation sequence: Read the last 20% of events
-    read_range = (0.8, 1.0)
+    read_range = (range_seq1, range_seq2)
 
     # Two separate validation sequences for high_level features (e.g. mjj) and image features:
     # We'll make the predictions based on the image features, but we'll plot the
@@ -174,7 +192,7 @@ def predict(
         range(len(validation_sequences["image"])), desc="Making predictions"
     ):
         features, _, _ = validation_sequences["image"][ibatch]
-        predictions.append(model.predict(features).argmax(axis=1))
+        predictions.append(model.predict(features)[:,1])
         image_pixels.append(features)
 
     predictions = np.concatenate(predictions)
@@ -242,7 +260,7 @@ def plot(ctx, input_dir: str, normalize: bool) -> None:
         quantity = Quantity(quantity_name)
         fig, ax = plt.subplots()
         for icls, sample_cls in label_encoding.items():
-            mask = predictions == icls
+            mask = predictions.round() == icls
             try:
                 ax.hist(
                     df[quantity_name][mask],
@@ -393,7 +411,15 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     default=10,
     help="The number of last epochs considered in the statistics",
 )
-def compare_hist(ctx, input_dir: str, number_epochs: int) -> None:
+@click.option(
+    "-s",
+    "--save_name",
+    required=False,
+    type = str,
+    default = None,
+    help="If specified, clarify the name of the pdf save file",
+)
+def compare_hist(ctx, input_dir: str, number_epochs: int, save_name: str) -> None:
     """
     Compare the statistics of the history of different models.
     """
@@ -423,26 +449,133 @@ def compare_hist(ctx, input_dir: str, number_epochs: int) -> None:
         plt.figure(3)
         plt.plot(x,loss_val,'.-', markersize=15, label=os.path.basename(dir))
 
+    outdir = pjoin(os.path.dirname(input_dir[0]), "comparison"+save_name)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
     plt.figure(1)
     plt.legend()
     plt.title("comparison validation accuracy")
     plt.xlabel("epochs")
     plt.ylabel("accuracy")
-    plt.savefig(os.path.dirname(input_dir[0])+"/comparison_val_acc.pdf")
+    plt.savefig(outdir+"/comparison_val_acc"+save_name+".pdf")
 
     plt.figure(2)
     plt.legend()
     plt.title("comparison training loss")
     plt.xlabel("epochs")
     plt.ylabel("Loss")
-    plt.savefig(os.path.dirname(input_dir[0])+"/comparison_train_loss.pdf")
+    plt.savefig(outdir+"/comparison_train_loss"+save_name+".pdf")
 
     plt.figure(3)
     plt.legend()
     plt.title("comparison validation loss ")
     plt.xlabel("epochs")
     plt.ylabel("Loss")
-    plt.savefig(os.path.dirname(input_dir[0])+"/comparison_val_loss.pdf")
+    plt.savefig(outdir+"/comparison_val_loss"+save_name+".pdf")
+
+@cli.command()
+@click.pass_context
+@click.argument("input_dir")
+def roc(ctx, input_dir: str) -> None:
+    """
+    compute the roc curve of the model.
+    """
+
+    #load model and validation sequence
+    loader = TrainingLoader(input_dir)
+    model = loader.get_model()
+    validation_sequence = loader.get_sequence("validation")
+
+    #load predicted data
+    for i in range(validation_sequence.__len__()) :
+        print(f"batch [{i+1}/{validation_sequence.__len__()}]")
+        _, labels_onehot, _ = validation_sequence[i]
+        labels_batch = labels_onehot.argmax(axis=1)
+        if i == 0 : labels = labels_batch
+        else : labels = np.concatenate((labels,labels_batch))
+
+    # make prediction
+    print("making the prediction with the model")
+    predict = model.predict(validation_sequence)[:,1]
+
+    # compute ROC and precision recall curve
+    print("compute precision recall")
+    precision, recall, thresholds_prc = precision_recall_curve(labels, predict)
+
+    print("compute ROC")
+    fpr, tpr, thresholds_roc = roc_curve(labels, predict)
+
+    # write data into pickle file
+    print("write data into pickle file")
+    data = {"fpr": fpr, "tpr": tpr, "thresh_roc": thresholds_roc,
+            "precision": precision, "recall": recall, "thresholds_prc": thresholds_prc}
+
+    with open(input_dir+"/roc.pkl", 'wb') as f:
+        pickle.dump(data,f)
+
+@cli.command()
+@click.pass_context
+@click.option(
+    "-i",
+    "--input-dir",
+    required=True,
+    multiple=True,
+    help= "files to compare")
+@click.option(
+    "-s",
+    "--save_name",
+    required=False,
+    type = str,
+    default = None,
+    help="If specified, clarify the name of the pdf save file",
+)
+def plot_roc(ctx, input_dir: str, save_name: str) -> None:
+    """
+    plot the roc curve of the model.
+    """
+
+    for dir in input_dir :
+        cache_file = pjoin(dir, "roc.pkl")
+        assert os.path.exists(cache_file), f"Cannot find file: {cache_file}"
+
+        #read data
+        with open(cache_file, "rb") as f:
+            data = pickle.load(f)
+
+        # compute area under the curve (AUC)
+        auc_roc = auc(data['fpr'],data['tpr'])
+        auc_prc = auc(data['recall'],data['precision'])
+        
+        # plot graphs
+        plt.figure(1)
+        plt.plot(data['fpr'],data['tpr'], label= os.path.basename(dir) + f'(AUC = {auc_roc:.3f})')
+
+        plt.figure(2)
+        plt.plot(data['recall'],data['precision'], label= os.path.basename(dir) + f'(AUC = {auc_prc:.3f})')
+
+    if len(input_dir) == 1 : 
+        outdir  = input_dir[0]
+    else : 
+        outdir = pjoin(os.path.dirname(input_dir[0]), "comparison"+save_name)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    
+    # complete graphs
+    plt.figure(1)
+    plt.plot([0, 1], [0, 1], 'k--')
+    plt.title('ROC curve') 
+    plt.xlabel('False positive rate')
+    plt.ylabel('True positive rate')
+    plt.legend()
+    plt.savefig(outdir+"/roc_curve.pdf")
+
+    plt.figure(2)
+    plt.title('Precision recall curve')
+    plt.xlabel('recall')
+    plt.ylabel('precision')
+    plt.legend()
+    plt.savefig(outdir+"/prc_curve.pdf")
 
 
 if __name__ == "__main__":
