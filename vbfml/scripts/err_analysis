@@ -138,8 +138,8 @@ def predict(
         shuffle=True,
         scale_features="none",
     )
-    validation_sequences["high_level"].batch_size = int(1e6)
-    validation_sequences["high_level"].batch_buffer_size = 1
+    validation_sequences["high_level"].batch_size = int(1e3)
+    validation_sequences["high_level"].batch_buffer_size = 10
 
     validation_sequences["image"] = build_sequence(
         datasets=copy.deepcopy(datasets),
@@ -179,14 +179,20 @@ def predict(
     image_pixels = np.concatenate(image_pixels)
 
     # High-level features
+    high_level_dfs = []
     for ibatch in tqdm(
         range(len(validation_sequences["high_level"])),
         desc="Obtaining high-level features",
     ):
         # Fill the sequence buffer if the batch is not there
-        validation_sequences["high_level"][ibatch]
-        df_non_feature = validation_sequences["high_level"].buffer.get_batch_df(ibatch)
-        df_non_feature.drop(columns=["label"], inplace=True)
+        if ibatch not in validation_sequences["high_level"].buffer:
+            validation_sequences["high_level"][ibatch]
+        high_level_df = validation_sequences["high_level"].buffer.get_batch_df(ibatch)
+        high_level_df.drop(columns=["label"], inplace=True)
+
+        high_level_dfs.append(high_level_df)
+
+    df_non_feature = pd.concat(high_level_dfs, ignore_index=True)
 
     outdir = pjoin(model_path, f"predictions_{tag.lower()}")
     if not os.path.exists(outdir):
