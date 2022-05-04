@@ -10,6 +10,7 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 from sklearn.metrics import precision_recall_curve, auc, roc_curve
+from tabulate import tabulate
 
 from tqdm import tqdm
 from glob import glob
@@ -105,7 +106,7 @@ def predict(
     input_files can be either a single file, or can contain an asterisk (*)
     to specify multiple files.
     """
-    print(input_files)
+
     # Create a list of DatasetInfo objects for the files that we are interested in
     directory, file_pattern = os.path.dirname(input_files), os.path.basename(
         input_files
@@ -218,6 +219,8 @@ def predict(
         for infile in glob(input_files):
             f.write(f"{infile}\n")
 
+    print(len(predictions))
+    print(len(df_non_feature))
     # Save everything into a cache.pkl file
     cache = {
         "predictions": predictions,
@@ -546,6 +549,9 @@ def plot_roc(ctx, input_dir: str, save_name: str) -> None:
         # compute area under the curve (AUC)
         auc_roc = auc(data['fpr'],data['tpr'])
         auc_prc = auc(data['recall'],data['precision'])
+
+        # get the index of a 0.5 cut
+        middle_thres_index = np.where(data['thresh_roc'] < 0.5)[0][0]
         
         # plot graphs
         plt.figure(1)
@@ -577,6 +583,69 @@ def plot_roc(ctx, input_dir: str, save_name: str) -> None:
     plt.legend()
     plt.savefig(outdir+"/prc_curve.pdf")
 
+@cli.command()
+@click.pass_context
+@click.option(
+    "-i",
+    "--input-dir",
+    required=True,
+    help= "files to compare")
+def plot_correl(ctx, input_dir: str) -> None:
+    """
+    plot the correlation plot for all variable available according to the score.
+    """
+
+    #create outdir
+    outdir = pjoin(input_dir, "correlation_scatter")
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    #load data
+    features, predictions, label_encoding = load_cache(input_dir)
+
+    print(f"number of event {len(predictions)}")
+
+    # prepare variables for table
+    correl = []
+
+    markersize = 100 / np.sqrt(len(predictions))
+    count=1
+    # plot correlation plots
+    for (featurename, feature) in features.iteritems():
+
+        print("plot "+featurename+f"({count}/{len(features.keys())})")
+
+        # take only the positive value of eta to find a linear correlation
+        if (featurename == "leadak4_eta") or (featurename == "trailak4_eta"): 
+            feature = abs(feature)
+            featurename = "abs_val_" + featurename
+
+        correlation = np.corrcoef(predictions, feature)[0,1]
+        correl.append([correlation,featurename])
+
+        plt.figure()
+        plt.scatter(predictions, feature, s=markersize, label= f"correlation = {correlation:.3f}")
+        plt.title('score correlation with ' +  featurename) 
+        plt.xlabel('Score')
+        plt.ylabel(featurename)
+        plt.legend()
+        plt.savefig(outdir+"/correl_"+featurename+".pdf")
+        count += 1
+    
+    def absfirst(a :list):
+        return abs(a[0])
+    
+    correl.sort(key=absfirst,reverse=True)
+    correl = np.array(correl)
+
+    table = {"variables" : correl[:,1], "score_correlation" : correl[:,0]}
+    table_print = tabulate(table, headers='keys')
+    print(table_print)
+
+    with open(outdir+'/table.txt', 'w') as f:
+        f.write(table_print)
+
+    
 
 if __name__ == "__main__":
     cli()
