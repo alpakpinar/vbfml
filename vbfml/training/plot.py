@@ -617,8 +617,12 @@ class ImagePlotter:
         image = self._reshape(image)
 
         fig, ax = plt.subplots()
-        eta_edges = np.linspace(self.eta_range[0], self.eta_range[1], self.n_eta_bins+1)
-        phi_edges = np.linspace(self.phi_range[0], self.phi_range[1], self.n_phi_bins+1)
+        eta_edges = np.linspace(
+            self.eta_range[0], self.eta_range[1], self.n_eta_bins + 1
+        )
+        phi_edges = np.linspace(
+            self.phi_range[0], self.phi_range[1], self.n_phi_bins + 1
+        )
 
         cmap = ax.pcolormesh(
             eta_edges, phi_edges, image.T, norm=matplotlib.colors.LogNorm(vmin, vmax)

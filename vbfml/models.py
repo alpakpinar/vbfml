@@ -8,7 +8,6 @@ from tensorflow.keras.layers import (
     Flatten,
 )
 
-from tensorflow.keras.initializers import GlorotUniform
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import regularizers
 
@@ -100,9 +99,6 @@ def sequential_convolutional_model(
     num_pixels = np.prod(image_shape)
     model.add(Reshape(image_shape, input_shape=(num_pixels,)))
 
-    # Weight initalizer, fix the seed
-    initializer = GlorotUniform(seed=42)
-
     for ilayer in range(n_layers_for_conv):
         # We'll use conv+conv+pool architecture
         # Two convolutional layers followed by one max pooling layer
@@ -111,7 +107,6 @@ def sequential_convolutional_model(
                 n_filters_for_conv[ilayer],
                 filter_size_for_conv[ilayer],
                 padding="same",
-                kernel_initializer=initializer,
             )
         )
         model.add(
@@ -119,7 +114,6 @@ def sequential_convolutional_model(
                 n_filters_for_conv[ilayer],
                 filter_size_for_conv[ilayer],
                 padding="same",
-                kernel_initializer=initializer,
             )
         )
 
@@ -134,11 +128,10 @@ def sequential_convolutional_model(
             Dense(
                 n_nodes_for_dense[ilayer],
                 activation="relu",
-                kernel_initializer=initializer,
             )
         )
         if dropout:
             model.add(Dropout(rate=dropout))
 
-    model.add(Dense(n_classes, kernel_initializer=initializer, activation="softmax"))
+    model.add(Dense(n_classes, activation="softmax"))
     return model
