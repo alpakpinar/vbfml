@@ -79,16 +79,16 @@ def cli():
     "-r1",
     "--range-seq1",
     required=False,
-    type = float,
-    default = 0.8,
+    type=float,
+    default=0.8,
     help="read_range from ",
 )
 @click.option(
     "-r2",
     "--range-seq2",
     required=False,
-    type = float,
-    default = 1.0,
+    type=float,
+    default=1.0,
     help="read_range to",
 )
 @click.option(
@@ -97,7 +97,13 @@ def cli():
     help="If specified, the images will be saved as another pkl file within the directory.",
 )
 def predict(
-    ctx, input_files: str, model_path: str, tag: str, range_seq1: int, range_seq2: int , save_images: bool = False
+    ctx,
+    input_files: str,
+    model_path: str,
+    tag: str,
+    range_seq1: int,
+    range_seq2: int,
+    save_images: bool = False,
 ) -> None:
     """
     Read events from the input_files, make predictions
@@ -195,7 +201,7 @@ def predict(
         range(len(validation_sequences["image"])), desc="Making predictions"
     ):
         features, labels_onehot, _ = validation_sequences["image"][ibatch]
-        predictions.append(model.predict(features)[:,1])
+        predictions.append(model.predict(features)[:, 1])
         image_pixels.append(features)
         labels.append(labels_onehot.argmax(axis=1))
 
@@ -219,7 +225,9 @@ def predict(
 
     df_non_feature = pd.concat(high_level_dfs, ignore_index=True)
 
-    assert len(predictions) == len(df_non_feature), f"prediction and df_non_feature are not matching ({len(predictions)}-{len(df_non_feature)})"
+    assert len(predictions) == len(
+        df_non_feature
+    ), f"prediction and df_non_feature are not matching ({len(predictions)}-{len(df_non_feature)})"
 
     outdir = pjoin(model_path, f"predictions_{tag.lower()}")
     if not os.path.exists(outdir):
@@ -231,17 +239,12 @@ def predict(
         for infile in glob(input_files):
             f.write(f"{infile}\n")
 
-    print(f"first 20 predictions : {predictions[:20]}")
-    print(f"last 20 predictions : {predictions[20:]}")
-    print(f"first 20 labels : {labels[:20]}")
-    print(f"last 20 labels : {labels[20:]}")
-
     # Save everything into a cache.pkl file
     cache = {
         "predictions": predictions,
         "df_non_feature": df_non_feature,
         "label_encoding": label_encoding,
-        "labels": labels
+        "labels": labels,
     }
 
     cache_file = pjoin(outdir, "predict_cache.pkl")
@@ -411,19 +414,17 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
 
     model.evaluate(sequence)
 
+
 @cli.command()
 @click.pass_context
 @click.option(
-    "-i",
-    "--input-dir",
-    required=True,
-    multiple=True,
-    help= "files to compare")
+    "-i", "--input-dir", required=True, multiple=True, help="files to compare"
+)
 @click.option(
     "-n",
     "--number-epochs",
     required=False,
-    type = int,
+    type=int,
     default=10,
     help="The number of last epochs considered in the statistics",
 )
@@ -431,8 +432,8 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     "-s",
     "--save_name",
     required=False,
-    type = str,
-    default = None,
+    type=str,
+    default=None,
     help="If specified, clarify the name of the pdf save file",
 )
 def compare_hist(ctx, input_dir: str, number_epochs: int, save_name: str) -> None:
@@ -440,32 +441,25 @@ def compare_hist(ctx, input_dir: str, number_epochs: int, save_name: str) -> Non
     Compare the statistics of the history of different models.
     """
 
-    for dir in input_dir :
+    for dir in input_dir:
         cache_file = pjoin(dir, "history.pkl")
         assert os.path.exists(cache_file), f"Cannot find file: {cache_file}"
         with open(cache_file, "rb") as f:
             hist = pickle.load(f)
 
-        x = hist['x_val_categorical_accuracy'][-number_epochs :]
-        acc  = hist['y_val_categorical_accuracy'][-number_epochs :]
-        loss_tr  = hist['y_loss'][-number_epochs :]
-        loss_val  = hist['y_val_loss'][-number_epochs :]
-        # stat = f"[{min(acc)*100:.2f}% <- {sum(acc)/len(acc)*100:.2f}% -> {max(acc)*100:.2f}%]"
+        x = hist["x_val_categorical_accuracy"][-number_epochs:]
+        acc = hist["y_val_categorical_accuracy"][-number_epochs:]
+        loss_tr = hist["y_loss"][-number_epochs:]
+        loss_val = hist["y_val_loss"][-number_epochs:]
 
-        print("\n statistics of model " + os.path.basename(dir) + 
-             f"\n [min <- mean -> max] over last {number_epochs} epochs" + 
-             f"\n accuracy : [{min(acc)*100:.2f}% <- {sum(acc)/len(acc)*100:.2f}% -> {max(acc)*100:.2f}%]" +
-             f"\n standard deviation : {np.std(acc)*100:.2f}%" + 
-             f"\n ended with acc : {acc[number_epochs-1]*100:.2f}%\n")
-        
         plt.figure(1)
-        plt.plot(x,acc,'.-', markersize=15, label=os.path.basename(dir))
+        plt.plot(x, acc, ".-", markersize=15, label=os.path.basename(dir))
         plt.figure(2)
-        plt.plot(x,loss_tr,'.-', markersize=15, label=os.path.basename(dir))
+        plt.plot(x, loss_tr, ".-", markersize=15, label=os.path.basename(dir))
         plt.figure(3)
-        plt.plot(x,loss_val,'.-', markersize=15, label=os.path.basename(dir))
+        plt.plot(x, loss_val, ".-", markersize=15, label=os.path.basename(dir))
 
-    outdir = pjoin(os.path.dirname(input_dir[0]), "comparison"+save_name)
+    outdir = pjoin(os.path.dirname(input_dir[0]), "comparison" + save_name)
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
@@ -474,71 +468,82 @@ def compare_hist(ctx, input_dir: str, number_epochs: int, save_name: str) -> Non
     plt.title("comparison validation accuracy")
     plt.xlabel("epochs")
     plt.ylabel("accuracy")
-    plt.savefig(outdir+"/comparison_val_acc"+save_name+".pdf")
+    plt.savefig(outdir + "/comparison_val_acc" + save_name + ".pdf")
 
     plt.figure(2)
     plt.legend()
     plt.title("comparison training loss")
     plt.xlabel("epochs")
     plt.ylabel("Loss")
-    plt.savefig(outdir+"/comparison_train_loss"+save_name+".pdf")
+    plt.savefig(outdir + "/comparison_train_loss" + save_name + ".pdf")
 
     plt.figure(3)
     plt.legend()
     plt.title("comparison validation loss ")
     plt.xlabel("epochs")
     plt.ylabel("Loss")
-    plt.savefig(outdir+"/comparison_val_loss"+save_name+".pdf")
+    plt.savefig(outdir + "/comparison_val_loss" + save_name + ".pdf")
+
 
 @cli.command()
 @click.pass_context
 @click.argument("input_dir")
 def roc(ctx, input_dir: str) -> None:
     """
-    compute the roc curve of the model.
+    compute the roc curve of the model. /!/ input_dir point at the prediction_dir without a '/' at the end
     """
 
-    #load model and validation sequence
+    # load model and prediction pickle file
     loader = TrainingLoader(os.path.dirname(input_dir))
     model = loader.get_model()
     features, predictions, label_encoding, labels = load_cache(input_dir)
-    mjj = features['mjj']
-    detajj = features['detajj']
+    mjj = features["mjj"]
+    detajj = features["detajj"]
 
     # compute ROC and precision recall curve
     precision, recall, thresholds_prc = precision_recall_curve(labels, predictions)
     fpr, tpr, thresholds_roc = roc_curve(labels, predictions)
 
     # do the same for a simple cut on mjj and detajj
-    mjj_norm = mjj/mjj.max()
-    detajj_norm = detajj/detajj.max()
+    mjj_norm = mjj / mjj.max()
+    detajj_norm = detajj / detajj.max()
     fpr_m, tpr_m, thresh_roc_m = roc_curve(labels, mjj_norm)
     fpr_eta, tpr_eta, thresh_roc_eta = roc_curve(labels, detajj_norm)
 
     # write data into pickle file
     print("write data into pickle file")
-    data = {"fpr": fpr, "tpr": tpr, "thresh_roc": thresholds_roc,
-            "precision": precision, "recall": recall, "thresholds_prc": thresholds_prc,
-            "fpr_m": fpr_m, "tpr_m": tpr_m, "thresh_roc_m": thresh_roc_m,
-            "fpr_eta": fpr_eta, "tpr_eta": tpr_eta, "thresh_roc_eta": thresh_roc_eta}
+    data = {
+        "fpr": fpr,
+        "tpr": tpr,
+        "thresh_roc": thresholds_roc,
+        "precision": precision,
+        "recall": recall,
+        "thresholds_prc": thresholds_prc,
+        "fpr_m": fpr_m,
+        "tpr_m": tpr_m,
+        "mjj_max": mjj.max(),
+        "thresh_roc_m": thresh_roc_m,
+        "fpr_eta": fpr_eta,
+        "tpr_eta": tpr_eta,
+        "thresh_roc_eta": thresh_roc_eta,
+        "eta_max": detajj.max(),
+    }
 
-    with open(input_dir+"/roc.pkl", 'wb') as f:
-        pickle.dump(data,f)
+    with open(input_dir + "/roc.pkl", "wb") as f:
+        pickle.dump(data, f)
+
 
 @cli.command()
 @click.pass_context
 @click.option(
-    "-i",
-    "--input-dir",
-    required=True,
-    multiple=True,
-    help= "files to compare")
+    "-i", "--input-dir", required=True, multiple=True, help="files to compare"
+)
 @click.option(
     "-s",
     "--save_name",
     required=False,
-    type = str,
-    default = None,
+    type=str,
+    default=None,
     help="If specified, clarify the name of the pdf save file",
 )
 def plot_roc(ctx, input_dir: str, save_name: str) -> None:
@@ -546,123 +551,215 @@ def plot_roc(ctx, input_dir: str, save_name: str) -> None:
     plot the roc curve of the model.
     """
 
-    for dir in input_dir :
+    for dir in input_dir:
         cache_file = pjoin(dir, "roc.pkl")
         assert os.path.exists(cache_file), f"Cannot find file: {cache_file}"
 
-        #read data
+        # read data
         with open(cache_file, "rb") as f:
             data = pickle.load(f)
 
         # compute area under the curve (AUC)
-        auc_roc = auc(data['fpr'],data['tpr'])
-        auc_roc_m = auc(data['fpr_m'],data['tpr_m'])
-        auc_roc_eta = auc(data['fpr_eta'],data['tpr_eta'])
-        auc_prc = auc(data['recall'],data['precision'])
+        auc_roc = auc(data["fpr"], data["tpr"])
+        auc_roc_m = auc(data["fpr_m"], data["tpr_m"])
+        auc_roc_eta = auc(data["fpr_eta"], data["tpr_eta"])
+        auc_prc = auc(data["recall"], data["precision"])
 
         # get the index of a 0.5 cut
-        middle_thres_roc_index = np.where(data['thresh_roc'] < 0.5)[0][0]
-        middle_thres_prc_index = np.where(data['thresholds_prc'] > 0.5)[0][0]
+        middle_thres_roc_index = np.where(data["thresh_roc"] < 0.5)[0][0]
+        middle_thres_prc_index = np.where(data["thresholds_prc"] > 0.5)[0][0]
 
-        label = os.path.basename(os.path.dirname(dir))
+        # get the associated cut on mjj or detajj at this 
+        fpr_middle_thres_roc = data["fpr"][middle_thres_roc_index]
+        cut_middle_index_m = np.where(data['fpr_m']>fpr_middle_thres_roc)[0][0]
+        cut_middle_index_eta = np.where(data['fpr_eta']>fpr_middle_thres_roc)[0][0]
+
+        # find the associated mjj cut
+        mjj_cut = data['thresh_roc_m'][cut_middle_index_m]*data['mjj_max']
+        eta_cut = data['thresh_roc_eta'][cut_middle_index_eta]*data['eta_max']
+
+        label_model = os.path.basename(os.path.dirname(dir))
 
         # plot graphs
         plt.figure(1)
-        plt.plot(data['fpr'],data['tpr'], label= label + f'(AUC = {auc_roc:.3f})')
-        plt.plot(data['fpr_m'],data['tpr_m'], '-.', label= f'mjj cut (AUC = {auc_roc_m:.3f})')
-        plt.plot(data['fpr_eta'],data['tpr_eta'], '-.', label= f'detajj cut (AUC = {auc_roc_eta:.3f})')
-        plt.plot(data['fpr'][middle_thres_roc_index],data['tpr'][middle_thres_roc_index],'ko')
+        plt.plot(data["fpr"], data["tpr"], label=label_model + f"(AUC = {auc_roc:.3f})")
+        plt.plot(
+            data["fpr"][middle_thres_roc_index],
+            data["tpr"][middle_thres_roc_index],
+            "ko",
+            label = "score cut 0.5"
+        )
 
         plt.figure(2)
-        plt.plot(data['recall'],data['precision'], label= os.path.basename(dir) + f'(AUC = {auc_prc:.3f})')
-        plt.plot(data['recall'][middle_thres_prc_index],data['precision'][middle_thres_prc_index],'ko')
+        plt.plot(
+            data["recall"],
+            data["precision"],
+            label=os.path.basename(dir) + f"(AUC = {auc_prc:.3f})",
+        )
+        plt.plot(
+            data["recall"][middle_thres_prc_index],
+            data["precision"][middle_thres_prc_index],
+            "ko",
+        )
 
-    if len(input_dir) == 1 : 
-        outdir  = input_dir[0]+"/plots"
-    else : 
-        outdir = pjoin(os.path.dirname(input_dir[0]), "comparison"+save_name)
+    if len(input_dir) == 1:
+        outdir = input_dir[0] + "/plots"
+    else:
+        outdir = pjoin(os.path.dirname(input_dir[0]), "comparison" + save_name)
     if not os.path.exists(outdir):
         os.makedirs(outdir)
-    
+
+
     # complete graphs
     plt.figure(1)
-    plt.plot([0, 1], [0, 1], 'k--')
-    plt.title('ROC curve') 
-    plt.xlabel('False positive rate')
-    plt.ylabel('True positive rate')
+    plt.plot([0, 1], [0, 1], "k--")
+    plt.plot(
+        data["fpr_m"], 
+        data["tpr_m"], 
+        "m-.", 
+        label=f"mjj cut (AUC = {auc_roc_m:.3f})",
+    )
+    plt.plot(
+        data["fpr_m"][cut_middle_index_m],
+        data["tpr_m"][cut_middle_index_m],
+        "mo",
+        label = f"mjj cut at {mjj_cut:.0f} GeV"
+    )
+    plt.plot(
+        data["fpr_eta"],
+        data["tpr_eta"],
+        "g-.",
+        label=f"detajj cut (AUC = {auc_roc_eta:.3f})",
+    )
+    plt.plot(
+        data["fpr_eta"][cut_middle_index_eta],
+        data["tpr_eta"][cut_middle_index_eta],
+        "go",
+        label = f"detajj cut at {eta_cut:.3f}"
+    )
+    plt.title("ROC curve")
+    plt.xlabel("False positive rate")
+    plt.ylabel("True positive rate")
     plt.legend()
-    plt.savefig(outdir+"/roc_curve.pdf")
+    plt.savefig(outdir + "/roc_curve.pdf")
 
     plt.figure(2)
-    plt.title('Precision recall curve')
-    plt.xlabel('recall')
-    plt.ylabel('precision')
+    plt.title("Precision recall curve")
+    plt.xlabel("recall")
+    plt.ylabel("precision")
     plt.legend()
-    plt.savefig(outdir+"/prc_curve.pdf")
+    plt.savefig(outdir + "/prc_curve.pdf")
+
+    # plot histograms of the mjj distribution for the 
+    features, _, _, labels = load_cache(input_dir[0])
+    d = pd.DataFrame({"mjj":features["mjj"], "detajj":features["detajj"], "labels":labels, "weights":features["weight"]})
+
+    plt.figure(3)
+    plt.hist( 
+        d[d["labels"]==0]['mjj'], 
+        bins = 50,
+        range = (0, 4000),
+        density = True,
+        histtype = 'step',
+        label = "background",
+    )
+    plt.hist(
+        d[d["labels"]==1]['mjj'], 
+        bins = 50,
+        range = (0, 4000),
+        density = True,
+        histtype = 'step',
+        label = "signal",
+    )
+    plt.axvline(x = mjj_cut, color = 'k', linestyle = '--', label = f"cut at {mjj_cut:.0f} GeV")    
+    plt.title("mjj distribution")
+    plt.xlabel("mjj")
+    plt.ylabel("density counts")
+    plt.legend()
+    plt.savefig(outdir + "/mjj_density.pdf")
+
+    plt.figure(4)
+    plt.hist( 
+        d[d["labels"]==0]['detajj'], 
+        bins = 50,
+        density = True,
+        histtype = 'step',
+        label = "background",
+    )
+    plt.hist(
+        d[d["labels"]==1]['detajj'], 
+        bins = 50,
+        density = True,
+        histtype = 'step',
+        label = "signal",
+    )
+    plt.axvline(x = eta_cut, color = 'k', linestyle = '--', label = f"cut at {eta_cut:.3f}")    
+    plt.title("detajj distribution")
+    plt.xlabel("detajj")
+    plt.ylabel("density counts")
+    plt.legend()
+    plt.savefig(outdir + "/detajj_density.pdf")
+
+
 
 @cli.command()
 @click.pass_context
-@click.option(
-    "-i",
-    "--input-dir",
-    required=True,
-    help= "files to compare")
+@click.option("-i", "--input-dir", required=True, help="files to compare")
 def plot_correl(ctx, input_dir: str) -> None:
     """
     plot the correlation plot for all variable available according to the score.
     """
 
-    #create outdir
+    # load data
+    features, predictions, label_encoding, _ = load_cache(input_dir)
+
+    # create outdir
     outdir = pjoin(input_dir, "correlation_scatter")
     if not os.path.exists(outdir):
         os.makedirs(outdir)
-
-    #load data
-    features, predictions, label_encoding, _ = load_cache(input_dir)
-
-    print(f"number of event {len(predictions)}")
 
     # prepare variables for table
     correl = []
 
     markersize = 100 / np.sqrt(len(predictions))
-    count=1
+    count = 1
     # plot correlation plots
     for (featurename, feature) in features.iteritems():
 
-        print("plot "+featurename+f"({count}/{len(features.keys())})")
+        print("plot " + featurename + f"({count}/{len(features.keys())})")
 
         # take only the positive value of eta to find a linear correlation
-        if (featurename == "leadak4_eta") or (featurename == "trailak4_eta"): 
+        if (featurename == "leadak4_eta") or (featurename == "trailak4_eta"):
             feature = abs(feature)
             featurename = "abs_val_" + featurename
 
-        correlation = np.corrcoef(predictions, feature)[0,1]
-        correl.append([correlation,featurename])
+        correlation = np.corrcoef(predictions, feature)[0, 1]
+        correl.append([correlation, featurename])
 
         plt.figure()
-        plt.scatter(predictions, feature, s=markersize, label= f"correlation = {correlation:.3f}")
-        plt.title('score correlation with ' +  featurename) 
-        plt.xlabel('Score')
+        plt.scatter(
+            predictions, feature, s=markersize, label=f"correlation = {correlation:.3f}"
+        )
+        plt.title("score correlation with " + featurename)
+        plt.xlabel("Score")
         plt.ylabel(featurename)
         plt.legend()
-        plt.savefig(outdir+"/correl_"+featurename+".pdf")
+        plt.savefig(outdir + "/correl_" + featurename + ".pdf")
         count += 1
-    
-    def absfirst(a :list):
+
+    def absfirst(a: list):
         return abs(a[0])
-    
-    correl.sort(key=absfirst,reverse=True)
+
+    correl.sort(key=absfirst, reverse=True)
     correl = np.array(correl)
 
-    table = {"variables" : correl[:,1], "score_correlation" : correl[:,0]}
-    table_print = tabulate(table, headers='keys')
+    table = {"variables": correl[:, 1], "score_correlation": correl[:, 0]}
+    table_print = tabulate(table, headers="keys")
     print(table_print)
 
-    with open(outdir+'/table.txt', 'w') as f:
+    with open(outdir + "/table.txt", "w") as f:
         f.write(table_print)
 
-    
 
 @cli.command()
 @click.pass_context
