@@ -397,7 +397,7 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     default=5,
     help="The number of last epochs considered in the statistics",
 )
-def compare_hist(ctx, input_dir: str, number_epochs: int) -> None:
+def compare_hist(ctx, input_dir: str, number_epochs: int, save_name: str) -> None:
     """
     Compare the statistics of the history of different models.
     """
@@ -410,31 +410,40 @@ def compare_hist(ctx, input_dir: str, number_epochs: int) -> None:
 
         x = hist["x_val_categorical_accuracy"][-number_epochs:]
         acc = hist["y_val_categorical_accuracy"][-number_epochs:]
-        stat = f"[{min(acc)*100:.2f}% <- {sum(acc)/len(acc)*100:.2f}% -> {max(acc)*100:.2f}%]"
+        loss_tr = hist["y_loss"][-number_epochs:]
+        loss_val = hist["y_val_loss"][-number_epochs:]
 
-        print(
-            "\n statistics of model "
-            + os.path.basename(dir)
-            + f"\n [min <- mean -> max] over last {number_epochs} epochs"
-            + f"\n accuracy : [{min(acc)*100:.2f}% <- {sum(acc)/len(acc)*100:.2f}% -> {max(acc)*100:.2f}%]"
-            + f"\n standard deviation : {np.std(acc)*100:.2f}%"
-            + f"\n ended with acc : {acc[number_epochs-1]*100:.2f}%\n"
-        )
+        plt.figure(1)
+        plt.plot(x, acc, ".-", markersize=15, label=os.path.basename(dir))
+        plt.figure(2)
+        plt.plot(x, loss_tr, ".-", markersize=15, label=os.path.basename(dir))
+        plt.figure(3)
+        plt.plot(x, loss_val, ".-", markersize=15, label=os.path.basename(dir))
 
-        plt.plot(
-            x,
-            acc,
-            ".-",
-            markersize=15,
-            label=os.path.basename(dir) + f" std = {np.std(acc)*100:.2f}% \n" + stat,
-        )
+    outdir = pjoin(os.path.dirname(input_dir[0]), "comparison" + save_name)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
 
+    plt.figure(1)
     plt.legend()
-    plt.title("comparison accuracy")
+    plt.title("comparison validation accuracy")
     plt.xlabel("epochs")
     plt.ylabel("accuracy")
-    plt.savefig(input_dir[0] + "/comparison_accuracy.pdf")
-    plt.show()
+    plt.savefig(outdir + "/comparison_val_acc" + save_name + ".pdf")
+
+    plt.figure(2)
+    plt.legend()
+    plt.title("comparison training loss")
+    plt.xlabel("epochs")
+    plt.ylabel("Loss")
+    plt.savefig(outdir + "/comparison_train_loss" + save_name + ".pdf")
+
+    plt.figure(3)
+    plt.legend()
+    plt.title("comparison validation loss ")
+    plt.xlabel("epochs")
+    plt.ylabel("Loss")
+    plt.savefig(outdir + "/comparison_val_loss" + save_name + ".pdf")
 
 
 if __name__ == "__main__":
