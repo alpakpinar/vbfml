@@ -69,33 +69,33 @@ def rotate(input_file: str):
         batch_index = (batch_counter - 1) * batch_size
 
         # initialize the new array for the preprocess images
-        New_images = np.zeros((batch_size, n_eta_bins * n_phi_bins), dtype="uint8")
+        new_images = np.zeros((batch_size, n_eta_bins * n_phi_bins), dtype="uint8")
 
         # fix size of last batch
         if batch_counter == batch_number:
             batch_size = tree.num_entries % batch_size
-            New_images = np.zeros((batch_size, n_eta_bins * n_phi_bins), dtype="uint8")
+            new_images = np.zeros((batch_size, n_eta_bins * n_phi_bins), dtype="uint8")
 
-        New_images_batch = np.ones((batch_size, n_eta_bins, n_phi_bins))
+        new_images_batch = np.ones((batch_size, n_eta_bins, n_phi_bins))
         for j in range(batch_size):
-            New_images_batch[j] = sub_tree["JetImage_pixels"][j].reshape(im_shape)
+            new_images_batch[j] = sub_tree["JetImage_pixels"][j].reshape(im_shape)
 
             # set phi = 0 (leading jet is at the center horizontal)
             for i in range(n_eta_bins):
                 shift_phi = -round(
                     sub_tree["leadak4_phi"][j] * n_phi_bins / (2 * np.pi)
                 )
-                New_images_batch[j][i] = np.roll(New_images_batch[j][i], shift_phi)
+                new_images_batch[j][i] = np.roll(new_images_batch[j][i], shift_phi)
 
             # set eta > 0 (leading jet is on the right side)
             if sub_tree["leadak4_eta"][j] < 0:
-                New_images_batch[j] = np.flip(New_images_batch[j], 0)
+                new_images_batch[j] = np.flip(new_images_batch[j], 0)
 
-            New_images[j] = New_images_batch[j].flatten()
+            new_images[j] = new_images_batch[j].flatten()
 
         # writing in the new tree
         new_tree = {}
-        new_tree["JetImage_pixels_preprocessed"] = New_images  # add the new branch
+        new_tree["JetImage_pixels_preprocessed"] = new_images  # add the new branch
         for branch in tree.keys():  # copy all the other branches
             new_tree[branch] = tree[branch].arrays(
                 entry_start=batch_index,
@@ -399,7 +399,10 @@ def check_met(input_file: str, name_save: str, start: int, stop: int):
     required=False,
     help="Name of the directory where the plots are saved",
 )
-def met_dist(input_dir: str, name_save: str):
+def plot_met(input_dir: str, name_save: str):
+    """
+    plot the distribution of the MET for unprepro and prepro images. plot as well there differences to see if they match
+    """
 
     files = glob.glob(pjoin(input_dir, f"*pkl"))
 
@@ -414,11 +417,9 @@ def met_dist(input_dir: str, name_save: str):
 
     n_bins = 60
     fig, axs = plt.subplots(1, 2, sharey=True, tight_layout=True)
-    # axs[0].set_xlim(-100, 1500)
     axs[0].set_xlabel("MET_normal")
     plt.suptitle("MET distribution for normal vs processed images")
     axs[0].hist(met_df["JetImage_pixels"], bins=n_bins)
-    # axs[1].set_xlim(-100, )
     axs[1].set_xlabel("MET_processed")
     axs[0].set_ylabel("# events")
     axs[1].hist(met_df["JetImage_pixels_preprocessed"], bins=n_bins)
