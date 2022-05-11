@@ -11,9 +11,12 @@ import matplotlib.pyplot as plt
 import awkward as ak
 
 from math import ceil
+from tqdm import tqdm
 
 from vbfml.training.plot import ImagePlotter
 from vbfml.util import get_process_tag_from_file
+
+pjoin = os.path.join
 
 
 @click.group()
@@ -34,7 +37,7 @@ def rotate(input_files: str):
     """
 
     # location and name of new root file -> in a new directory "_preprocessed"
-    output_dir = os.path.dirname(input_files) + "_preprocessed/"
+    output_dir = f"{os.path.dirname(input_files)}_preprocessed_test/"
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     output_file = output_dir + os.path.basename(input_files)
@@ -48,13 +51,13 @@ def rotate(input_files: str):
     im_shape = (n_eta_bins, n_phi_bins)
 
     # load the tree and initilize batch info
-    Tree = uproot.open(input_files + ":sr_vbf")
+    tree = uproot.open(f"{input_files}:sr_vbf")
     batch_size = 5000
-    batch_number = ceil(Tree.num_entries / batch_size)
+    batch_number = ceil(tree.num_entries / batch_size)
     batch_counter = 0
 
     # iterate by batches of 500 over the tree, aim to save memoryquit
-    for sub_tree in Tree.iterate(
+    for sub_tree in tree.iterate(
         ["JetImage_pixels", "leadak4_phi", "leadak4_eta"],
         step_size=batch_size,
         library="np",
@@ -70,7 +73,7 @@ def rotate(input_files: str):
 
         # fix size of last batch
         if batch_counter == batch_number:
-            batch_size = Tree.num_entries % batch_size
+            batch_size = tree.num_entries % batch_size
             New_images = np.zeros((batch_size, n_eta_bins * n_phi_bins), dtype="uint8")
 
         New_images_batch = np.ones((batch_size, n_eta_bins, n_phi_bins))
@@ -93,8 +96,8 @@ def rotate(input_files: str):
         # writing in the new tree
         new_tree = {}
         new_tree["JetImage_pixels_preprocessed"] = New_images  # add the new branch
-        for branch in Tree.keys():  # copy all the other branches
-            new_tree[branch] = Tree[branch].arrays(
+        for branch in tree.keys():  # copy all the other branches
+            new_tree[branch] = tree[branch].arrays(
                 entry_start=batch_index,
                 entry_stop=batch_index + batch_size,
                 library="np",
@@ -120,13 +123,11 @@ def rotate_all(input_dir: str):
     Preprocess all root files of the directory by applying rotate function on every files of the input_dir
     Warning -> have weird behavior over a lot of files. miss some events
     """
-    files = glob.glob(input_dir + "/*root")
+    files = glob.glob(pjoin(input_dir, f"*root"))
 
-    for file in files:
+    for file in tqdm(files, desc="Rotating images"):
         print(
-            "/////////////////// \nprocessing "
-            + os.path.basename(file)
-            + "\n///////////////////"
+            f"/////////////////// \nprocessing {os.path.basename(file)}\n///////////////////"
         )
         os.system("./preprocess_image.py rotate -i " + file)
 
@@ -158,11 +159,11 @@ def plot_rotation(input_files: str, name_save: str, numero: int):
     """
 
     # download tree and test if it is preprocessed and get the channel of the process
-    Tree = uproot.lazy(input_files + ":sr_vbf")
+    tree = uproot.lazy(f"{input_files}:sr_vbf")
     process_tag = get_process_tag_from_file(input_files)
 
     # location of the plots -> in a new directory "_preprocessed"
-    output_dir = os.path.dirname(os.path.dirname(input_files)) + "/" + name_save
+    output_dir = pjoin(os.path.dirname(os.path.dirname(input_files)), name_save)
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
@@ -170,17 +171,17 @@ def plot_rotation(input_files: str, name_save: str, numero: int):
 
     for i in range(number_image):
 
-        index = numero - 1 if numero else random.randint(0, len(Tree["mjj"]) - 1)
+        index = numero - 1 if numero else random.randint(0, len(tree["mjj"]) - 1)
         print(f"image_{index+1}")
 
-        eta = Tree["leadak4_eta", index]
-        phi = Tree["leadak4_phi", index]
+        eta = tree["leadak4_eta", index]
+        phi = tree["leadak4_phi", index]
         # plot the image before preprocessing
         plotter = ImagePlotter()
         plotter.plot(
-            ak.to_numpy(Tree["JetImage_pixels", index]),
+            ak.to_numpy(tree["JetImage_pixels", index]),
             output_dir,
-            f"image_" + os.path.basename(input_files)[5:-5] + f"_{index+1}",
+            f"image_{os.path.basename(input_files)[5:-5]}_{index+1}",
             vmin=1,
             vmax=300,
             left_label=f"$\eta$ = {eta:.2f} // $\phi$ = {phi:.2f}",
@@ -190,11 +191,9 @@ def plot_rotation(input_files: str, name_save: str, numero: int):
         # plot the image after processing
         plotter = ImagePlotter()
         plotter.plot(
-            ak.to_numpy(Tree["JetImage_pixels_preprocessed", index]),
+            ak.to_numpy(tree["JetImage_pixels_preprocessed", index]),
             output_dir,
-            f"image_"
-            + os.path.basename(input_files)[5:-5]
-            + f"_{index+1}_preprocessed",
+            f"image_{os.path.basename(input_files)[5:-5]}_{index+1}_preprocessed",
             vmin=1,
             vmax=300,
             left_label=f"$\eta$ = {abs(eta):.2f} // preprocessed",
@@ -213,20 +212,15 @@ def plot_rotation_all(input_dir: str):
     """
     use function plot_rotation on all root files
     """
-    files = glob.glob(input_dir + "/*root")
+    files = glob.glob(pjoin(input_dir, f"*root"))
 
-    for file in files:
+    for file in tqdm(files, desc="Rotating images"):
         print(
-            "/////////////////// \nplotting "
-            + os.path.basename(file)
-            + "\n///////////////////"
+            f"/////////////////// \nplotting {os.path.basename(file)}\n///////////////////"
         )
         name_dir = os.path.basename(file)[:44]
         os.system(
-            "./preprocess_image.py plot-rotation -i "
-            + file
-            + " -n /plots_image_processing/"
-            + name_dir
+            f"./preprocess_image.py plot-rotation -i {file} -n /plots_image_processing/{name_dir}"
         )
 
 
@@ -265,7 +259,7 @@ def check_met(input_files: str, name_save: str, start: int, stop: int):
     """
 
     # location and name of new root file -> in a new directory "_preprocessed"
-    output_dir = os.path.dirname(os.path.dirname(input_files)) + "/" + name_save
+    output_dir = pjoin(os.path.dirname(os.path.dirname(input_files)), name_save)
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     output_file = output_dir + os.path.basename(input_files)
@@ -284,34 +278,34 @@ def check_met(input_files: str, name_save: str, start: int, stop: int):
     ) + (phi_range[1] - phi_range[0]) / (2 * n_phi_bins)
 
     # load the tree and initilize batch info
-    Tree = uproot.open(input_files + ":sr_vbf")
+    tree = uproot.open(f"{input_files}:sr_vbf")
     batch_size = 5000
     batch_counter = 0
 
     # write MET distribution in .pkl file
-    cache = (
-        output_dir + "/" + os.path.basename(input_files)[5:-5] + "_met_distribution.pkl"
+    cache = pjoin(
+        output_dir, f"{os.path.basename(input_files)[5:-5]}_met_distribution.pkl"
     )
 
     if start or stop:
         if not (stop):
-            stop = Tree.num_entries
-        cache = cache[:-4] + f"_{start}to{stop}.pkl"
+            stop = tree.num_entries
+        cache = f"{cache[:-4]}_{start}to{stop}.pkl"
 
     if not (stop):
-        stop = Tree.num_entries
+        stop = tree.num_entries
 
     number_event = stop - start
     batch_number = ceil(number_event / batch_size)
 
     # initialize the new array for the MET distribution
-    MET = {
+    met = {
         "JetImage_pixels": np.zeros(number_event),
         "JetImage_pixels_preprocessed": np.zeros(number_event),
     }
 
     # iterate by batches of 500 over the tree, aim to save memoryquit
-    for sub_tree in Tree.iterate(
+    for sub_tree in tree.iterate(
         [
             "JetImage_pixels_preprocessed",
             "JetImage_pixels",
@@ -343,7 +337,7 @@ def check_met(input_files: str, name_save: str, start: int, stop: int):
 
             a, b = 0, 0
 
-            for label in MET:
+            for label in met:
                 image = sub_tree[label][j].reshape(im_shape)
                 energy, energy_x, energy_y = 0, 0, 0
 
@@ -368,7 +362,7 @@ def check_met(input_files: str, name_save: str, start: int, stop: int):
                 else:
                     b = energy
 
-                MET[label][(batch_counter - 1) * batch_size + j] = energy
+                met[label][(batch_counter - 1) * batch_size + j] = energy
 
             if (a == 0) or (b == 0):
                 print(
@@ -377,11 +371,11 @@ def check_met(input_files: str, name_save: str, start: int, stop: int):
 
             if round(a, 6) != round(b, 6):
                 print(
-                    f"event {(batch_counter-1)*batch_size + j+ 1} does not match ({a},{b} )"
+                    f"event {(batch_counter-1)*batch_size + j+1} does not match ({a},{b} )"
                 )
 
     with open(cache, "wb") as f:
-        pickle.dump(MET, f)
+        pickle.dump(met, f)
 
 
 @cli.command()
@@ -400,37 +394,37 @@ def check_met(input_files: str, name_save: str, start: int, stop: int):
 )
 def met_dist(input_dir: str, name_save: str):
 
-    files = glob.glob(input_dir + "/*pkl")
+    files = glob.glob(pjoin(input_dir, f"*pkl"))
 
-    MET_df = pd.DataFrame()
+    met_df = pd.DataFrame()
 
     for file in files:
         with open(file, "rb") as f:
-            MET_new = pickle.load(f)
-            if not (MET_new["JetImage_pixels"].all()):
-                print("look at file " + file)
-        MET_df = pd.concat([MET_df, pd.DataFrame(MET_new)])
+            met_new = pickle.load(f)
+            if not (met_new["JetImage_pixels"].all()):
+                print(f"look at file {file}")
+        met_df = pd.concat([met_df, pd.DataFrame(met_new)])
 
     n_bins = 60
     fig, axs = plt.subplots(1, 2, sharey=True, tight_layout=True)
     # axs[0].set_xlim(-100, 1500)
     axs[0].set_xlabel("MET_normal")
     plt.suptitle("MET distribution for normal vs processed images")
-    axs[0].hist(MET_df["JetImage_pixels"], bins=n_bins)
+    axs[0].hist(met_df["JetImage_pixels"], bins=n_bins)
     # axs[1].set_xlim(-100, )
     axs[1].set_xlabel("MET_processed")
     axs[0].set_ylabel("# events")
-    axs[1].hist(MET_df["JetImage_pixels_preprocessed"], bins=n_bins)
-    plt.savefig(input_dir + "/plot/plot_distribution.pdf")
+    axs[1].hist(met_df["JetImage_pixels_preprocessed"], bins=n_bins)
+    plt.savefig(pjoin(input_dir, f"/plot/plot_distribution.pdf"))
     plt.show()
 
-    diff = MET_df["JetImage_pixels_preprocessed"] - MET_df["JetImage_pixels"]
+    diff = met_df["JetImage_pixels_preprocessed"] - met_df["JetImage_pixels"]
     fig, ax = plt.subplots(figsize=(3, 4))
     plt.suptitle("MET difference (processed-normal)")
     plt.hist(diff, bins=30)
     plt.xlabel("$\Delta$ MET")
     plt.ylabel("# events")
-    plt.savefig(input_dir + "/plot/plot_diff.pdf")
+    plt.savefig(pjoin(input_dir, f"/plot/plot_diff.pdf"))
 
 
 if __name__ == "__main__":
