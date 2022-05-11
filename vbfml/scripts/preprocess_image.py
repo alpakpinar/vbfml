@@ -147,13 +147,20 @@ def rotate_all(input_dir: str):
     help="Name of the directory where the plots are saved",
 )
 @click.option(
-    "--numero",
+    "--ievent",
     default=None,
     type=int,
     required=False,
     help="number of the event to plot",
 )
-def plot_rotation(input_file: str, name_save: str, numero: int):
+@click.option(
+    "--num-events",
+    default=10,
+    type=int,
+    required=False,
+    help="number of event to plot",
+)
+def plot_rotation(input_file: str, name_save: str, ievent: int, num_events: int):
     """
     Plot random images in the first 500 events before and after processing to check rotation
     """
@@ -167,11 +174,11 @@ def plot_rotation(input_file: str, name_save: str, numero: int):
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
-    number_image = 1 if numero else 20
+    number_image = 1 if ievent else num_events
 
     for i in range(number_image):
 
-        index = numero - 1 if numero else random.randint(0, len(tree["mjj"]) - 1)
+        index = ievent - 1 if ievent else random.randint(0, len(tree["mjj"]) - 1)
         print(f"image_{index+1}")
 
         eta = tree["leadak4_eta", index]
