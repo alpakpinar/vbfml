@@ -135,9 +135,9 @@ def rotate_all(input_dir: str):
 @cli.command()
 @click.option(
     "-i",
-    "--input-files",
+    "--input-file",
     required=True,
-    help="Path to the directory with the input ROOT files.",
+    help="Path to the ROOT file.",
 )
 @click.option(
     "-n",
@@ -153,17 +153,17 @@ def rotate_all(input_dir: str):
     required=False,
     help="number of the event to plot",
 )
-def plot_rotation(input_files: str, name_save: str, numero: int):
+def plot_rotation(input_file: str, name_save: str, numero: int):
     """
     Plot random images in the first 500 events before and after processing to check rotation
     """
 
     # download tree and test if it is preprocessed and get the channel of the process
-    tree = uproot.lazy(f"{input_files}:sr_vbf")
-    process_tag = get_process_tag_from_file(input_files)
+    tree = uproot.lazy(f"{input_file}:sr_vbf")
+    process_tag = get_process_tag_from_file(input_file)
 
     # location of the plots -> in a new directory "_preprocessed"
-    output_dir = pjoin(os.path.dirname(os.path.dirname(input_files)), name_save)
+    output_dir = pjoin(os.path.dirname(os.path.dirname(input_file)), name_save)
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
@@ -181,7 +181,7 @@ def plot_rotation(input_files: str, name_save: str, numero: int):
         plotter.plot(
             ak.to_numpy(tree["JetImage_pixels", index]),
             output_dir,
-            f"image_{os.path.basename(input_files)[5:-5]}_{index+1}",
+            f"image_{os.path.basename(input_file)[5:-5]}_{index+1}",
             vmin=1,
             vmax=300,
             left_label=f"$\eta$ = {eta:.2f} // $\phi$ = {phi:.2f}",
@@ -193,7 +193,7 @@ def plot_rotation(input_files: str, name_save: str, numero: int):
         plotter.plot(
             ak.to_numpy(tree["JetImage_pixels_preprocessed", index]),
             output_dir,
-            f"image_{os.path.basename(input_files)[5:-5]}_{index+1}_preprocessed",
+            f"image_{os.path.basename(input_file)[5:-5]}_{index+1}_preprocessed",
             vmin=1,
             vmax=300,
             left_label=f"$\eta$ = {abs(eta):.2f} // preprocessed",
@@ -227,7 +227,7 @@ def plot_rotation_all(input_dir: str):
 @cli.command()
 @click.option(
     "-i",
-    "--input-files",
+    "--input-file",
     required=True,
     help="Path to the ROOT file.",
 )
@@ -252,17 +252,17 @@ def plot_rotation_all(input_dir: str):
     required=False,
     help="Name of the directory where the MET are saved",
 )
-def check_met(input_files: str, name_save: str, start: int, stop: int):
+def check_met(input_file: str, name_save: str, start: int, stop: int):
     """
     compute the MET distribution with old image and the preprocessed image to check everything is still correct
     check if there is a 0 MET and if the images are in good format 'uint8'
     """
 
     # location and name of new root file -> in a new directory "_preprocessed"
-    output_dir = pjoin(os.path.dirname(os.path.dirname(input_files)), name_save)
+    output_dir = pjoin(os.path.dirname(os.path.dirname(input_file)), name_save)
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
-    output_file = output_dir + os.path.basename(input_files)
+    output_file = output_dir + os.path.basename(input_file)
 
     # size of the image
     n_eta_bins: int = 40
@@ -278,13 +278,13 @@ def check_met(input_files: str, name_save: str, start: int, stop: int):
     ) + (phi_range[1] - phi_range[0]) / (2 * n_phi_bins)
 
     # load the tree and initilize batch info
-    tree = uproot.open(f"{input_files}:sr_vbf")
+    tree = uproot.open(f"{input_file}:sr_vbf")
     batch_size = 5000
     batch_counter = 0
 
     # write MET distribution in .pkl file
     cache = pjoin(
-        output_dir, f"{os.path.basename(input_files)[5:-5]}_met_distribution.pkl"
+        output_dir, f"{os.path.basename(input_file)[5:-5]}_met_distribution.pkl"
     )
 
     if start or stop:
