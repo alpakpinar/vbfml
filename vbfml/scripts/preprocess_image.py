@@ -27,20 +27,20 @@ def cli():
 @cli.command()
 @click.option(
     "-i",
-    "--input-files",
+    "--input-file",
     required=True,
     help="Path to the ROOT file.",
 )
-def rotate(input_files: str):
+def rotate(: str):
     """
     Preprocess the image (in the root file) with a phi-rotation and eta-inversion to have the leading jet in the right center
     """
 
     # location and name of new root file -> in a new directory "_preprocessed"
-    output_dir = f"{os.path.dirname(input_files)}_preprocessed_test/"
+    output_dir = f"{os.path.dirname(input_file)}_preprocessed_test/"
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
-    output_file = output_dir + os.path.basename(input_files)
+    output_file = output_dir + os.path.basename(input_file)
 
     # define writable file
     file = uproot.recreate(output_file)
@@ -51,7 +51,7 @@ def rotate(input_files: str):
     im_shape = (n_eta_bins, n_phi_bins)
 
     # load the tree and initilize batch info
-    tree = uproot.open(f"{input_files}:sr_vbf")
+    tree = uproot.open(f"{input_file}:sr_vbf")
     batch_size = 5000
     batch_number = ceil(tree.num_entries / batch_size)
     batch_counter = 0
@@ -127,7 +127,7 @@ def rotate_all(input_dir: str):
 
     for file in tqdm(files, desc="Rotating images"):
         print(
-            f"/////////////////// \nprocessing {os.path.basename(file)}\n///////////////////"
+            f"/////////////////// processing {os.path.basename(file)}///////////////////"
         )
         os.system("./preprocess_image.py rotate -i " + file)
 
@@ -216,7 +216,7 @@ def plot_rotation_all(input_dir: str):
 
     for file in tqdm(files, desc="Rotating images"):
         print(
-            f"/////////////////// \nplotting {os.path.basename(file)}\n///////////////////"
+            f"/////////////////// plotting {os.path.basename(file)}///////////////////"
         )
         name_dir = os.path.basename(file)[:44]
         os.system(
