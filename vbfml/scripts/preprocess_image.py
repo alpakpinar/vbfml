@@ -31,7 +31,7 @@ def cli():
     required=True,
     help="Path to the ROOT file.",
 )
-def rotate(: str):
+def rotate(input_file: str):
     """
     Preprocess the image (in the root file) with a phi-rotation and eta-inversion to have the leading jet in the right center
     """
