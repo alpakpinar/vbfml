@@ -536,7 +536,7 @@ def roc(ctx, input_dir: str) -> None:
 @cli.command()
 @click.pass_context
 @click.option(
-    "-i", "--input-dir", required=True, multiple=True, help="files to compare"
+    "-i", "--input-dir", required=True, multiple=True, help="path to the file roc.pkl of a given model"
 )
 @click.option(
     "-s",
@@ -546,7 +546,12 @@ def roc(ctx, input_dir: str) -> None:
     default=None,
     help="If specified, clarify the name of the pdf save file",
 )
-def plot_roc(ctx, input_dir: str, save_name: str) -> None:
+@click.option(
+    "--mass-comparison",
+    is_flag=True,
+    help="If specified, plot the roc curve of simple cuts on mjj and detajj",
+)
+def plot_roc(ctx, input_dir: str, save_name: str,mass_comparison: bool = False) -> None:
     """
     plot the roc curve of the model.
     """
@@ -561,33 +566,38 @@ def plot_roc(ctx, input_dir: str, save_name: str) -> None:
 
         # compute area under the curve (AUC)
         auc_roc = auc(data["fpr"], data["tpr"])
-        auc_roc_m = auc(data["fpr_m"], data["tpr_m"])
-        auc_roc_eta = auc(data["fpr_eta"], data["tpr_eta"])
         auc_prc = auc(data["recall"], data["precision"])
+        if mass_comparison : 
+            auc_roc_m = auc(data["fpr_m"], data["tpr_m"])
+            auc_roc_eta = auc(data["fpr_eta"], data["tpr_eta"])
 
         # get the index of a 0.5 cut
         middle_thres_roc_index = np.where(data["thresh_roc"] < 0.5)[0][0]
         middle_thres_prc_index = np.where(data["thresholds_prc"] > 0.5)[0][0]
+ 
+        if mass_comparison :
+            # get the associated cut on mjj or detajj at this
+            fpr_middle_thres_roc = data["fpr"][middle_thres_roc_index]
+            cut_middle_index_m = np.where(data['fpr_m']>fpr_middle_thres_roc)[0][0]
+            cut_middle_index_eta = np.where(data['fpr_eta']>fpr_middle_thres_roc)[0][0]
 
-        # get the associated cut on mjj or detajj at this 
-        fpr_middle_thres_roc = data["fpr"][middle_thres_roc_index]
-        cut_middle_index_m = np.where(data['fpr_m']>fpr_middle_thres_roc)[0][0]
-        cut_middle_index_eta = np.where(data['fpr_eta']>fpr_middle_thres_roc)[0][0]
-
-        # find the associated mjj cut
-        mjj_cut = data['thresh_roc_m'][cut_middle_index_m]*data['mjj_max']
-        eta_cut = data['thresh_roc_eta'][cut_middle_index_eta]*data['eta_max']
+            # find the associated mjj cut
+            mjj_cut = data['thresh_roc_m'][cut_middle_index_m]*data['mjj_max']
+            eta_cut = data['thresh_roc_eta'][cut_middle_index_eta]*data['eta_max']
 
         label_model = os.path.basename(os.path.dirname(dir))
 
         # plot graphs
         plt.figure(1)
-        plt.plot(data["fpr"], data["tpr"], label=label_model + f"(AUC = {auc_roc:.3f})")
+        plt.plot(
+            data["fpr"], 
+            data["tpr"], 
+            label=label_model + f"(AUC = {auc_roc:.3f})"
+        )
         plt.plot(
             data["fpr"][middle_thres_roc_index],
             data["tpr"][middle_thres_roc_index],
-            "ko",
-            label = "score cut 0.5"
+            "ko"
         )
 
         plt.figure(2)
@@ -605,38 +615,47 @@ def plot_roc(ctx, input_dir: str, save_name: str) -> None:
     if len(input_dir) == 1:
         outdir = input_dir[0] + "/plots"
     else:
-        outdir = pjoin(os.path.dirname(input_dir[0]), "comparison" + save_name)
+        outdir = pjoin(os.path.dirname(os.path.dirname(input_dir[0])), "comparison" + save_name)
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
 
     # complete graphs
+    if mass_comparison : 
+        plt.figure(1)
+        plt.plot([0, 1], [0, 1], "k--")
+        plt.plot(
+            data["fpr_m"], 
+            data["tpr_m"], 
+            "m-.", 
+            label=f"mjj cut (AUC = {auc_roc_m:.3f})",
+        )
+        plt.plot(
+            data["fpr_m"][cut_middle_index_m],
+            data["tpr_m"][cut_middle_index_m],
+            "mo",
+            label = f"mjj cut at {mjj_cut:.0f} GeV"
+        )
+        plt.plot(
+            data["fpr_eta"],
+            data["tpr_eta"],
+            "g-.",
+            label=f"detajj cut (AUC = {auc_roc_eta:.3f})",
+        )
+        plt.plot(
+            data["fpr_eta"][cut_middle_index_eta],
+            data["tpr_eta"][cut_middle_index_eta],
+            "go",
+            label = f"detajj cut at {eta_cut:.3f}"
+        )
+
     plt.figure(1)
-    plt.plot([0, 1], [0, 1], "k--")
     plt.plot(
-        data["fpr_m"], 
-        data["tpr_m"], 
-        "m-.", 
-        label=f"mjj cut (AUC = {auc_roc_m:.3f})",
-    )
-    plt.plot(
-        data["fpr_m"][cut_middle_index_m],
-        data["tpr_m"][cut_middle_index_m],
-        "mo",
-        label = f"mjj cut at {mjj_cut:.0f} GeV"
-    )
-    plt.plot(
-        data["fpr_eta"],
-        data["tpr_eta"],
-        "g-.",
-        label=f"detajj cut (AUC = {auc_roc_eta:.3f})",
-    )
-    plt.plot(
-        data["fpr_eta"][cut_middle_index_eta],
-        data["tpr_eta"][cut_middle_index_eta],
-        "go",
-        label = f"detajj cut at {eta_cut:.3f}"
-    )
+            data["fpr"][middle_thres_roc_index],
+            data["tpr"][middle_thres_roc_index],
+            "ko",
+            label = "score cut 0.5"
+        )
     plt.title("ROC curve")
     plt.xlabel("False positive rate")
     plt.ylabel("True positive rate")
@@ -650,55 +669,56 @@ def plot_roc(ctx, input_dir: str, save_name: str) -> None:
     plt.legend()
     plt.savefig(outdir + "/prc_curve.pdf")
 
-    # plot histograms of the mjj distribution for the 
-    features, _, _, labels = load_cache(input_dir[0])
-    d = pd.DataFrame({"mjj":features["mjj"], "detajj":features["detajj"], "labels":labels, "weights":features["weight"]})
+    if mass_comparison :
+        # plot histograms of the mjj distribution for the 
+        features, _, _, labels = load_cache(input_dir[0])
+        d = pd.DataFrame({"mjj":features["mjj"], "detajj":features["detajj"], "labels":labels, "weights":features["weight"]})
 
-    plt.figure(3)
-    plt.hist( 
-        d[d["labels"]==0]['mjj'], 
-        bins = 50,
-        range = (0, 4000),
-        density = True,
-        histtype = 'step',
-        label = "background",
-    )
-    plt.hist(
-        d[d["labels"]==1]['mjj'], 
-        bins = 50,
-        range = (0, 4000),
-        density = True,
-        histtype = 'step',
-        label = "signal",
-    )
-    plt.axvline(x = mjj_cut, color = 'k', linestyle = '--', label = f"cut at {mjj_cut:.0f} GeV")    
-    plt.title("mjj distribution")
-    plt.xlabel("mjj")
-    plt.ylabel("density counts")
-    plt.legend()
-    plt.savefig(outdir + "/mjj_density.pdf")
+        plt.figure(3)
+        plt.hist( 
+            d[d["labels"]==0]['mjj'], 
+            bins = 50,
+            range = (0, 4000),
+            density = True,
+            histtype = 'step',
+            label = "background",
+        )
+        plt.hist(
+            d[d["labels"]==1]['mjj'], 
+            bins = 50,
+            range = (0, 4000),
+            density = True,
+            histtype = 'step',
+            label = "signal",
+        )
+        plt.axvline(x = mjj_cut, color = 'k', linestyle = '--', label = f"cut at {mjj_cut:.0f} GeV")    
+        plt.title("mjj distribution")
+        plt.xlabel("mjj")
+        plt.ylabel("density counts")
+        plt.legend()
+        plt.savefig(outdir + "/mjj_density.pdf")
 
-    plt.figure(4)
-    plt.hist( 
-        d[d["labels"]==0]['detajj'], 
-        bins = 50,
-        density = True,
-        histtype = 'step',
-        label = "background",
-    )
-    plt.hist(
-        d[d["labels"]==1]['detajj'], 
-        bins = 50,
-        density = True,
-        histtype = 'step',
-        label = "signal",
-    )
-    plt.axvline(x = eta_cut, color = 'k', linestyle = '--', label = f"cut at {eta_cut:.3f}")    
-    plt.title("detajj distribution")
-    plt.xlabel("detajj")
-    plt.ylabel("density counts")
-    plt.legend()
-    plt.savefig(outdir + "/detajj_density.pdf")
+        plt.figure(4)
+        plt.hist( 
+            d[d["labels"]==0]['detajj'], 
+            bins = 50,
+            density = True,
+            histtype = 'step',
+            label = "background",
+        )
+        plt.hist(
+            d[d["labels"]==1]['detajj'], 
+            bins = 50,
+            density = True,
+            histtype = 'step',
+            label = "signal",
+        )
+        plt.axvline(x = eta_cut, color = 'k', linestyle = '--', label = f"cut at {eta_cut:.3f}")    
+        plt.title("detajj distribution")
+        plt.xlabel("detajj")
+        plt.ylabel("density counts")
+        plt.legend()
+        plt.savefig(outdir + "/detajj_density.pdf")
 
 
 
