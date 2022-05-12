@@ -403,7 +403,7 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     "--save_name",
     required=False,
     type=str,
-    default= "",
+    default= "history",
     help="If specified, clarify the name of the pdf save file",
 )
 def compare_hist(ctx, input_dirs: str, number_epochs: int, save_name: str) -> None:
