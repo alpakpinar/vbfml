@@ -89,9 +89,9 @@ def predict(
     to specify multiple files.
     """
     # Create a list of DatasetInfo objects for the files that we are interested in
-    directory, file_pattern = os.path.dirname(input_files), os.path.basename(
-        input_files
-    )
+    directory = os.path.dirname(input_files)
+    file_pattern = os.path.basename(input_files)
+
     datasets = load_datasets_bucoffea(directory, file_pattern)
     # Get datasets and corresponding labels from datasets.yml
     datasets_path = vbfml_path("config/datasets/datasets.yml")
@@ -121,7 +121,9 @@ def predict(
         "ak4_phi2",
     ]
 
-    image_features = ["JetImage_pixels"]
+    # read feature from pkl file
+    with open(f"{model_path}/features.pkl", "rb") as f:
+        image_features = pickle.load(f)
 
     # Validation sequence: Read the last 20% of events
     read_range = (0.8, 1.0)
@@ -332,7 +334,7 @@ def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
     # Get the images for the events where quantity > threshold
     # and compute the average for these images.
     mask = df[quantity] > threshold
-    classes = ["ewk_17", "v_nlo_qcd_17"]
+    classes = ["bkg_17", "signal_17"]
     for iclass, class_label in enumerate(
         tqdm(classes, desc="Plotting averaged images")
     ):
@@ -341,15 +343,16 @@ def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
         weights = df["weight"][image_mask]
 
         avg_image = np.average(images, axis=0, weights=weights)
-        outdir = pjoin(input_dir, "plots")
 
         plotter.plot(
             image=avg_image,
             outdir=outdir,
             filename=f"{class_label}_{quantity}_gt_{threshold}.pdf",
+            vmin=1e-3,
+            vmax=6e-2,
             cbar_label="Average Energy (GeV)",
             left_label=process_tag,
-            right_label=class_label,
+            right_label=f"predict : {class_label}({sum(image_mask)}/{len(image_pixels)})",
         )
 
 
@@ -376,6 +379,80 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     sequence.batch_buffer_size = 100
 
     model.evaluate(sequence)
+
+
+@cli.command()
+@click.pass_context
+@click.option(
+    "-i",
+    "--input-dirs",
+    required=True,
+    multiple=True,
+    help="Training directories to compare. without / at the end",
+)
+@click.option(
+    "-n",
+    "--number-epochs",
+    required=False,
+    type=int,
+    default=5,
+    help="The number of last epochs considered in the statistics",
+)
+@click.option(
+    "-s",
+    "--save_name",
+    required=False,
+    type=str,
+    default= "history",
+    help="If specified, clarify the name of the pdf save file",
+)
+def compare_hist(ctx, input_dirs: str, number_epochs: int, save_name: str) -> None:
+    """
+    Compare the statistics of the history of different models.
+    """
+
+    for dir in input_dirs:
+        cache_file = pjoin(dir, "history.pkl")
+        assert os.path.exists(cache_file), f"Cannot find file: {cache_file}"
+        with open(cache_file, "rb") as f:
+            hist = pickle.load(f)
+
+        x = hist["x_val_categorical_accuracy"][-number_epochs:]
+        acc = hist["y_val_categorical_accuracy"][-number_epochs:]
+        loss_tr = hist["y_loss"][-number_epochs:]
+        loss_val = hist["y_val_loss"][-number_epochs:]
+
+        plt.figure(1)
+        plt.plot(x, acc, ".-", markersize=15, label=os.path.basename(dir))
+        plt.figure(2)
+        plt.plot(x, loss_tr, ".-", markersize=15, label=os.path.basename(dir))
+        plt.figure(3)
+        plt.plot(x, loss_val, ".-", markersize=15, label=os.path.basename(dir))
+
+    outdir = pjoin(os.path.dirname(input_dirs[0]), f"comparison_{save_name}")
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    plt.figure(1)
+    plt.legend()
+    plt.title("comparison validation accuracy")
+    plt.xlabel("epochs")
+    plt.ylabel("accuracy")
+    plt.savefig(pjoin(outdir, f"comparison_val_acc_{save_name}.pdf"))
+
+    plt.figure(2)
+    plt.legend()
+    plt.title("comparison training loss")
+    plt.xlabel("epochs")
+    plt.ylabel("Loss")
+    plt.savefig(pjoin(outdir, f"comparison_train_loss_{save_name}.pdf"))
+
+    plt.figure(3)
+    plt.legend()
+    plt.title("comparison validation loss ")
+    plt.xlabel("epochs")
+    plt.ylabel("Loss")
+    plt.savefig(pjoin(outdir, f"comparison_val_loss_{save_name}.pdf"))
 
 
 if __name__ == "__main__":
