@@ -37,7 +37,7 @@ def rotate(input_file: str):
     """
 
     # location and name of new root file -> in a new directory "_preprocessed"
-    output_dir = f"{os.path.dirname(input_file)}_preprocessed_test/"
+    output_dir = f"{os.path.dirname(input_file)}_preprocessed/"
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     output_file = output_dir + os.path.basename(input_file)
@@ -155,7 +155,7 @@ def rotate_all(input_dir: str):
 )
 @click.option(
     "--num-events",
-    default=10,
+    default=5,
     type=int,
     required=False,
     help="number of event to plot",
@@ -169,7 +169,7 @@ def plot_rotation(input_file: str, name_save: str, ievent: int, num_events: int)
     tree = uproot.lazy(f"{input_file}:sr_vbf")
     process_tag = get_process_tag_from_file(input_file)
 
-    # location of the plots -> in a new directory "_preprocessed"
+    # location of the plots -> in a new directory
     output_dir = pjoin(os.path.dirname(os.path.dirname(input_file)), name_save)
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
@@ -221,13 +221,18 @@ def plot_rotation_all(input_dir: str):
     """
     files = glob.glob(pjoin(input_dir, f"*root"))
 
-    for file in tqdm(files, desc="Rotating images"):
+    for file in tqdm(files, desc="plot images"):
         print(
             f"/////////////////// plotting {os.path.basename(file)}///////////////////"
         )
         name_dir = os.path.basename(file)[:44]
+
+        output_dir = pjoin(os.path.dirname(input_dir),f"plots_image_processing")
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
+
         os.system(
-            f"./preprocess_image.py plot-rotation -i {file} -n /plots_image_processing/{name_dir}"
+            f"./preprocess_image.py plot-rotation -i {file} -n {os.path.basename(output_dir)}/{name_dir}"
         )
 
 
@@ -392,14 +397,7 @@ def check_met(input_file: str, name_save: str, start: int, stop: int):
     required=True,
     help="Path to the directory with the pkl files",
 )
-@click.option(
-    "-n",
-    "--name-save",
-    default="MET_distribution",
-    required=False,
-    help="Name of the directory where the plots are saved",
-)
-def plot_met(input_dir: str, name_save: str):
+def plot_met(input_dir: str):
     """
     plot the distribution of the MET for unprepro and prepro images. plot as well there differences to see if they match
     """
@@ -423,7 +421,7 @@ def plot_met(input_dir: str, name_save: str):
     axs[1].set_xlabel("MET_processed")
     axs[0].set_ylabel("# events")
     axs[1].hist(met_df["JetImage_pixels_preprocessed"], bins=n_bins)
-    plt.savefig(pjoin(input_dir, f"/plot/plot_distribution.pdf"))
+    plt.savefig(pjoin(input_dir, f"plot_distribution.pdf"))
     plt.show()
 
     diff = met_df["JetImage_pixels_preprocessed"] - met_df["JetImage_pixels"]
@@ -432,7 +430,7 @@ def plot_met(input_dir: str, name_save: str):
     plt.hist(diff, bins=30)
     plt.xlabel("$\Delta$ MET")
     plt.ylabel("# events")
-    plt.savefig(pjoin(input_dir, f"/plot/plot_diff.pdf"))
+    plt.savefig(pjoin(input_dir, f"plot_diff.pdf"))
 
 
 if __name__ == "__main__":

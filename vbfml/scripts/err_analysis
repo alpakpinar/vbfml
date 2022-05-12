@@ -388,7 +388,7 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     "--input-dirs",
     required=True,
     multiple=True,
-    help="Training directories to compare",
+    help="Training directories to compare. without / at the end",
 )
 @click.option(
     "-n",
@@ -403,7 +403,7 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     "--save_name",
     required=False,
     type=str,
-    default=None,
+    default= "",
     help="If specified, clarify the name of the pdf save file",
 )
 def compare_hist(ctx, input_dirs: str, number_epochs: int, save_name: str) -> None:
@@ -429,7 +429,7 @@ def compare_hist(ctx, input_dirs: str, number_epochs: int, save_name: str) -> No
         plt.figure(3)
         plt.plot(x, loss_val, ".-", markersize=15, label=os.path.basename(dir))
 
-    outdir = pjoin(os.path.dirname(input_dirs[0]), f"comparison{save_name}")
+    outdir = pjoin(os.path.dirname(input_dirs[0]), f"comparison_{save_name}")
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
@@ -438,21 +438,21 @@ def compare_hist(ctx, input_dirs: str, number_epochs: int, save_name: str) -> No
     plt.title("comparison validation accuracy")
     plt.xlabel("epochs")
     plt.ylabel("accuracy")
-    plt.savefig(pjoin(outdir, f"comparison_val_acc{save_name}.pdf"))
+    plt.savefig(pjoin(outdir, f"comparison_val_acc_{save_name}.pdf"))
 
     plt.figure(2)
     plt.legend()
     plt.title("comparison training loss")
     plt.xlabel("epochs")
     plt.ylabel("Loss")
-    plt.savefig(pjoin(outdir, f"comparison_train_loss{save_name}.pdf"))
+    plt.savefig(pjoin(outdir, f"comparison_train_loss_{save_name}.pdf"))
 
     plt.figure(3)
     plt.legend()
     plt.title("comparison validation loss ")
     plt.xlabel("epochs")
     plt.ylabel("Loss")
-    plt.savefig(pjoin(outdir, f"comparison_val_loss{save_name}.pdf"))
+    plt.savefig(pjoin(outdir, f"comparison_val_loss_{save_name}.pdf"))
 
 
 if __name__ == "__main__":
