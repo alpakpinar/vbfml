@@ -200,10 +200,10 @@ def predict(
     for ibatch in tqdm(
         range(len(validation_sequences["image"])), desc="Making predictions"
     ):
-        features, labels_onehot, _ = validation_sequences["image"][ibatch]
+        features, labels_oneshot, _ = validation_sequences["image"][ibatch]
         predictions.append(model.predict(features)[:, 1])
         image_pixels.append(features)
-        labels.append(labels_onehot.argmax(axis=1))
+        labels.append(labels_oneshot.argmax(axis=1))
 
     predictions = np.concatenate(predictions)
     image_pixels = np.concatenate(image_pixels)
@@ -544,8 +544,11 @@ def roc(ctx, input_dir: str) -> None:
 
 
 def histogram(
-    data: pd.DataFrame, variable: str, cut: float, outdir: str, 
-) -> None: 
+    data: pd.DataFrame,
+    variable: str,
+    cut: float,
+    outdir: str,
+) -> None:
     plt.figure()
     plt.hist(
         data[data["labels"] == 0][variable],
@@ -583,16 +586,16 @@ def histogram(
     "--save_name",
     required=False,
     type=str,
-    default= "",
+    default="",
     help="If specified, clarify the name of the pdf save file",
 )
 @click.option(
-    "--mass-comparison",
+    "--simple-cut",
     is_flag=True,
     help="If specified, plot the roc curve of simple cuts on mjj and detajj",
 )
 def plot_roc(
-    ctx, input_dir: str, save_name: str, mass_comparison: bool = False
+    ctx, input_dir: str, save_name: str, simple_cut: bool = False
 ) -> None:
     """
     plot the roc curve of a model (and AUC).
@@ -611,7 +614,7 @@ def plot_roc(
         # compute area under the curve (AUC)
         auc_roc = auc(data["fpr"], data["tpr"])
         auc_prc = auc(data["recall"], data["precision"])
-        if mass_comparison:
+        if simple_cut:
             auc_roc_m = auc(data["fpr_m"], data["tpr_m"])
             auc_roc_eta = auc(data["fpr_eta"], data["tpr_eta"])
 
@@ -619,7 +622,7 @@ def plot_roc(
         middle_thres_roc_index = np.where(data["thresh_roc"] < 0.5)[0][0]
         middle_thres_prc_index = np.where(data["thresholds_prc"] > 0.5)[0][0]
 
-        if mass_comparison:
+        if simple_cut:
             # get the associated cut on mjj or detajj at this
             fpr_middle_thres_roc = data["fpr"][middle_thres_roc_index]
             cut_middle_index_m = np.where(data["fpr_m"] > fpr_middle_thres_roc)[0][0]
@@ -664,7 +667,7 @@ def plot_roc(
         os.makedirs(outdir)
 
     # complete graphs
-    if mass_comparison:
+    if simple_cut:
         plt.figure(1)
         plt.plot([0, 1], [0, 1], "k--")
         plt.plot(
@@ -712,7 +715,7 @@ def plot_roc(
     plt.legend()
     plt.savefig(f"{outdir}/prc_curve.pdf")
 
-    if mass_comparison:
+    if simple_cut:
         # plot histograms of the mjj distribution for the
         features, predictions, _, labels = load_cache(input_dir[0])
         d = pd.DataFrame(
@@ -725,9 +728,9 @@ def plot_roc(
             }
         )
 
-        histogram(data = d, variable = "mjj", cut = mjj_cut,outdir = outdir)
-        histogram(data = d, variable = "detajj", cut = eta_cut,outdir = outdir)
-        histogram(data = d, variable = "score", cut = 0.5,outdir = outdir)
+        histogram(data=d, variable="mjj", cut=mjj_cut, outdir=outdir)
+        histogram(data=d, variable="detajj", cut=eta_cut, outdir=outdir)
+        histogram(data=d, variable="score", cut=0.5, outdir=outdir)
 
 
 @cli.command()
