@@ -45,8 +45,9 @@ def load_cache(input_dir: str) -> tuple:
     df = cache["df_non_feature"]
     predictions = cache["predictions"]
     label_encoding = cache["label_encoding"]
+    labels = cache["labels"]
 
-    return df, predictions, label_encoding
+    return df, predictions, label_encoding, labels
 
 
 @click.group()
@@ -189,15 +190,18 @@ def predict(
 
     predictions = []
     image_pixels = []
+    labels = []
     for ibatch in tqdm(
         range(len(validation_sequences["image"])), desc="Making predictions"
     ):
-        features, _, _ = validation_sequences["image"][ibatch]
+        features, labels_onehot, _ = validation_sequences["image"][ibatch]
         predictions.append(model.predict(features)[:,1])
         image_pixels.append(features)
+        labels.append(labels_onehot.argmax(axis=1))
 
     predictions = np.concatenate(predictions)
     image_pixels = np.concatenate(image_pixels)
+    labels = np.concatenate(labels)
 
     # High-level features
     high_level_dfs = []
@@ -215,6 +219,8 @@ def predict(
 
     df_non_feature = pd.concat(high_level_dfs, ignore_index=True)
 
+    assert len(predictions) == len(df_non_feature), f"prediction and df_non_feature are not matching ({len(predictions)}-{len(df_non_feature)})"
+
     outdir = pjoin(model_path, f"predictions_{tag.lower()}")
     if not os.path.exists(outdir):
         os.makedirs(outdir)
@@ -225,13 +231,17 @@ def predict(
         for infile in glob(input_files):
             f.write(f"{infile}\n")
 
-    print(len(predictions))
-    print(len(df_non_feature))
+    print(f"first 20 predictions : {predictions[:20]}")
+    print(f"last 20 predictions : {predictions[20:]}")
+    print(f"first 20 labels : {labels[:20]}")
+    print(f"last 20 labels : {labels[20:]}")
+
     # Save everything into a cache.pkl file
     cache = {
         "predictions": predictions,
         "df_non_feature": df_non_feature,
         "label_encoding": label_encoding,
+        "labels": labels
     }
 
     cache_file = pjoin(outdir, "predict_cache.pkl")
@@ -254,7 +264,7 @@ def plot(ctx, input_dir: str, normalize: bool) -> None:
     Make histogram of high-level features, split by the predicted class,
     and plot the histograms.
     """
-    df, predictions, label_encoding = load_cache(input_dir)
+    df, predictions, label_encoding, _ = load_cache(input_dir)
 
     process_tag = os.path.basename(input_dir.rstrip("/")).replace("predictions_", "")
 
@@ -335,7 +345,7 @@ def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
     quantity > threshold.
     """
     # Gather the data
-    df, predictions, label_encoding = load_cache(input_dir)
+    df, predictions, label_encoding, _ = load_cache(input_dir)
 
     with open(pjoin(input_dir, "input_root_files.txt"), "r") as f:
         inputfile = f.readlines()[0]
@@ -489,33 +499,28 @@ def roc(ctx, input_dir: str) -> None:
     """
 
     #load model and validation sequence
-    loader = TrainingLoader(input_dir)
+    loader = TrainingLoader(os.path.dirname(input_dir))
     model = loader.get_model()
-    validation_sequence = loader.get_sequence("validation")
-
-    #load predicted data
-    for i in range(validation_sequence.__len__()) :
-        print(f"batch [{i+1}/{validation_sequence.__len__()}]")
-        _, labels_onehot, _ = validation_sequence[i]
-        labels_batch = labels_onehot.argmax(axis=1)
-        if i == 0 : labels = labels_batch
-        else : labels = np.concatenate((labels,labels_batch))
-
-    # make prediction
-    print("making the prediction with the model")
-    predict = model.predict(validation_sequence)[:,1]
+    features, predictions, label_encoding, labels = load_cache(input_dir)
+    mjj = features['mjj']
+    detajj = features['detajj']
 
     # compute ROC and precision recall curve
-    print("compute precision recall")
-    precision, recall, thresholds_prc = precision_recall_curve(labels, predict)
+    precision, recall, thresholds_prc = precision_recall_curve(labels, predictions)
+    fpr, tpr, thresholds_roc = roc_curve(labels, predictions)
 
-    print("compute ROC")
-    fpr, tpr, thresholds_roc = roc_curve(labels, predict)
+    # do the same for a simple cut on mjj and detajj
+    mjj_norm = mjj/mjj.max()
+    detajj_norm = detajj/detajj.max()
+    fpr_m, tpr_m, thresh_roc_m = roc_curve(labels, mjj_norm)
+    fpr_eta, tpr_eta, thresh_roc_eta = roc_curve(labels, detajj_norm)
 
     # write data into pickle file
     print("write data into pickle file")
     data = {"fpr": fpr, "tpr": tpr, "thresh_roc": thresholds_roc,
-            "precision": precision, "recall": recall, "thresholds_prc": thresholds_prc}
+            "precision": precision, "recall": recall, "thresholds_prc": thresholds_prc,
+            "fpr_m": fpr_m, "tpr_m": tpr_m, "thresh_roc_m": thresh_roc_m,
+            "fpr_eta": fpr_eta, "tpr_eta": tpr_eta, "thresh_roc_eta": thresh_roc_eta}
 
     with open(input_dir+"/roc.pkl", 'wb') as f:
         pickle.dump(data,f)
@@ -551,20 +556,29 @@ def plot_roc(ctx, input_dir: str, save_name: str) -> None:
 
         # compute area under the curve (AUC)
         auc_roc = auc(data['fpr'],data['tpr'])
+        auc_roc_m = auc(data['fpr_m'],data['tpr_m'])
+        auc_roc_eta = auc(data['fpr_eta'],data['tpr_eta'])
         auc_prc = auc(data['recall'],data['precision'])
 
         # get the index of a 0.5 cut
-        middle_thres_index = np.where(data['thresh_roc'] < 0.5)[0][0]
-        
+        middle_thres_roc_index = np.where(data['thresh_roc'] < 0.5)[0][0]
+        middle_thres_prc_index = np.where(data['thresholds_prc'] > 0.5)[0][0]
+
+        label = os.path.basename(os.path.dirname(dir))
+
         # plot graphs
         plt.figure(1)
-        plt.plot(data['fpr'],data['tpr'], label= os.path.basename(dir) + f'(AUC = {auc_roc:.3f})')
+        plt.plot(data['fpr'],data['tpr'], label= label + f'(AUC = {auc_roc:.3f})')
+        plt.plot(data['fpr_m'],data['tpr_m'], '-.', label= f'mjj cut (AUC = {auc_roc_m:.3f})')
+        plt.plot(data['fpr_eta'],data['tpr_eta'], '-.', label= f'detajj cut (AUC = {auc_roc_eta:.3f})')
+        plt.plot(data['fpr'][middle_thres_roc_index],data['tpr'][middle_thres_roc_index],'ko')
 
         plt.figure(2)
         plt.plot(data['recall'],data['precision'], label= os.path.basename(dir) + f'(AUC = {auc_prc:.3f})')
+        plt.plot(data['recall'][middle_thres_prc_index],data['precision'][middle_thres_prc_index],'ko')
 
     if len(input_dir) == 1 : 
-        outdir  = input_dir[0]
+        outdir  = input_dir[0]+"/plots"
     else : 
         outdir = pjoin(os.path.dirname(input_dir[0]), "comparison"+save_name)
     if not os.path.exists(outdir):
@@ -604,7 +618,7 @@ def plot_correl(ctx, input_dir: str) -> None:
         os.makedirs(outdir)
 
     #load data
-    features, predictions, label_encoding = load_cache(input_dir)
+    features, predictions, label_encoding, _ = load_cache(input_dir)
 
     print(f"number of event {len(predictions)}")
 
