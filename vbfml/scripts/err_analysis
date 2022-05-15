@@ -22,7 +22,7 @@ from vbfml.util import (
     get_process_tag_from_file,
     vbfml_path,
 )
-from vbfml.plot.util import Quantity
+from vbfml.plot.util import Quantity, plot_histograms_for_each_label
 from vbfml.training.util import summarize_datasets, select_and_label_datasets
 from vbfml.training.data import TrainingLoader
 from vbfml.training.plot import ImagePlotter
@@ -80,7 +80,7 @@ def cli():
     "--range-seq1",
     required=False,
     type=float,
-    default=0,
+    default=0.8,
     help="read_range from ... (adjust read_range in the sequence to allow to read from any event)",
 )
 @click.option(
@@ -151,7 +151,7 @@ def predict(
     with open(f"{model_path}/features.pkl", "rb") as f:
         image_features = pickle.load(f)
 
-    # Validation sequence: Read the last 20% of events
+    # Get the read range from the command line, default is (X,Y)
     read_range = (range_seq1, range_seq2)
 
     # Two separate validation sequences for high_level features (e.g. mjj) and image features:
@@ -200,10 +200,13 @@ def predict(
     for ibatch in tqdm(
         range(len(validation_sequences["image"])), desc="Making predictions"
     ):
-        features, labels_oneshot, _ = validation_sequences["image"][ibatch]
+        features, labels_onehot, _ = validation_sequences["image"][ibatch]
+
+        # only takes the score value for the predictions with [:, 1]
+        # ex : model.predict [0.26; 0.74] -> predictions 0.74
         predictions.append(model.predict(features)[:, 1])
         image_pixels.append(features)
-        labels.append(labels_oneshot.argmax(axis=1))
+        labels.append(labels_onehot.argmax(axis=1))
 
     predictions = np.concatenate(predictions)
     image_pixels = np.concatenate(image_pixels)
@@ -227,7 +230,7 @@ def predict(
 
     assert len(predictions) == len(
         df_non_feature
-    ), f"prediction and df_non_feature are not matching ({len(predictions)}-{len(df_non_feature)})"
+    ), f"Length of predictions and df_non_feature are not matching ({len(predictions)}-{len(df_non_feature)})"
 
     outdir = pjoin(model_path, f"predictions_{tag.lower()}")
     if not os.path.exists(outdir):
@@ -499,12 +502,12 @@ def compare_hist(ctx, input_dirs: str, number_epochs: int, save_name: str) -> No
 )
 def roc(ctx, input_dir: str) -> None:
     """
-    compute the roc curve of the model. /!/ input_dir point at the prediction_dir without a '/' at the end.
+    compute the roc curve of the model.
     only compute and write in pkl file so it allows to use plot-roc on several model to compare in in one plot
     """
 
     # load model and prediction pickle file
-    loader = TrainingLoader(os.path.dirname(input_dir))
+    loader = TrainingLoader(os.path.dirname(input_dir.rstrip("/")))
     model = loader.get_model()
     features, predictions, label_encoding, labels = load_cache(input_dir)
     mjj = features["mjj"]
@@ -520,8 +523,10 @@ def roc(ctx, input_dir: str) -> None:
     fpr_m, tpr_m, thresh_roc_m = roc_curve(labels, mjj_norm)
     fpr_eta, tpr_eta, thresh_roc_eta = roc_curve(labels, detajj_norm)
 
-    # write data into pickle file
-    print("write data into pickle file")
+    output_pkl = pjoin(input_dir, "roc.pkl")
+    # Mention the output file path in the logging
+    print(f"Writing output to: {pkl_output_file}")
+
     data = {
         "fpr": fpr,
         "tpr": tpr,
@@ -539,47 +544,18 @@ def roc(ctx, input_dir: str) -> None:
         "eta_max": detajj.max(),
     }
 
-    with open(f"{input_dir}/roc.pkl", "wb") as f:
+    with open(output_pkl, "wb") as f:
         pickle.dump(data, f)
-
-
-def histogram(
-    data: pd.DataFrame,
-    variable: str,
-    cut: float,
-    outdir: str,
-) -> None:
-    plt.figure()
-    plt.hist(
-        data[data["labels"] == 0][variable],
-        bins=50,
-        density=True,
-        histtype="step",
-        label="background",
-    )
-    plt.hist(
-        data[data["labels"] == 1][variable],
-        bins=50,
-        density=True,
-        histtype="step",
-        label="signal",
-    )
-    plt.axvline(x=cut, color="k", linestyle="--", label=f"cut at {cut:.3f}")
-    plt.title(f"{variable}distribution")
-    plt.xlabel(variable)
-    plt.ylabel("density counts")
-    plt.legend()
-    plt.savefig(f"{outdir}/{variable}_density.pdf")
 
 
 @cli.command()
 @click.pass_context
 @click.option(
     "-i",
-    "--input-dir",
+    "--input-dirs",
     required=True,
     multiple=True,
-    help="path to the file roc.pkl of a given model",
+    help="Path to the directory containing roc.pkl file for a given model. Can be a single path for a single model, or multiple paths for multiple models.",
 )
 @click.option(
     "-s",
@@ -594,16 +570,14 @@ def histogram(
     is_flag=True,
     help="If specified, plot the roc curve of simple cuts on mjj and detajj",
 )
-def plot_roc(
-    ctx, input_dir: str, save_name: str, simple_cut: bool = False
-) -> None:
+def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> None:
     """
     plot the roc curve of a model (and AUC).
     Can point to several models to plot all of them in one plot and compare.
     Can also compare the model roc curve with a simple cut on mjj and detajj.
     """
 
-    for dir in input_dir:
+    for dir in input_dirs:
         cache_file = pjoin(dir, "roc.pkl")
         assert os.path.exists(cache_file), f"Cannot find file: {cache_file}"
 
@@ -657,11 +631,11 @@ def plot_roc(
             "ko",
         )
 
-    if len(input_dir) == 1:
-        outdir = f"{input_dir[0]}/plots{save_name}"
+    if len(input_dirs) == 1:
+        outdir = pjoin(input_dirs[0], f"plots{save_name}")
     else:
         outdir = pjoin(
-            os.path.dirname(os.path.dirname(input_dir[0])), f"comparison{save_name}"
+            os.path.dirname(os.path.dirname(input_dirs[0])), f"comparison{save_name}"
         )
     if not os.path.exists(outdir):
         os.makedirs(outdir)
@@ -717,7 +691,7 @@ def plot_roc(
 
     if simple_cut:
         # plot histograms of the mjj distribution for the
-        features, predictions, _, labels = load_cache(input_dir[0])
+        features, predictions, _, labels = load_cache(input_dirs[0])
         d = pd.DataFrame(
             {
                 "mjj": features["mjj"],
@@ -728,9 +702,13 @@ def plot_roc(
             }
         )
 
-        histogram(data=d, variable="mjj", cut=mjj_cut, outdir=outdir)
-        histogram(data=d, variable="detajj", cut=eta_cut, outdir=outdir)
-        histogram(data=d, variable="score", cut=0.5, outdir=outdir)
+        plot_histograms_for_each_label(
+            data=d, variable="mjj", cut=mjj_cut, outdir=outdir
+        )
+        plot_histograms_for_each_label(
+            data=d, variable="detajj", cut=eta_cut, outdir=outdir
+        )
+        plot_histograms_for_each_label(data=d, variable="score", cut=0.5, outdir=outdir)
 
 
 @cli.command()
@@ -791,9 +769,12 @@ def plot_correl(ctx, input_dir: str) -> None:
 
     table = {"variables": correl[:, 1], "score_correlation": correl[:, 0]}
     table_print = tabulate(table, headers="keys")
+
+    table_outfile = pjoin(outdir, "correlation_table.txt")
+    print(f"Saving correlation data to: {table_outfile}")
     print(table_print)
 
-    with open(pjoin(outdir, "table.txt"), "w") as f:
+    with open(table_outfile, "w") as f:
         f.write(table_print)
 
 
