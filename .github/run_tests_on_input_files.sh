@@ -44,9 +44,7 @@ echo "Testing pre-processing of images"
 
 # Try plotting few pre-processed images
 PREPROCESSED_ROOT_DIR="${ROOT_INPUT_DIR}_preprocessed"
-NUM_EVENTS_TO_PLOT=5
 
-echo "Plotting ${NUM_EVENTS_TO_PLOT} images"
-./preprocess_image.py plot-rotation-all -i ${PREPROCESSED_ROOT_DIR} -n ${NUM_EVENTS_TO_PLOT} || exit 1;
+./preprocess_image.py plot-rotation-all -i ${PREPROCESSED_ROOT_DIR} || exit 1;
 
 echo "Finished test jobs: $(date)"

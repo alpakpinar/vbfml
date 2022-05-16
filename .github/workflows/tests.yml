@@ -34,6 +34,7 @@ jobs:
           run: |
             python3 -m pip install tensorflow==2.5.0
             python3 -m pip install scikit-learn==0.24.2
+            python3 -m pip install awkward==1.0.2
             python3 -m pytest
         
         # Runs the analysis workflow:
