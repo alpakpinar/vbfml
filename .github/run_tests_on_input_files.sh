@@ -30,8 +30,11 @@ echo "Setting up training area from ${ROOT_INPUT_DIR}"
     --model-config ${MODEL_CONFIG_FILE} \
     --no-plot-model || exit 1;
 
-echo "Running training for a single epoch"
-./train.py -d ${TRAINING_AREA} train -n 1 || exit 1;
+NUM_EPOCHS=10
+echo "Running training for a ${NUM_EPOCHS} epochs"
+./train.py -d ${TRAINING_AREA} train \
+    -n ${NUM_EPOCHS} \
+    --no-verbose-output || exit 1;
 
 # Analyze training results
 echo "Analyzing training results"
