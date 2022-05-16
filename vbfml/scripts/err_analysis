@@ -151,7 +151,7 @@ def predict(
     with open(f"{model_path}/features.pkl", "rb") as f:
         image_features = pickle.load(f)
 
-    # Get the read range from the command line, default is (X,Y)
+    # Get the read range from the command line, default is (0.8, 1.0)
     read_range = (range_seq1, range_seq2)
 
     # Two separate validation sequences for high_level features (e.g. mjj) and image features:
@@ -520,8 +520,8 @@ def roc(ctx, input_dir: str) -> None:
     # do the same for a simple cut on mjj and detajj
     mjj_norm = mjj / mjj.max()
     detajj_norm = detajj / detajj.max()
-    fpr_m, tpr_m, thresh_roc_m = roc_curve(labels, mjj_norm)
-    fpr_eta, tpr_eta, thresh_roc_eta = roc_curve(labels, detajj_norm)
+    fpr_mjj, tpr_mjj, thresh_roc_mjj = roc_curve(labels, mjj_norm)
+    fpr_detajj, tpr_detajj, thresh_roc_detajj = roc_curve(labels, detajj_norm)
 
     output_pkl = pjoin(input_dir, "roc.pkl")
     # Mention the output file path in the logging
@@ -534,14 +534,14 @@ def roc(ctx, input_dir: str) -> None:
         "precision": precision,
         "recall": recall,
         "thresholds_prc": thresholds_prc,
-        "fpr_m": fpr_m,
-        "tpr_m": tpr_m,
+        "fpr_mjj": fpr_mjj,
+        "tpr_mjj": tpr_mjj,
         "mjj_max": mjj.max(),
-        "thresh_roc_m": thresh_roc_m,
-        "fpr_eta": fpr_eta,
-        "tpr_eta": tpr_eta,
-        "thresh_roc_eta": thresh_roc_eta,
-        "eta_max": detajj.max(),
+        "thresh_roc_mjj": thresh_roc_mjj,
+        "fpr_detajj": fpr_detajj,
+        "tpr_detajj": tpr_detajj,
+        "thresh_roc_detajj": thresh_roc_detajj,
+        "detajj_max": detajj.max(),
     }
 
     with open(output_pkl, "wb") as f:
@@ -589,8 +589,8 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
         auc_roc = auc(data["fpr"], data["tpr"])
         auc_prc = auc(data["recall"], data["precision"])
         if simple_cut:
-            auc_roc_m = auc(data["fpr_m"], data["tpr_m"])
-            auc_roc_eta = auc(data["fpr_eta"], data["tpr_eta"])
+            auc_roc_mjj = auc(data["fpr_mjj"], data["tpr_mjj"])
+            auc_roc_detajj = auc(data["fpr_detajj"], data["tpr_detajj"])
 
         # get the index of a 0.5 cut
         middle_thres_roc_index = np.where(data["thresh_roc"] < 0.5)[0][0]
@@ -599,14 +599,14 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
         if simple_cut:
             # get the associated cut on mjj or detajj at this
             fpr_middle_thres_roc = data["fpr"][middle_thres_roc_index]
-            cut_middle_index_m = np.where(data["fpr_m"] > fpr_middle_thres_roc)[0][0]
-            cut_middle_index_eta = np.where(data["fpr_eta"] > fpr_middle_thres_roc)[0][
+            cut_middle_index_mjj = np.where(data["fpr_mjj"] > fpr_middle_thres_roc)[0][0]
+            cut_middle_index_detajj = np.where(data["fpr_detajj"] > fpr_middle_thres_roc)[0][
                 0
             ]
 
             # find the associated mjj cut
-            mjj_cut = data["thresh_roc_m"][cut_middle_index_m] * data["mjj_max"]
-            eta_cut = data["thresh_roc_eta"][cut_middle_index_eta] * data["eta_max"]
+            mjj_cut = data["thresh_roc_mjj"][cut_middle_index_mjj] * data["mjj_max"]
+            detajj_cut = data["thresh_roc_detajj"][cut_middle_index_detajj] * data["detajj_max"]
 
         label_model = os.path.basename(os.path.dirname(dir.rstrip("/")))
 
@@ -646,28 +646,28 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
         plt.figure(1)
         plt.plot([0, 1], [0, 1], "k--")
         plt.plot(
-            data["fpr_m"],
-            data["tpr_m"],
+            data["fpr_mjj"],
+            data["tpr_mjj"],
             "m-.",
-            label=f"mjj cut (AUC = {auc_roc_m:.3f})",
+            label=f"mjj cut (AUC = {auc_roc_mjj:.3f})",
         )
         plt.plot(
-            data["fpr_m"][cut_middle_index_m],
-            data["tpr_m"][cut_middle_index_m],
+            data["fpr_mjj"][cut_middle_index_mjj],
+            data["tpr_mjj"][cut_middle_index_mjj],
             "mo",
             label=f"mjj cut at {mjj_cut:.0f} GeV",
         )
         plt.plot(
-            data["fpr_eta"],
-            data["tpr_eta"],
+            data["fpr_detajj"],
+            data["tpr_detajj"],
             "g-.",
-            label=f"detajj cut (AUC = {auc_roc_eta:.3f})",
+            label=f"detajj cut (AUC = {auc_roc_detajj:.3f})",
         )
         plt.plot(
-            data["fpr_eta"][cut_middle_index_eta],
-            data["tpr_eta"][cut_middle_index_eta],
+            data["fpr_detajj"][cut_middle_index_detajj],
+            data["tpr_detajj"][cut_middle_index_detajj],
             "go",
-            label=f"detajj cut at {eta_cut:.3f}",
+            label=f"detajj cut at {detajj_cut:.3f}",
         )
 
     plt.figure(1)
@@ -707,7 +707,7 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
             data=d, variable="mjj", cut=mjj_cut, outdir=outdir
         )
         plot_histograms_for_each_label(
-            data=d, variable="detajj", cut=eta_cut, outdir=outdir
+            data=d, variable="detajj", cut=detajj_cut, outdir=outdir
         )
         plot_histograms_for_each_label(data=d, variable="score", cut=0.5, outdir=outdir)
 
