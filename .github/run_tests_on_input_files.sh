@@ -47,4 +47,7 @@ PREPROCESSED_ROOT_DIR="${ROOT_INPUT_DIR}_preprocessed"
 
 ./preprocess_image.py plot-rotation-all -i ${PREPROCESSED_ROOT_DIR} || exit 1;
 
+# Go back to the root directory
+cd -
+
 echo "Finished test jobs: $(date)"

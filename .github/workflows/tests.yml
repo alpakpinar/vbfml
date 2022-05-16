@@ -43,4 +43,12 @@ jobs:
         - name: Run analysis workflow
           run: |
             ls -lah .
-            ./.github/run_tests_on_input_files.sh 
+            TF_CPP_MIN_LOG_LEVEL=2
+            ./.github/run_tests_on_input_files.sh
+        
+        - name: Upload artifacts
+          uses: actions/upload-artifact@v3
+          with:
+            name: analysis-artifact
+            path: vbfml/scripts/output/**/*.pdf
+            retention-days: 10
