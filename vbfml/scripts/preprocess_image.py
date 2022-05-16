@@ -227,7 +227,7 @@ def plot_rotation_all(input_dir: str):
         )
         name_dir = os.path.basename(file)[:44]
 
-        output_dir = pjoin(os.path.dirname(input_dir),f"plots_image_processing")
+        output_dir = pjoin(os.path.dirname(input_dir), f"plots_image_processing")
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
 
