@@ -22,15 +22,23 @@ jobs:
             python3 -m pip install -e .
 
         # Run black code formatter
-        - name: black
+        # This will fail if the code is not properly formatted
+        - name: Check code formatting
           run: |
             black --check vbfml
 
         # Run unit tests via pytest
         # We'll install tensorflow and scikit-learn separately
         # since we don't have them in requirements.txt
-        - name: pytest
+        - name: Run unit tests
           run: |
             python3 -m pip install tensorflow==2.5.0
             python3 -m pip install scikit-learn==0.24.2
             python3 -m pytest
+        
+        # Runs the analysis workflow:
+        # Training a model and analyzing results
+        # Checks if anything might be broken in the process
+        - name: Run analysis workflow
+          run: |
+            ./vbfml/.github/run_tests_on_input_files.sh 
