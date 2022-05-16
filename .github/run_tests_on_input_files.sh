@@ -41,6 +41,21 @@ echo "Analyzing training results"
 ./analyze_training.py analyze ${TRAINING_AREA} || exit 1;
 ./analyze_training.py plot ${TRAINING_AREA} || exit 1;
 
+# Run predictions on input files and plot them
+VBF_ROOT_FILE=$(find ${ROOT_INPUT_DIR} -name "tree_VBF*root")
+./err_analysis predict -i ${VBF_ROOT_FILE} \
+    -m ${TRAINING_AREA} \
+    --tag "vbf" || exit 1;
+
+./err_analysis plot "${TRAINING_AREA}/predictions_vbf" || exit 1;
+
+EWK_ROOT_FILE=$(find ${ROOT_INPUT_DIR} -name "tree_EWK*root")
+./err_analysis predict -i ${EWK_ROOT_FILE} \
+    -m ${TRAINING_AREA} \
+    --tag "ewk" || exit 1;
+
+./err_analysis plot "${TRAINING_AREA}/predictions_ewk" || exit 1;
+
 # Test pre-processing
 echo "Testing pre-processing of images"
 ./preprocess_image.py rotate-all -i ${ROOT_INPUT_DIR} || exit 1;

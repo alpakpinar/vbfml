@@ -43,7 +43,6 @@ jobs:
         - name: Run analysis workflow
           run: |
             ls -lah .
-            TF_CPP_MIN_LOG_LEVEL=2
             ./.github/run_tests_on_input_files.sh
         
         # Upload analysis artifacts
