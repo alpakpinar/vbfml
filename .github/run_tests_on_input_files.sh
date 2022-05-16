@@ -31,7 +31,7 @@ echo "Setting up training area from ${ROOT_INPUT_DIR}"
     --no-plot-model || exit 1;
 
 NUM_EPOCHS=10
-echo "Running training for a ${NUM_EPOCHS} epochs"
+echo "Running training for ${NUM_EPOCHS} epochs"
 ./train.py -d ${TRAINING_AREA} train \
     -n ${NUM_EPOCHS} \
     --no-verbose-output || exit 1;
@@ -47,14 +47,18 @@ VBF_ROOT_FILE=$(find ${ROOT_INPUT_DIR} -name "tree_VBF*root")
     -m ${TRAINING_AREA} \
     --tag "vbf" || exit 1;
 
-./err_analysis plot "${TRAINING_AREA}/predictions_vbf" || exit 1;
+./err_analysis plot \
+    "${TRAINING_AREA}/predictions_vbf" \
+    --normalize || exit 1;
 
 EWK_ROOT_FILE=$(find ${ROOT_INPUT_DIR} -name "tree_EWK*root")
 ./err_analysis predict -i ${EWK_ROOT_FILE} \
     -m ${TRAINING_AREA} \
     --tag "ewk" || exit 1;
 
-./err_analysis plot "${TRAINING_AREA}/predictions_ewk" || exit 1;
+./err_analysis plot \
+    "${TRAINING_AREA}/predictions_ewk" \
+    --normalize || exit 1;
 
 # Test pre-processing
 echo "Testing pre-processing of images"
