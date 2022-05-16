@@ -17,6 +17,8 @@ jobs:
             python3 get-pip.py
 
         # Install vbfml package
+        # We'll install tensorflow and scikit-learn separately
+        # since we don't have them in requirements.txt
         - name: Install this package
           run: |
             python3 -m pip install -e .
@@ -28,8 +30,7 @@ jobs:
           run: |
             black --check vbfml
 
-        # Run pytest, install tensorflow and sklearn externally 
-        # since we don't have those in requirements.txt
+        # Run unit tests via pytest
         - name: pytest
           run: |
             python3 -m pytest
