@@ -599,14 +599,18 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
         if simple_cut:
             # get the associated cut on mjj or detajj at this
             fpr_middle_thres_roc = data["fpr"][middle_thres_roc_index]
-            cut_middle_index_mjj = np.where(data["fpr_mjj"] > fpr_middle_thres_roc)[0][0]
-            cut_middle_index_detajj = np.where(data["fpr_detajj"] > fpr_middle_thres_roc)[0][
+            cut_middle_index_mjj = np.where(data["fpr_mjj"] > fpr_middle_thres_roc)[0][
                 0
             ]
+            cut_middle_index_detajj = np.where(
+                data["fpr_detajj"] > fpr_middle_thres_roc
+            )[0][0]
 
             # find the associated mjj cut
             mjj_cut = data["thresh_roc_mjj"][cut_middle_index_mjj] * data["mjj_max"]
-            detajj_cut = data["thresh_roc_detajj"][cut_middle_index_detajj] * data["detajj_max"]
+            detajj_cut = (
+                data["thresh_roc_detajj"][cut_middle_index_detajj] * data["detajj_max"]
+            )
 
         label_model = os.path.basename(os.path.dirname(dir.rstrip("/")))
 
