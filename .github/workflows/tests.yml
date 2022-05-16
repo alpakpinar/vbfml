@@ -1,7 +1,7 @@
 
 name: tests
-#Running tests on all branches
-on: [push,pull_request]
+# Running tests on all branches
+on: [pull_request]
 
 jobs:
   # This is a job for linux python3 tests
@@ -16,6 +16,7 @@ jobs:
             curl https://bootstrap.pypa.io/get-pip.py > get-pip.py
             python3 get-pip.py
 
+        # Install vbfml package
         - name: Install this package
           run: |
             python3 -m pip install -e .
@@ -25,15 +26,11 @@ jobs:
           run: |
             black --check vbfml
 
-        # Run pytest
+        # Run unit tests via pytest
+        # We'll install tensorflow and scikit-learn separately
+        # since we don't have them in requirements.txt
         - name: pytest
           run: |
-            pip install pytest-cov
-            python3 -m pytest --cov=vbfml/
-
-        - name: Upload coverage data to coveralls.io
-          run: |
-            python -m pip install coveralls==2.2
-            coveralls --service=github
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            python3 -m pip install tensorflow==2.5.0
+            python3 -m pip install scikit-learn==0.24.2
+            python3 -m pytest
