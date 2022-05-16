@@ -525,7 +525,7 @@ def roc(ctx, input_dir: str) -> None:
 
     output_pkl = pjoin(input_dir, "roc.pkl")
     # Mention the output file path in the logging
-    print(f"Writing output to: {pkl_output_file}")
+    print(f"Writing output to: {output_pkl}")
 
     data = {
         "fpr": fpr,
@@ -608,7 +608,7 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
             mjj_cut = data["thresh_roc_m"][cut_middle_index_m] * data["mjj_max"]
             eta_cut = data["thresh_roc_eta"][cut_middle_index_eta] * data["eta_max"]
 
-        label_model = os.path.basename(os.path.dirname(dir))
+        label_model = os.path.basename(os.path.dirname(dir.rstrip("/")))
 
         # plot graphs
         plt.figure(1)
@@ -635,7 +635,8 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
         outdir = pjoin(input_dirs[0], f"plots{save_name}")
     else:
         outdir = pjoin(
-            os.path.dirname(os.path.dirname(input_dirs[0])), f"comparison{save_name}"
+            os.path.dirname(os.path.dirname(input_dirs[0].rstrip("/"))),
+            f"comparison{save_name}",
         )
     if not os.path.exists(outdir):
         os.makedirs(outdir)
