@@ -30,6 +30,6 @@ jobs:
         # since we don't have those in requirements.txt
         - name: pytest
           run: |
-            pip install tensorflow==2.5.0
-            pip install scikit-learn==0.24.2
+            python3 -m pip install tensorflow==2.5.0
+            python3 -m pip install scikit-learn==0.24.2
             python3 -m pytest
