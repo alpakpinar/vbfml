@@ -41,4 +41,5 @@ jobs:
         # Checks if anything might be broken in the process
         - name: Run analysis workflow
           run: |
-            ./vbfml/.github/run_tests_on_input_files.sh 
+            ls -lah .
+            ./.github/run_tests_on_input_files.sh 
