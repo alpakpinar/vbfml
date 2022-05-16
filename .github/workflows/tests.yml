@@ -26,9 +26,10 @@ jobs:
           run: |
             black --check vbfml
 
-        # Run pytest, install tensorflow externally since
-        # we don't have it in requirements.txt
+        # Run pytest, install tensorflow and sklearn externally 
+        # since we don't have those in requirements.txt
         - name: pytest
           run: |
             pip install tensorflow==2.5.0
+            pip install sklearn==0.24.2
             python3 -m pytest
