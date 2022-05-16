@@ -2,6 +2,7 @@
 
 [![Coverage Status](https://coveralls.io/repos/github/AndreasAlbert/vbfml/badge.svg?branch=main)](https://coveralls.io/github/AndreasAlbert/vbfml?branch=main)
 
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 ## Features
 
