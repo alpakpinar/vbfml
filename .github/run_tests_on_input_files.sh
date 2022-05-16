@@ -25,7 +25,10 @@ mkdir -p output/test_job
 TRAINING_AREA=$(realpath output/test_job)
 
 echo "Setting up training area from ${ROOT_INPUT_DIR}"
-./train.py -d ${TRAINING_AREA} setup --input-dir ${ROOT_INPUT_DIR} --model-config ${MODEL_CONFIG_FILE} || exit 1;
+./train.py -d ${TRAINING_AREA} setup \
+    --input-dir ${ROOT_INPUT_DIR} \
+    --model-config ${MODEL_CONFIG_FILE} \
+    --no-plot-model || exit 1;
 
 echo "Running training for a single epoch"
 ./train.py -d ${TRAINING_AREA} train -n 1 || exit 1;

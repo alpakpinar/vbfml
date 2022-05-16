@@ -72,7 +72,18 @@ def cli(ctx, training_directory):
     required=True,
     help="Path to the .yml file that has the model configuration parameters.",
 )
-def setup(ctx, learning_rate: float, input_dir: str, model_config: str):
+@click.option(
+    "--no-plot-model",
+    is_flag=True,
+    help="Flag to disable the plot_model call via Keras.",
+)
+def setup(
+    ctx,
+    learning_rate: float,
+    input_dir: str,
+    model_config: str,
+    no_plot_model: bool = False,
+):
     """
     Creates a new working area. Prerequisite for later training.
     """
@@ -206,13 +217,14 @@ def setup(ctx, learning_rate: float, input_dir: str, model_config: str):
         f.write("\n")
 
     # Save a plot of the model architecture
-    from keras.utils.vis_utils import plot_model
+    if not no_plot_model:
+        from keras.utils.vis_utils import plot_model
 
-    plot_dir = os.path.join(training_directory, "plots")
-    if not os.path.exists(plot_dir):
-        os.makedirs(plot_dir)
-    plot_file = os.path.join(plot_dir, "model.png")
-    plot_model(model, to_file=plot_file, show_shapes=True, show_layer_names=True)
+        plot_dir = os.path.join(training_directory, "plots")
+        if not os.path.exists(plot_dir):
+            os.makedirs(plot_dir)
+        plot_file = os.path.join(plot_dir, "model.png")
+        plot_model(model, to_file=plot_file, show_shapes=True, show_layer_names=True)
 
 
 @cli.command()
