@@ -41,29 +41,38 @@ jobs:
           run: |
             echo "MODEL_CONFIG_FILE=$(realpath vbfml/config/convolutional_model.yml)" >> $GITHUB_ENV
             echo "ROOT_INPUT_DIR=$(realpath .github/input_files)" >> $GITHUB_ENV
+            TIMESTAMP=$(date +%d%h%y_%H%M%S)
+            MODEL_AREA="vbfml/scripts/output/test_job_${TIMESTAMP}"
+            mkdir -p ${MODEL_AREA}
+            echo "TRAINING_AREA=$(realpath ${MODEL_AREA})" >> $GITHUB_ENV
 
         - name: Run training
+          working-directory: vbfml/scripts
           env:
             NUM_EPOCHS: 10
+            TRAINING_AREA: ${{ env.TRAINING_AREA }}
+            ROOT_INPUT_DIR: ${{ env.ROOT_INPUT_DIR }}
+            MODEL_CONFIG_FILE: ${{ env.MODEL_CONFIG_FILE }}
           run: |
-            cd vbfml/scripts
-            mkdir -p output/test_job
-            TRAINING_AREA=$(realpath output/test_job)
-            echo "TRAINING_AREA=${TRAINING_AREA}" >> $GITHUB_ENV
             ./train.py -d ${TRAINING_AREA} setup \
               --input-dir ${ROOT_INPUT_DIR} \
               --model-config ${MODEL_CONFIG_FILE} \
               --no-plot-model
-            ./train.py -d ${TRAINING_AREA} train \
-              -n ${NUM_EPOCHS} \
-              --no-verbose-output
+            ./train.py -d ${TRAINING_AREA} train -n ${NUM_EPOCHS}
 
         - name: Analyze training results
+          working-directory: vbfml/scripts
+          env:
+            TRAINING_AREA: ${{ env.TRAINING_AREA }}
           run: |
             ./analyze_training.py analyze ${TRAINING_AREA}
             ./analyze_training.py plot ${TRAINING_AREA}
 
         - name: Run predictions
+          working-directory: vbfml/scripts
+          env:
+            ROOT_INPUT_DIR: ${{ env.ROOT_INPUT_DIR }}
+            TRAINING_AREA: ${{ env.TRAINING_AREA }}
           run: |
             VBF_ROOT_FILE=$(find ${ROOT_INPUT_DIR} -name "tree_VBF*root")
             ./err_analysis predict -i ${VBF_ROOT_FILE} -m ${TRAINING_AREA} --tag "vbf"
@@ -73,11 +82,13 @@ jobs:
             ./err_analysis plot "${TRAINING_AREA}/predictions_ewk" --normalize
 
         - name: Test image rotation
+          working-directory: vbfml/scripts
+          env:
+            ROOT_INPUT_DIR: ${{ env.ROOT_INPUT_DIR }}
           run: |
             ./preprocess_image.py rotate-all -i ${ROOT_INPUT_DIR}
             PREPROCESSED_ROOT_DIR="${ROOT_INPUT_DIR}_preprocessed"
             ./preprocess_image.py plot-rotation-all -i ${PREPROCESSED_ROOT_DIR}
-            cd -
 
         # Upload analysis artifacts
         - name: Upload artifacts
