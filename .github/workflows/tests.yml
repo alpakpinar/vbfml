@@ -37,14 +37,48 @@ jobs:
             python3 -m pip install awkward==1.0.2
             python3 -m pytest
         
-        # Runs the analysis workflow:
-        # Training a model and analyzing results
-        # Checks if anything might be broken in the process
-        - name: Run analysis workflow
+        - name: Set environment
           run: |
-            ls -lah .
-            ./.github/run_tests_on_input_files.sh
-        
+            echo "MODEL_CONFIG_FILE=$(realpath vbfml/config/convolutional_model.yml)" >> $GITHUB_ENV
+            echo "ROOT_INPUT_DIR=$(realpath .github/input_files)" >> $GITHUB_ENV
+
+        - name: Run training
+          env:
+            NUM_EPOCHS: 10
+          run: |
+            cd vbfml/scripts
+            mkdir -p output/test_job
+            TRAINING_AREA=$(realpath output/test_job)
+            echo "TRAINING_AREA=${TRAINING_AREA}" >> $GITHUB_ENV
+            ./train.py -d ${TRAINING_AREA} setup \
+              --input-dir ${ROOT_INPUT_DIR} \
+              --model-config ${MODEL_CONFIG_FILE} \
+              --no-plot-model
+            ./train.py -d ${TRAINING_AREA} train \
+              -n ${NUM_EPOCHS} \
+              --no-verbose-output
+
+        - name: Analyze training results
+          run: |
+            ./analyze_training.py analyze ${TRAINING_AREA}
+            ./analyze_training.py plot ${TRAINING_AREA}
+
+        - name: Run predictions
+          run: |
+            VBF_ROOT_FILE=$(find ${ROOT_INPUT_DIR} -name "tree_VBF*root")
+            ./err_analysis predict -i ${VBF_ROOT_FILE} -m ${TRAINING_AREA} --tag "vbf"
+            ./err_analysis plot "${TRAINING_AREA}/predictions_vbf" --normalize
+            EWK_ROOT_FILE=$(find ${ROOT_INPUT_DIR} -name "tree_EWK*root")
+            ./err_analysis predict -i ${EWK_ROOT_FILE} -m ${TRAINING_AREA} --tag "ewk"
+            ./err_analysis plot "${TRAINING_AREA}/predictions_ewk" --normalize
+
+        - name: Test image rotation
+          run: |
+            ./preprocess_image.py rotate-all -i ${ROOT_INPUT_DIR}
+            PREPROCESSED_ROOT_DIR="${ROOT_INPUT_DIR}_preprocessed"
+            ./preprocess_image.py plot-rotation-all -i ${PREPROCESSED_ROOT_DIR}
+            cd -
+
         # Upload analysis artifacts
         - name: Upload artifacts
           uses: actions/upload-artifact@v3
