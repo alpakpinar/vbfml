@@ -518,16 +518,17 @@ def roc(ctx, input_dir: str) -> None:
     features, predictions, label_encoding, labels = load_cache(input_dir)
     mjj = features["mjj"]
     detajj = features["detajj"]
+    weights = features["weight"]
 
     # compute ROC and precision recall curve
-    precision, recall, thresholds_prc = precision_recall_curve(labels, predictions)
-    fpr, tpr, thresholds_roc = roc_curve(labels, predictions)
+    precision, recall, thresholds_prc = precision_recall_curve(labels, predictions, sample_weight= weights)
+    fpr, tpr, thresholds_roc = roc_curve(labels, predictions, sample_weight= weights)
 
     # do the same for a simple cut on mjj and detajj
     mjj_norm = mjj / mjj.max()
     detajj_norm = detajj / detajj.max()
-    fpr_mjj, tpr_mjj, thresh_roc_mjj = roc_curve(labels, mjj_norm)
-    fpr_detajj, tpr_detajj, thresh_roc_detajj = roc_curve(labels, detajj_norm)
+    fpr_mjj, tpr_mjj, thresh_roc_mjj = roc_curve(labels, mjj_norm, sample_weight= weights)
+    fpr_detajj, tpr_detajj, thresh_roc_detajj = roc_curve(labels, detajj_norm, sample_weight= weights)
 
     output_pkl = pjoin(input_dir, "roc.pkl")
     # Mention the output file path in the logging
@@ -592,11 +593,11 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
             data = pickle.load(f)
 
         # compute area under the curve (AUC)
-        auc_roc = auc(data["fpr"], data["tpr"])
-        auc_prc = auc(data["recall"], data["precision"])
+        auc_roc = auc(data["fpr"], data["tpr"]) # problem with negative weights, roc curve is not monotonic
+        auc_prc = 1 #auc(data["recall"], data["precision"])
         if simple_cut:
-            auc_roc_mjj = auc(data["fpr_mjj"], data["tpr_mjj"])
-            auc_roc_detajj = auc(data["fpr_detajj"], data["tpr_detajj"])
+            auc_roc_mjj = 1 #auc(data["fpr_mjj"], data["tpr_mjj"])
+            auc_roc_detajj = 1 #auc(data["fpr_detajj"], data["tpr_detajj"])
 
         # get the index of a 0.5 cut
         middle_thres_roc_index = np.where(data["thresh_roc"] < 0.5)[0][0]

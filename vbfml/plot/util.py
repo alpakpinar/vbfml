@@ -172,6 +172,7 @@ def plot_histograms_for_each_label(
         data[data["labels"] == 0][variable],
         bins=50,
         density=True,
+        weights=data[data["labels"] == 0]['weights'],
         histtype="step",
         label="background",
     )
@@ -179,6 +180,7 @@ def plot_histograms_for_each_label(
         data[data["labels"] == 1][variable],
         bins=50,
         density=True,
+        weights=data[data["labels"] == 1]['weights'],
         histtype="step",
         label="signal",
     )
