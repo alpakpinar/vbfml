@@ -425,7 +425,12 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     "--input-dirs",
     required=True,
     multiple=True,
-    help="Training directories to compare. without / at the end",
+    help="Training directories to compare.",
+)
+@click.option(
+    "--full-dir",
+    is_flag=True,
+    help="If flag, -i take a dir of directories and compare all of them",
 )
 @click.option(
     "-n",
@@ -443,10 +448,11 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     default="history",
     help="If specified, clarify the name of the pdf save file",
 )
-def compare_hist(ctx, input_dirs: str, number_epochs: int, save_name: str) -> None:
+def compare_hist(ctx, input_dirs: str, number_epochs: int, save_name: str, full_dir: bool=False) -> None:
     """
     Compare the statistics of the history of different models.
     """
+    if full_dir : input_dirs = glob(pjoin(input_dirs[0], f"EWK*"))
 
     for dir in input_dirs:
         cache_file = pjoin(dir, "history.pkl")
@@ -562,13 +568,13 @@ def roc(ctx, input_dir: str) -> None:
     "--save_name",
     required=False,
     type=str,
-    default="",
+    default="roc",
     help="If specified, clarify the name of the pdf save file",
 )
 @click.option(
     "--simple-cut",
     is_flag=True,
-    help="If specified, plot the roc curve of simple cuts on mjj and detajj",
+    help="If specified, plot the roc curve of simple cuts on mjj and detajj (to use with only one input-dir for the plot to be clean)",
 )
 def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> None:
     """
@@ -627,7 +633,7 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
         plt.plot(
             data["recall"],
             data["precision"],
-            label=f"{os.path.basename(dir)} (AUC = {auc_prc:.3f})",
+            label=f"{label_model} (AUC = {auc_prc:.3f})",
         )
         plt.plot(
             data["recall"][middle_thres_prc_index],
@@ -636,11 +642,11 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
         )
 
     if len(input_dirs) == 1:
-        outdir = pjoin(input_dirs[0], f"plots{save_name}")
+        outdir = pjoin(input_dirs[0], f"plots_{save_name}")
     else:
         outdir = pjoin(
             os.path.dirname(os.path.dirname(input_dirs[0].rstrip("/"))),
-            f"comparison{save_name}",
+            f"comparison_{save_name}",
         )
     if not os.path.exists(outdir):
         os.makedirs(outdir)
