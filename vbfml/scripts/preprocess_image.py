@@ -170,9 +170,10 @@ def plot_rotation(input_file: str, name_save: str, ievent: int, num_events: int)
     process_tag = get_process_tag_from_file(input_file)
 
     # location of the plots -> in a new directory
-    output_dir = pjoin(os.path.dirname(os.path.dirname(input_file)), name_save)
+    outtag = os.path.basename(os.path.dirname(input_file))
+    output_dir = pjoin("output", outtag, name_save)
     if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
+        os.makedirs(output_dir)
 
     number_image = 1 if ievent else num_events
 

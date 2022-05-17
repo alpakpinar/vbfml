@@ -82,9 +82,12 @@ jobs:
             ./preprocess_image.py plot-rotation-all -i ${PREPROCESSED_ROOT_DIR}
 
         # Upload analysis artifacts
+        # These are basically the plots produced by the analysis workflow
         - name: Upload artifacts
           uses: actions/upload-artifact@v3
           with:
             name: analysis-artifact
-            path: vbfml/scripts/output/**/*.pdf
+            path: |
+              vbfml/scripts/output/**/*.pdf
+              vbfml/scripts/output/**/*.png
             retention-days: 10
