@@ -3,6 +3,11 @@ name: tests
 # Running tests on all branches
 on: [pull_request]
 
+# Suppress tensorflow logging
+# Only print messages classified as ERROR
+env:
+  TF_CPP_MIN_LOG_LEVEL: 2
+
 jobs:
   # This is a job for linux python3 tests
   linuxpy3:
