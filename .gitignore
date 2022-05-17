@@ -2,7 +2,7 @@
 __pycache__
 .vscode/
 vbfml.egg-info/
-*root
+vbfml/*root
 *png
 *pdf
 bkp*

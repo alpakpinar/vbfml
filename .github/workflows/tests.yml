@@ -3,6 +3,11 @@ name: tests
 # Running tests on all branches
 on: [pull_request]
 
+# Suppress tensorflow logging
+# Only print messages classified as ERROR
+env:
+  TF_CPP_MIN_LOG_LEVEL: 2
+
 jobs:
   # This is a job for linux python3 tests
   linuxpy3:
@@ -22,15 +27,76 @@ jobs:
             python3 -m pip install -e .
 
         # Run black code formatter
-        - name: black
+        # This will fail if the code is not properly formatted
+        - name: Check code formatting
           run: |
             black --check vbfml
 
         # Run unit tests via pytest
         # We'll install tensorflow and scikit-learn separately
         # since we don't have them in requirements.txt
-        - name: pytest
+        - name: Run unit tests
           run: |
             python3 -m pip install tensorflow==2.5.0
             python3 -m pip install scikit-learn==0.24.2
+            python3 -m pip install awkward==1.0.2
             python3 -m pytest
+        
+        - name: Set environment
+          run: |
+            echo "MODEL_CONFIG_FILE=$(realpath vbfml/config/convolutional_model.yml)" >> ${GITHUB_ENV}
+            echo "ROOT_INPUT_DIR=$(realpath .github/input_files)" >> ${GITHUB_ENV}
+            TIMESTAMP=$(date +%d%h%y_%H%M%S)
+            MODEL_AREA="vbfml/scripts/output/test_job_${TIMESTAMP}"
+            mkdir -p ${MODEL_AREA}
+            echo "TRAINING_AREA=$(realpath ${MODEL_AREA})" >> ${GITHUB_ENV}
+
+        - name: Run training
+          working-directory: vbfml/scripts
+          env:
+            NUM_EPOCHS: 10
+          run: |
+            ./train.py -d ${TRAINING_AREA} setup \
+              --input-dir ${ROOT_INPUT_DIR} \
+              --model-config ${MODEL_CONFIG_FILE} \
+              --no-plot-model
+            ./train.py -d ${TRAINING_AREA} train -n ${NUM_EPOCHS}
+
+        - name: Analyze training results
+          working-directory: vbfml/scripts
+          run: |
+            ./analyze_training.py analyze ${TRAINING_AREA}
+            ./analyze_training.py plot ${TRAINING_AREA}
+
+        - name: Run predictions
+          working-directory: vbfml/scripts
+          run: |
+            VBF_ROOT_FILE=$(find ${ROOT_INPUT_DIR} -name "tree_VBF*root")
+            ./err_analysis predict -i ${VBF_ROOT_FILE} -m ${TRAINING_AREA} --tag "vbf"
+            ./err_analysis plot "${TRAINING_AREA}/predictions_vbf" --normalize
+            EWK_ROOT_FILE=$(find ${ROOT_INPUT_DIR} -name "tree_EWK*root")
+            ./err_analysis predict -i ${EWK_ROOT_FILE} -m ${TRAINING_AREA} --tag "ewk"
+            ./err_analysis plot "${TRAINING_AREA}/predictions_ewk" --normalize
+
+        - name: Test image rotation
+          working-directory: vbfml/scripts
+          env:
+            PREPROCESSED_ROOT_DIR: ${{ env.ROOT_INPUT_DIR }}_preprocessed
+          run: |
+            ./preprocess_image.py rotate-all -i ${ROOT_INPUT_DIR}
+            ./preprocess_image.py plot-rotation-all -i ${PREPROCESSED_ROOT_DIR}
+            PROCESSED_VBF_ROOT_FILE=$(find ${PREPROCESSED_ROOT_DIR} -name "tree_VBF*root")
+            ./preprocess_image.py check-met -i ${PROCESSED_VBF_ROOT_FILE}
+            MET_CACHE_DIR=$(find . -type d -name "MET_distribution")
+            ./preprocess_image.py plot-met -i ${MET_CACHE_DIR}
+
+        # Upload analysis artifacts
+        # These are basically the plots produced by the analysis workflow
+        - name: Upload artifacts
+          uses: actions/upload-artifact@v3
+          with:
+            name: analysis-artifact
+            path: |
+              vbfml/scripts/output/**/*.pdf
+              vbfml/scripts/output/**/*.png
+            retention-days: 10
