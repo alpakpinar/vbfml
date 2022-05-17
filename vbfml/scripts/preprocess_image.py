@@ -270,19 +270,18 @@ def check_met(input_file: str, name_save: str, start: int, stop: int):
     compute the MET distribution with old image and the preprocessed image to check everything is still correct
     check if there is a 0 MET and if the images are in good format 'uint8'
     """
-
-    # location and name of new root file -> in a new directory "_preprocessed"
-    output_dir = pjoin(os.path.dirname(os.path.dirname(input_file)), name_save)
+    # Configure output directory to save the cache with MET histograms
+    outtag = os.path.basename(os.path.dirname(input_file))
+    output_dir = pjoin("output", outtag, name_save)
     if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
-    output_file = output_dir + os.path.basename(input_file)
+        os.makedirs(output_dir)
 
     # size of the image
-    n_eta_bins: int = 40
-    n_phi_bins: int = 20
+    n_eta_bins, n_phi_bins = 40, 20
     im_shape = (n_eta_bins, n_phi_bins)
-    eta_range: Tuple[float] = (-5, 5)
-    phi_range: Tuple[float] = (-np.pi, np.pi)
+    eta_range = (-5, 5)
+    phi_range = (-np.pi, np.pi)
+
     eta_centers = np.linspace(
         eta_range[0], eta_range[1], n_eta_bins, endpoint=False
     ) + (eta_range[1] - eta_range[0]) / (2 * n_eta_bins)
@@ -296,16 +295,18 @@ def check_met(input_file: str, name_save: str, start: int, stop: int):
     batch_counter = 0
 
     # write MET distribution in .pkl file
-    cache = pjoin(
-        output_dir, f"{os.path.basename(input_file)[5:-5]}_met_distribution.pkl"
+    dataset_name = (
+        os.path.basename(input_file).replace("tree_", "").replace(".root", "")
     )
+    cache = pjoin(output_dir, f"{dataset_name}_met_distribution.pkl")
 
+    # Configure start and stop indices, if specific indices are given
     if start or stop:
-        if not (stop):
+        if not stop:
             stop = tree.num_entries
-        cache = f"{cache[:-4]}_{start}to{stop}.pkl"
+        cache = f"{cache.replace('.pkl','')}_{start}to{stop}.pkl"
 
-    if not (stop):
+    if not stop:
         stop = tree.num_entries
 
     number_event = stop - start
@@ -422,8 +423,7 @@ def plot_met(input_dir: str):
     axs[1].set_xlabel("MET_processed")
     axs[0].set_ylabel("# events")
     axs[1].hist(met_df["JetImage_pixels_preprocessed"], bins=n_bins)
-    plt.savefig(pjoin(input_dir, f"plot_distribution.pdf"))
-    plt.show()
+    plt.savefig(pjoin(input_dir, f"met_distribution.pdf"))
 
     diff = met_df["JetImage_pixels_preprocessed"] - met_df["JetImage_pixels"]
     fig, ax = plt.subplots(figsize=(3, 4))
@@ -431,7 +431,7 @@ def plot_met(input_dir: str):
     plt.hist(diff, bins=30)
     plt.xlabel("$\Delta$ MET")
     plt.ylabel("# events")
-    plt.savefig(pjoin(input_dir, f"plot_diff.pdf"))
+    plt.savefig(pjoin(input_dir, f"met_distribution_diff.pdf"))
 
 
 if __name__ == "__main__":
