@@ -80,6 +80,10 @@ jobs:
           run: |
             ./preprocess_image.py rotate-all -i ${ROOT_INPUT_DIR}
             ./preprocess_image.py plot-rotation-all -i ${PREPROCESSED_ROOT_DIR}
+            PROCESSED_VBF_ROOT_FILE=$(find ${PREPROCESSED_ROOT_DIR} -name "tree_VBF*root")
+            ./preprocess_image.py check-met -i ${PROCESSED_VBF_ROOT_FILE}
+            MET_CACHE_DIR=$(find . -type d -name "MET_distribution")
+            ./preprocess_image.py plot-met -i ${MET_CACHE_DIR}
 
         # Upload analysis artifacts
         # These are basically the plots produced by the analysis workflow
