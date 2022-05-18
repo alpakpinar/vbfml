@@ -448,11 +448,14 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     default="history",
     help="If specified, clarify the name of the pdf save file",
 )
-def compare_hist(ctx, input_dirs: str, number_epochs: int, save_name: str, full_dir: bool=False) -> None:
+def compare_hist(
+    ctx, input_dirs: str, number_epochs: int, save_name: str, full_dir: bool = False
+) -> None:
     """
     Compare the statistics of the history of different models.
     """
-    if full_dir : input_dirs = glob(pjoin(input_dirs[0], f"EWK*"))
+    if full_dir:
+        input_dirs = glob(pjoin(input_dirs[0], f"EWK*"))
 
     for dir in input_dirs:
         cache_file = pjoin(dir, "history.pkl")
@@ -714,12 +717,12 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
         )
 
         plot_histograms_for_each_label(
-            data=d, variable="mjj", cut=mjj_cut, outdir=outdir
+            data=d, variable="mjj", outdir=outdir, cut=mjj_cut
         )
         plot_histograms_for_each_label(
-            data=d, variable="detajj", cut=detajj_cut, outdir=outdir
+            data=d, variable="detajj", outdir=outdir, cut=detajj_cut
         )
-        plot_histograms_for_each_label(data=d, variable="score", cut=0.5, outdir=outdir)
+        plot_histograms_for_each_label(data=d, variable="score", outdir=outdir, cut=0.5)
 
 
 @cli.command()
@@ -787,6 +790,67 @@ def plot_correl(ctx, input_dir: str) -> None:
 
     with open(table_outfile, "w") as f:
         f.write(table_print)
+
+
+@cli.command()
+@click.pass_context
+@click.option(
+    "-i",
+    "--input-dir",
+    required=True,
+    help="path to the prediction directory in a model",
+)
+@click.option(
+    "-c", "--cut-variable", required=True, help="The quantity to cut on the threshold."
+)
+@click.option(
+    "-t", "--threshold", type=float, required=True, help="The threshold/cut value."
+)
+@click.option(
+    "-p",
+    "--plot-variable",
+    default="score",
+    required=True,
+    help="The variable to plot the distribution after the cut",
+)
+def dist_cut(
+    ctx, input_dir: str, cut_variable: str, threshold: float, plot_variable: str
+) -> None:
+    """
+    Apply a cut on the  cut-variable and plot the distribution of the plot-variable after the cut
+    """
+
+    # load data
+    features, predictions, _, labels = load_cache(input_dir)
+
+    # adapt variable if "score" is wanted, because "score" is not in feature
+    read_plot_variable= "mjj" if (plot_variable == "score") else plot_variable
+    read_cut_variable= "mjj" if (cut_variable == "score") else cut_variable
+
+    d = pd.DataFrame(
+        {
+            read_cut_variable: features[read_cut_variable],
+            read_plot_variable: features[read_plot_variable],
+            "labels": labels,
+            "weights": features["weight"],
+            "score": predictions,
+        }
+    )
+
+    # apply cut
+    d = d[d[cut_variable] > threshold]
+
+    # save the plot
+    outdir = pjoin(input_dir, "distribution_cut")
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    plot_histograms_for_each_label(
+        data=d,
+        variable=plot_variable,
+        outdir=outdir,
+        save_name=f"_cut_{cut_variable}_{threshold}",
+    )
 
 
 if __name__ == "__main__":

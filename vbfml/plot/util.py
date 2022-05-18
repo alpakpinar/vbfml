@@ -158,8 +158,9 @@ class ScoreDistributionPlotter:
 def plot_histograms_for_each_label(
     data: pd.DataFrame,
     variable: str,
-    cut: float,
     outdir: str,
+    cut: float = 0,
+    save_name: str="",
 ) -> None:
     """
     plot the distribution of a feature according to its label (signal or bkg) from a pandas data frame with a "label" column
@@ -182,9 +183,9 @@ def plot_histograms_for_each_label(
         histtype="step",
         label="signal",
     )
-    plt.axvline(x=cut, color="k", linestyle="--", label=f"cut at {cut:.3f}")
-    plt.title(f"{variable} distribution")
+    if cut : plt.axvline(x=cut, color="k", linestyle="--", label=f"cut at {cut:.3f}")
+    plt.title(f"{variable} distribution{save_name}")
     plt.xlabel(variable)
     plt.ylabel("density counts")
     plt.legend()
-    plt.savefig(pjoin(outdir, f"{variable}_density.pdf"))
+    plt.savefig(pjoin(outdir, f"{variable}_density{save_name}.pdf"))
