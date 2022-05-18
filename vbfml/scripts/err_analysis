@@ -375,7 +375,7 @@ def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
     for iclass, class_label in enumerate(
         tqdm(classes, desc="Plotting averaged images")
     ):
-        image_mask = mask & (predictions == iclass)
+        image_mask = mask & (predictions.round() == iclass)
         images = image_pixels[image_mask]
         weights = df["weight"][image_mask]
 
@@ -389,7 +389,7 @@ def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
             vmax=6e-2,
             cbar_label="Average Energy (GeV)",
             left_label=process_tag,
-            right_label=f"predict :{class_label}({sum(image_mask)}/{len(image_pixels)})",
+            right_label=f"predict :{class_label}({sum(image_mask)}/{sum(mask)})",
         )
 
 
