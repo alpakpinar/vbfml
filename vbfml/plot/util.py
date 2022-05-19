@@ -190,3 +190,32 @@ def plot_histograms_for_each_label(
     plt.ylabel("density counts")
     plt.legend()
     plt.savefig(pjoin(outdir, f"{variable}_density.pdf"))
+
+def sort_by_pair_along_first_axis(
+    x: list,
+    y: list,
+    z: list = [None],
+    reverse: bool = False,
+) :
+    """
+    take 2(3) lists/np.array of the same length representing x-y(-z) coordinate-like objects, y_i(-z_i) need to stay with x_i
+    sort them in the good order according to x from lowest to highest (reverse=True for high to low)
+    return 2(3) np.arrays with x sorted, y(-z) got the same permutation as x
+    """
+    if z[0] == None : z = [0]*len(x)
+
+    x_y_z = []
+    for i in range(len(x)) :
+        x_y_z.append([x[i],y[i],z[i]])
+
+    def absfirst(a: list):
+        return abs(a[0])
+
+    x_y_z.sort(key=absfirst, reverse=reverse)
+    x_y_z = np.array(x_y_z)
+
+    x = x_y_z[:,0]
+    y = x_y_z[:,1]
+    z = x_y_z[:,2]
+
+    return x, y, z

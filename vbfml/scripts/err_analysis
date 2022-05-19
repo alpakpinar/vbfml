@@ -22,7 +22,7 @@ from vbfml.util import (
     get_process_tag_from_file,
     vbfml_path,
 )
-from vbfml.plot.util import Quantity, plot_histograms_for_each_label
+from vbfml.plot.util import Quantity, plot_histograms_for_each_label, sort_by_pair_along_first_axis
 from vbfml.training.util import summarize_datasets, select_and_label_datasets
 from vbfml.training.data import TrainingLoader
 from vbfml.training.plot import ImagePlotter
@@ -521,14 +521,25 @@ def roc(ctx, input_dir: str) -> None:
     weights = features["weight"]
 
     # compute ROC and precision recall curve
-    precision, recall, thresholds_prc = precision_recall_curve(labels, predictions, sample_weight= weights)
     fpr, tpr, thresholds_roc = roc_curve(labels, predictions, sample_weight= weights)
+    precision, recall, thresholds_prc = precision_recall_curve(labels, predictions, sample_weight= weights)
+    
+    # add a dummy extra value above 1 to have a list of the same length 
+    thresholds_prc = np.append(thresholds_prc,2) 
 
     # do the same for a simple cut on mjj and detajj
     mjj_norm = mjj / mjj.max()
     detajj_norm = detajj / detajj.max()
     fpr_mjj, tpr_mjj, thresh_roc_mjj = roc_curve(labels, mjj_norm, sample_weight= weights)
     fpr_detajj, tpr_detajj, thresh_roc_detajj = roc_curve(labels, detajj_norm, sample_weight= weights)
+
+    # sort the fpr values and their according tpr in order to use "auc" function of sklearn
+    # the negative weights make the "roc_curve" not monotonic
+    # the cons are that the threshold is not monotonic (but still associated to the good fpr-tpr value)
+    fpr, tpr, thresholds_roc = sort_by_pair_along_first_axis(fpr, tpr,thresholds_roc)
+    recall, precision, thresholds_prc = sort_by_pair_along_first_axis(recall, precision, thresholds_prc, reverse= True)
+    fpr_mjj, tpr_mjj, thresh_roc_mjj = sort_by_pair_along_first_axis(fpr_mjj, tpr_mjj, thresh_roc_mjj)
+    fpr_detajj, tpr_detajj, thresh_roc_detajj = sort_by_pair_along_first_axis(fpr_detajj, tpr_detajj, thresh_roc_detajj)
 
     output_pkl = pjoin(input_dir, "roc.pkl")
     # Mention the output file path in the logging
@@ -593,11 +604,11 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
             data = pickle.load(f)
 
         # compute area under the curve (AUC)
-        auc_roc = auc(data["fpr"], data["tpr"]) # problem with negative weights, roc curve is not monotonic
-        auc_prc = 1 #auc(data["recall"], data["precision"])
+        auc_roc = auc(data["fpr"],data["tpr"])
+        auc_prc = auc(data["recall"], data["precision"])
         if simple_cut:
-            auc_roc_mjj = 1 #auc(data["fpr_mjj"], data["tpr_mjj"])
-            auc_roc_detajj = 1 #auc(data["fpr_detajj"], data["tpr_detajj"])
+            auc_roc_mjj = auc(data["fpr_mjj"], data["tpr_mjj"])
+            auc_roc_detajj = auc(data["fpr_detajj"], data["tpr_detajj"])
 
         # get the index of a 0.5 cut
         middle_thres_roc_index = np.where(data["thresh_roc"] < 0.5)[0][0]
@@ -721,6 +732,8 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
             data=d, variable="detajj", cut=detajj_cut, outdir=outdir
         )
         plot_histograms_for_each_label(data=d, variable="score", cut=0.5, outdir=outdir)
+
+    print(f"figures saved at : {outdir}")
 
 
 @cli.command()
