@@ -22,7 +22,11 @@ from vbfml.util import (
     get_process_tag_from_file,
     vbfml_path,
 )
-from vbfml.plot.util import Quantity, plot_histograms_for_each_label, sort_by_pair_along_first_axis
+from vbfml.plot.util import (
+    Quantity,
+    plot_histograms_for_each_label,
+    sort_by_pair_along_first_axis,
+)
 from vbfml.training.util import summarize_datasets, select_and_label_datasets
 from vbfml.training.data import TrainingLoader
 from vbfml.training.plot import ImagePlotter
@@ -448,11 +452,14 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     default="history",
     help="If specified, clarify the name of the pdf save file",
 )
-def compare_hist(ctx, input_dirs: str, number_epochs: int, save_name: str, full_dir: bool=False) -> None:
+def compare_hist(
+    ctx, input_dirs: str, number_epochs: int, save_name: str, full_dir: bool = False
+) -> None:
     """
     Compare the statistics of the history of different models.
     """
-    if full_dir : input_dirs = glob(pjoin(input_dirs[0], f"EWK*"))
+    if full_dir:
+        input_dirs = glob(pjoin(input_dirs[0], f"EWK*"))
 
     for dir in input_dirs:
         cache_file = pjoin(dir, "history.pkl")
@@ -521,25 +528,37 @@ def roc(ctx, input_dir: str) -> None:
     weights = features["weight"]
 
     # compute ROC and precision recall curve
-    fpr, tpr, thresholds_roc = roc_curve(labels, predictions, sample_weight= weights)
-    precision, recall, thresholds_prc = precision_recall_curve(labels, predictions, sample_weight= weights)
-    
-    # add a dummy extra value above 1 to have a list of the same length 
-    thresholds_prc = np.append(thresholds_prc,2) 
+    fpr, tpr, thresholds_roc = roc_curve(labels, predictions, sample_weight=weights)
+    precision, recall, thresholds_prc = precision_recall_curve(
+        labels, predictions, sample_weight=weights
+    )
+
+    # add a dummy extra value above 1 to have a list of the same length
+    thresholds_prc = np.append(thresholds_prc, 2)
 
     # do the same for a simple cut on mjj and detajj
     mjj_norm = mjj / mjj.max()
     detajj_norm = detajj / detajj.max()
-    fpr_mjj, tpr_mjj, thresh_roc_mjj = roc_curve(labels, mjj_norm, sample_weight= weights)
-    fpr_detajj, tpr_detajj, thresh_roc_detajj = roc_curve(labels, detajj_norm, sample_weight= weights)
+    fpr_mjj, tpr_mjj, thresh_roc_mjj = roc_curve(
+        labels, mjj_norm, sample_weight=weights
+    )
+    fpr_detajj, tpr_detajj, thresh_roc_detajj = roc_curve(
+        labels, detajj_norm, sample_weight=weights
+    )
 
     # sort the fpr values and their according tpr in order to use "auc" function of sklearn
     # the negative weights make the "roc_curve" not monotonic
     # the cons are that the threshold is not monotonic (but still associated to the good fpr-tpr value)
-    fpr, tpr, thresholds_roc = sort_by_pair_along_first_axis(fpr, tpr,thresholds_roc)
-    recall, precision, thresholds_prc = sort_by_pair_along_first_axis(recall, precision, thresholds_prc, reverse= True)
-    fpr_mjj, tpr_mjj, thresh_roc_mjj = sort_by_pair_along_first_axis(fpr_mjj, tpr_mjj, thresh_roc_mjj)
-    fpr_detajj, tpr_detajj, thresh_roc_detajj = sort_by_pair_along_first_axis(fpr_detajj, tpr_detajj, thresh_roc_detajj)
+    fpr, tpr, thresholds_roc = sort_by_pair_along_first_axis(fpr, tpr, thresholds_roc)
+    recall, precision, thresholds_prc = sort_by_pair_along_first_axis(
+        recall, precision, thresholds_prc, reverse=True
+    )
+    fpr_mjj, tpr_mjj, thresh_roc_mjj = sort_by_pair_along_first_axis(
+        fpr_mjj, tpr_mjj, thresh_roc_mjj
+    )
+    fpr_detajj, tpr_detajj, thresh_roc_detajj = sort_by_pair_along_first_axis(
+        fpr_detajj, tpr_detajj, thresh_roc_detajj
+    )
 
     output_pkl = pjoin(input_dir, "roc.pkl")
     # Mention the output file path in the logging
@@ -604,7 +623,7 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
             data = pickle.load(f)
 
         # compute area under the curve (AUC)
-        auc_roc = auc(data["fpr"],data["tpr"])
+        auc_roc = auc(data["fpr"], data["tpr"])
         auc_prc = auc(data["recall"], data["precision"])
         if simple_cut:
             auc_roc_mjj = auc(data["fpr_mjj"], data["tpr_mjj"])
@@ -758,7 +777,8 @@ def plot_correl(ctx, input_dir: str) -> None:
         os.makedirs(outdir)
 
     # prepare variables for table
-    correl = []
+    correl_list = []
+    featname_list = []
 
     markersize = 100 / np.sqrt(len(predictions))
     count = 1
@@ -773,7 +793,8 @@ def plot_correl(ctx, input_dir: str) -> None:
             featurename = f"abs_val_{featurename}"
 
         correlation = np.corrcoef(predictions, feature)[0, 1]
-        correl.append([correlation, featurename])
+        correl_list.append(correlation)
+        featname_list.append(featurename)
 
         plt.figure()
         plt.scatter(
@@ -786,13 +807,11 @@ def plot_correl(ctx, input_dir: str) -> None:
         plt.savefig(pjoin(outdir, f"correl_{featurename}.pdf"))
         count += 1
 
-    def absfirst(a: list):
-        return abs(a[0])
+    correl_list, featname_list = sort_by_pair_along_first_axis(
+        correl_list, featname_list, reverse=True, abs_val=True
+    )
 
-    correl.sort(key=absfirst, reverse=True)
-    correl = np.array(correl)
-
-    table = {"variables": correl[:, 1], "score_correlation": correl[:, 0]}
+    table = {"variables": featname_list, "score_correlation": correl_list}
     table_print = tabulate(table, headers="keys")
 
     table_outfile = pjoin(outdir, "correlation_table.txt")
