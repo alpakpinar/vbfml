@@ -190,7 +190,11 @@ def plot_histograms_for_each_label(
     plt.title(f"{variable} distribution{save_name}")
     plt.xlabel(variable)
     plt.ylabel("density counts")
-    plt.legend()
+    plt.ylim(bottom=0)
+    if variable == "score":
+        plt.legend(loc="upper center")
+    else:
+        plt.legend()
     plt.savefig(pjoin(outdir, f"{variable}_density{save_name}.pdf"))
 
 
