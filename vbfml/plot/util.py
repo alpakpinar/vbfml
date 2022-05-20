@@ -160,7 +160,7 @@ def plot_histograms_for_each_label(
     variable: str,
     outdir: str,
     cut: float = 0,
-    save_name: str="",
+    save_name: str = "",
 ) -> None:
     """
     plot the distribution of a feature according to its label (signal or bkg) from a pandas data frame with a "label" column
@@ -185,7 +185,8 @@ def plot_histograms_for_each_label(
         histtype="step",
         label="signal",
     )
-    if cut : plt.axvline(x=cut, color="k", linestyle="--", label=f"cut at {cut:.3f}")
+    if cut:
+        plt.axvline(x=cut, color="k", linestyle="--", label=f"cut at {cut:.3f}")
     plt.title(f"{variable} distribution{save_name}")
     plt.xlabel(variable)
     plt.ylabel("density counts")
