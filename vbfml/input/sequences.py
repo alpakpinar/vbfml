@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from collections import OrderedDict
 
+import re
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
@@ -17,11 +18,34 @@ class DatasetInfo:
     n_events: int
     treename: str
     label: str = ""
+    dataset_label: str = ""
     weight: float = 1.0
 
     def __post_init__(self):
         if not self.label:
             self.label = self.name
+
+        # Note that "dataset_label" is different from "label":
+        # "label" will hold the training label for this dataset (e.g. signal vs bkg)
+        # "dataset_label" will hold more specifically which dataset group does this dataset
+        # belongs to, e.g. VBF H, QCD V or EWK V.
+        self.dataset_label = self._dataset_name_to_label()
+
+    def _dataset_name_to_label(self) -> str:
+        """
+        Given the dataset name (self.name), return a label specifying
+        which group of datasets this dataset belongs to. Will choose
+        one of the three options:
+        - qcd_v, ewk_v, vbf_h
+        """
+        if re.match("EWK(W|Z).*2Jets.*", self.name):
+            return "ewk_v"
+        if re.match("(Z\dJetsToNuNu|WJetsToLNu_Pt).*", self.name):
+            return "qcd_v"
+        if re.match("VBF_HToInvisible.*M125.*", self.name):
+            return "vbf_h"
+
+        raise RuntimeError(f"Could not find a valid label for dataset: {self.name}")
 
 
 def row_vector(branch):
@@ -202,6 +226,7 @@ class MultiDatasetSequence(Sequence):
             self._init_reader(dataset_name)
         df = self.readers[dataset_name].read_events(start, stop)
         df["label"] = self.encode_label(self.datasets[dataset_name].label)
+        df["dataset_label"] = self.datasets[dataset_name].dataset_label
         return df
 
     def _get_start_stop_for_single_read(
@@ -247,7 +272,7 @@ class MultiDatasetSequence(Sequence):
         return self.label_encoding[label]
 
     def _non_feature_columns(self) -> "list[str]":
-        columns = ["label"]
+        columns = ["label", "dataset_label"]
         if self.is_weighted():
             columns.append("weight")
         return columns
