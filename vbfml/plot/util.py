@@ -203,7 +203,7 @@ def sort_by_pair_along_first_axis(
     y: list,
     z: list = [None],
     reverse: bool = False,
-    abs_val: bool = False,
+    sort_by_abs: bool = False,
 ):
     """
     take 2(3) lists/np.array of the same length representing x-y(-z) coordinate-like objects, y_i(-z_i) need to stay with x_i
@@ -212,11 +212,18 @@ def sort_by_pair_along_first_axis(
     /!/ sort by absolute values !
     """
 
+
     # in case of 2 lists, create a dummy third one
     z_flag = True
     if z[0] == None:
         z_flag = False
         z = [0] * len(x)
+
+    # check length of lists
+    assert len(x) == len(y), f"Cannot use sort_by_pair_along_first_axis because lists (x-y) are not of same length"
+    if z_flag :
+        assert len(x) == len(y), f"Cannot use sort_by_pair_along_first_axis because lists (x-y) are not of same length"
+    
 
     # create list of coupled elements
     x_y_z = []
@@ -231,7 +238,7 @@ def sort_by_pair_along_first_axis(
         return a[0]
 
     # sort the arrays w/o absolute value
-    if abs_val:
+    if sort_by_abs:
         x_y_z.sort(key=absfirst, reverse=reverse)
     else:
         x_y_z.sort(key=first, reverse=reverse)

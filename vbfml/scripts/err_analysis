@@ -436,7 +436,7 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     help="Training directories to compare.",
 )
 @click.option(
-    "--full-dir",
+    "--is-parent",
     is_flag=True,
     help="If flag, -i take a dir of directories and compare all of them",
 )
@@ -457,13 +457,24 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     help="If specified, clarify the name of the pdf save file",
 )
 def compare_hist(
-    ctx, input_dirs: str, number_epochs: int, save_name: str, full_dir: bool = False
+    ctx, input_dirs: str, number_epochs: int, save_name: str, is_parent: bool = False
 ) -> None:
     """
     Compare the statistics of the history of different models.
     """
-    if full_dir:
+    if is_parent:
+        assert len(input_dirs) == 1, f"too many '-i' argument, if '--is-parent' is flaged, only one '-i' is accepted"
         input_dirs = glob(pjoin(input_dirs[0], f"*"))
+
+        remove_list = []
+        for dir in input_dirs :
+            if not os.path.isdir(dir) : remove_list.append(dir)
+            else :
+                if not os.path.exists(pjoin(dir, "history.pkl")) : remove_list.append(dir)
+
+        for el in remove_list :
+            input_dirs.remove(el)
+            
 
     for dir in input_dirs:
         cache_file = pjoin(dir, "history.pkl")
@@ -689,7 +700,6 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
     # complete graphs
     if simple_cut:
         plt.figure(1)
-        plt.plot([0, 1], [0, 1], "k--")
         plt.plot(
             data["fpr_mjj"],
             data["tpr_mjj"],
@@ -722,6 +732,7 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
         "ko",
         label="score cut 0.5",
     )
+    plt.plot([0, 1], [0, 1], "k--", label="random classifier")
     plt.title("ROC curve")
     plt.xlabel("False positive rate")
     plt.ylabel("True positive rate")
@@ -812,7 +823,7 @@ def plot_correl(ctx, input_dir: str) -> None:
         count += 1
 
     correl_list, featname_list = sort_by_pair_along_first_axis(
-        correl_list, featname_list, reverse=True, abs_val=True
+        correl_list, featname_list, reverse=True, sort_by_abs=True
     )
 
     table = {"variables": featname_list, "score_correlation": correl_list}
@@ -844,10 +855,10 @@ def plot_correl(ctx, input_dir: str) -> None:
     "-p",
     "--plot-variable",
     default="score",
-    required=True,
+    required=False,
     help="The variable to plot the distribution after the cut",
 )
-def dist_cut(
+def cut_and_plot(
     ctx, input_dir: str, cut_variable: str, threshold: float, plot_variable: str
 ) -> None:
     """
