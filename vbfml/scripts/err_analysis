@@ -460,7 +460,7 @@ def compare_hist(
     ctx, input_dirs: str, number_epochs: int, save_name: str, is_parent: bool = False
 ) -> None:
     """
-    Compare the statistics of the history of different models.
+    Compare the loss and accuracy of different models.
     """
     if is_parent:
         assert (
@@ -468,18 +468,11 @@ def compare_hist(
         ), f"too many '-i' argument, if '--is-parent' is flaged, only one '-i' is accepted"
         input_dirs = glob(pjoin(input_dirs[0], f"*"))
 
-        remove_list = []
-        for dir in input_dirs:
-            if not os.path.isdir(dir):
-                remove_list.append(dir)
-            else:
-                if not os.path.exists(pjoin(dir, "history.pkl")):
-                    remove_list.append(dir)
-
-        for el in remove_list:
-            input_dirs.remove(el)
-
     for dir in input_dirs:
+        # Check if dir is a valid directory that contains history.pkl file
+        if not os.path.isdir(dir) or not os.path.exists(pjoin(dir, "history.pkl")):
+            continue
+
         cache_file = pjoin(dir, "history.pkl")
         assert os.path.exists(cache_file), f"Cannot find file: {cache_file}"
         with open(cache_file, "rb") as f:
@@ -879,6 +872,14 @@ def plot_correl(ctx, input_dir: str) -> None:
     required=False,
     help="precise the dataset to plot. take 3 possible elements : 'qcd_v', 'ewk_v', 'vbf_h' ",
 )
+@click.option(
+    "-s",
+    "--save_name",
+    required=False,
+    type=str,
+    default="",
+    help="If specified, clarify the name of the pdf save file",
+)
 def cut_and_plot(
     ctx,
     input_dir: str,
@@ -886,6 +887,7 @@ def cut_and_plot(
     threshold: float,
     plot_variable: str,
     dataset: list,
+    save_name: str,
 ) -> None:
     """
     Apply a cut on the  cut-variable and plot the distribution of the plot-variable after the cut
@@ -921,9 +923,9 @@ def cut_and_plot(
         os.makedirs(outdir)
 
     if threshold == 0:
-        save_name = ""
+        cut_title = ""
     else:
-        save_name = f"_cut_{cut_variable}_{threshold}"
+        cut_title = f"_cut_{cut_variable}_{threshold}"
 
     plot_histograms_for_each_label(
         data=d,
@@ -931,9 +933,10 @@ def cut_and_plot(
         variable=plot_variable,
         outdir=outdir,
         save_name=save_name,
+        cut_title=cut_title,
     )
 
-    outsave = pjoin(outdir, f"{plot_variable}_density{save_name}.pdf")
+    outsave = pjoin(outdir, f"{plot_variable}_density{cut_title}{save_name}.pdf")
     print(f"saved at : {outsave}")
 
 

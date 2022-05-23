@@ -162,6 +162,7 @@ def plot_histograms_for_each_label(
     dataset: list = ["qcd_v", "ewk_v", "vbf_h"],
     cut: float = 0,
     save_name: str = "",
+    cut_title: str = "",
 ) -> None:
     """
     plot the distribution of a feature according to its dataset_label (['qcd_v', 'ewk_v', 'vbf_h']) from a pandas data frame
@@ -176,8 +177,6 @@ def plot_histograms_for_each_label(
         bins = 20
 
     plt.figure()
-
-    print(dataset)
 
     for dataset_label in dataset:
         data_label = data[data["dataset_label"] == dataset_label]
@@ -194,7 +193,7 @@ def plot_histograms_for_each_label(
 
     if cut:
         plt.axvline(x=cut, color="k", linestyle="--", label=f"cut at {cut:.3f}")
-    plt.title(f"{variable} distribution{save_name}")
+    plt.title(f"{variable} distribution{cut_title}")
     plt.xlabel(variable)
     plt.ylabel("density counts")
     plt.ylim(bottom=0)
@@ -204,7 +203,7 @@ def plot_histograms_for_each_label(
         plt.legend(loc="upper center")
     else:
         plt.legend()
-    plt.savefig(pjoin(outdir, f"{variable}_density{save_name}.pdf"))
+    plt.savefig(pjoin(outdir, f"{variable}_density{cut_title}{save_name}.pdf"))
 
 
 def sort_by_pair_along_first_axis(
