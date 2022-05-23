@@ -849,10 +849,19 @@ def plot_correl(ctx, input_dir: str) -> None:
     help="path to the prediction directory in a model",
 )
 @click.option(
-    "-c", "--cut-variable", required=True, help="The quantity to cut on the threshold."
+    "-c",
+    "--cut-variable",
+    required=False,
+    default="mjj",
+    help="The quantity to cut on the threshold.",
 )
 @click.option(
-    "-t", "--threshold", type=float, required=True, help="The threshold/cut value."
+    "-t",
+    "--threshold",
+    type=float,
+    required=False,
+    default=0,
+    help="The threshold/cut value.",
 )
 @click.option(
     "-p",
@@ -871,17 +880,15 @@ def cut_and_plot(
     # load data
     features, predictions, _, labels = load_cache(input_dir)
 
-    # adapt variable if "score" is wanted, because "score" is not in feature
-    read_plot_variable = "mjj" if (plot_variable == "score") else plot_variable
-    read_cut_variable = "mjj" if (cut_variable == "score") else cut_variable
+    # One possible hack: Add scores to the features dictionary
+    features["score"] = predictions
 
     d = pd.DataFrame(
         {
-            read_cut_variable: features[read_cut_variable],
-            read_plot_variable: features[read_plot_variable],
-            "labels": labels,
+            cut_variable: features[cut_variable],
+            plot_variable: features[plot_variable],
             "weights": features["weight"],
-            "score": predictions,
+            "dataset_label": features["dataset_label"],
         }
     )
 
@@ -893,12 +900,20 @@ def cut_and_plot(
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
+    if threshold == 0:
+        save_name = ""
+    else:
+        save_name = f"_cut_{cut_variable}_{threshold}"
+
     plot_histograms_for_each_label(
         data=d,
         variable=plot_variable,
         outdir=outdir,
-        save_name=f"_cut_{cut_variable}_{threshold}",
+        save_name=save_name,
     )
+
+    outsave = pjoin(outdir, f"{plot_variable}_density{save_name}.pdf")
+    print(f"saved at : {outsave}")
 
 
 if __name__ == "__main__":

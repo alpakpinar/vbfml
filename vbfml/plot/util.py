@@ -168,29 +168,35 @@ def plot_histograms_for_each_label(
     Is also draw the line of a speficic cut to see how it would differentiate bkg from signal
     """
 
+    # adjust binning
+    bins = 50
+    if variable == "score":
+        bins = 20
+
     plt.figure()
-    plt.hist(
-        data[data["labels"] == 0][variable],
-        bins=50,
-        density=True,
-        weights=data[data["labels"] == 0]["weights"],
-        histtype="step",
-        label="background",
-    )
-    plt.hist(
-        data[data["labels"] == 1][variable],
-        bins=50,
-        density=True,
-        weights=data[data["labels"] == 1]["weights"],
-        histtype="step",
-        label="signal",
-    )
+
+    dataset = ["vbf_h", "qcd_v", "ewk_v"]
+    for dataset_label in dataset:
+        data_label = data[data["dataset_label"] == dataset_label]
+
+        if len(data_label) != 0:
+            plt.hist(
+                data_label[variable],
+                bins=bins,
+                density=True,
+                weights=data_label["weights"],
+                histtype="step",
+                label=dataset_label,
+            )
+
     if cut:
         plt.axvline(x=cut, color="k", linestyle="--", label=f"cut at {cut:.3f}")
     plt.title(f"{variable} distribution{save_name}")
     plt.xlabel(variable)
     plt.ylabel("density counts")
     plt.ylim(bottom=0)
+    if variable == "mjj":
+        plt.xlim([0, 5000])
     if variable == "score":
         plt.legend(loc="upper center")
     else:
