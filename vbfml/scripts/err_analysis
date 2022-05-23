@@ -287,7 +287,7 @@ def plot(ctx, input_dir: str, normalize: bool) -> None:
         os.makedirs(outdir)
 
     # Based on the predictions, we make histograms for different classes
-    quantities = [x for x in list(df.columns) if x != "weight"]
+    quantities = [x for x in list(df.columns) if x not in ["weight", "dataset_label"]]
 
     for quantity_name in tqdm(quantities, desc="Plotting histograms"):
         quantity = Quantity(quantity_name)
