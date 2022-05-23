@@ -870,8 +870,22 @@ def plot_correl(ctx, input_dir: str) -> None:
     required=False,
     help="The variable to plot the distribution after the cut",
 )
+@click.option(
+    "-d",
+    "--dataset",
+    type=str,
+    default=("vbf_h", "ewk_v", "qcd_v"),
+    multiple=True,
+    required=False,
+    help="precise the dataset to plot. take 3 possible elements : 'qcd_v', 'ewk_v', 'vbf_h' ",
+)
 def cut_and_plot(
-    ctx, input_dir: str, cut_variable: str, threshold: float, plot_variable: str
+    ctx,
+    input_dir: str,
+    cut_variable: str,
+    threshold: float,
+    plot_variable: str,
+    dataset: list,
 ) -> None:
     """
     Apply a cut on the  cut-variable and plot the distribution of the plot-variable after the cut
@@ -882,6 +896,12 @@ def cut_and_plot(
 
     # One possible hack: Add scores to the features dictionary
     features["score"] = predictions
+
+    dataset = list(dataset)
+    for data in dataset:
+        assert (
+            (data == "vbf_h") | (data == "ewk_v") | (data == "qcd_v")
+        ), f" '--dataset' doesn't accept '{data}', only  'qcd_v', 'ewk_v', 'vbf_h' are possible"
 
     d = pd.DataFrame(
         {
@@ -907,6 +927,7 @@ def cut_and_plot(
 
     plot_histograms_for_each_label(
         data=d,
+        dataset=dataset,
         variable=plot_variable,
         outdir=outdir,
         save_name=save_name,

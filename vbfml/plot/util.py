@@ -159,13 +159,15 @@ def plot_histograms_for_each_label(
     data: pd.DataFrame,
     variable: str,
     outdir: str,
+    dataset: list = ["qcd_v", "ewk_v", "vbf_h"],
     cut: float = 0,
     save_name: str = "",
 ) -> None:
     """
-    plot the distribution of a feature according to its label (signal or bkg) from a pandas data frame with a "label" column
+    plot the distribution of a feature according to its dataset_label (['qcd_v', 'ewk_v', 'vbf_h']) from a pandas data frame
     specify the dataframe and the string of the head of the variable's column you want to plot
-    Is also draw the line of a speficic cut to see how it would differentiate bkg from signal
+    the dataframe should contains the following : 'dataset_to_read', 'dataset_label', 'weights' and the variable
+    If cut specified, also draws the line of the specific cut to see how it would differentiate bkg from signal
     """
 
     # adjust binning
@@ -175,7 +177,8 @@ def plot_histograms_for_each_label(
 
     plt.figure()
 
-    dataset = ["vbf_h", "qcd_v", "ewk_v"]
+    print(dataset)
+
     for dataset_label in dataset:
         data_label = data[data["dataset_label"] == dataset_label]
 
