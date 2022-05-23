@@ -465,7 +465,7 @@ def compare_hist(
     if is_parent:
         assert (
             len(input_dirs) == 1
-        ), f"too many '-i' argument, if '--is-parent' is flaged, only one '-i' is accepted"
+        ), f"Too many '-i' arguments are specified, if '--is-parent' is flaged, only one '-i' is accepted (specifying the parent directory)"
         input_dirs = glob(pjoin(input_dirs[0], f"*"))
 
     for dir in input_dirs:
@@ -474,7 +474,6 @@ def compare_hist(
             continue
 
         cache_file = pjoin(dir, "history.pkl")
-        assert os.path.exists(cache_file), f"Cannot find file: {cache_file}"
         with open(cache_file, "rb") as f:
             hist = pickle.load(f)
 
@@ -865,12 +864,12 @@ def plot_correl(ctx, input_dir: str) -> None:
 )
 @click.option(
     "-d",
-    "--dataset",
+    "--datasets",
     type=str,
-    default=("vbf_h", "ewk_v", "qcd_v"),
+    default=["vbf_h", "ewk_v", "qcd_v"],
     multiple=True,
     required=False,
-    help="precise the dataset to plot. take 3 possible elements : 'qcd_v', 'ewk_v', 'vbf_h' ",
+    help="List of tags for the datasets to plot. Takes 3 possible values : 'qcd_v', 'ewk_v', 'vbf_h' ",
 )
 @click.option(
     "-s",
@@ -886,7 +885,7 @@ def cut_and_plot(
     cut_variable: str,
     threshold: float,
     plot_variable: str,
-    dataset: list,
+    datasets: list,
     save_name: str,
 ) -> None:
     """
@@ -899,11 +898,13 @@ def cut_and_plot(
     # One possible hack: Add scores to the features dictionary
     features["score"] = predictions
 
-    dataset = list(dataset)
-    for data in dataset:
-        assert (
-            (data == "vbf_h") | (data == "ewk_v") | (data == "qcd_v")
-        ), f" '--dataset' doesn't accept '{data}', only  'qcd_v', 'ewk_v', 'vbf_h' are possible"
+    # Check that dataset tags are all valid
+    for data in datasets:
+        assert data in [
+            "vbf_h",
+            "qcd_v",
+            "ewk_v",
+        ], f" '--dataset' doesn't accept '{data}', only  'qcd_v', 'ewk_v', 'vbf_h' are possible"
 
     d = pd.DataFrame(
         {
@@ -929,7 +930,7 @@ def cut_and_plot(
 
     plot_histograms_for_each_label(
         data=d,
-        dataset=dataset,
+        datasets=datasets,
         variable=plot_variable,
         outdir=outdir,
         save_name=save_name,
@@ -937,7 +938,7 @@ def cut_and_plot(
     )
 
     outsave = pjoin(outdir, f"{plot_variable}_density{cut_title}{save_name}.pdf")
-    print(f"saved at : {outsave}")
+    print(f"File saved at : {outsave}")
 
 
 if __name__ == "__main__":

@@ -159,7 +159,7 @@ def plot_histograms_for_each_label(
     data: pd.DataFrame,
     variable: str,
     outdir: str,
-    dataset: list = ["qcd_v", "ewk_v", "vbf_h"],
+    datasets: list = ["qcd_v", "ewk_v", "vbf_h"],
     cut: float = 0,
     save_name: str = "",
     cut_title: str = "",
@@ -178,7 +178,7 @@ def plot_histograms_for_each_label(
 
     plt.figure()
 
-    for dataset_label in dataset:
+    for dataset_label in datasets:
         data_label = data[data["dataset_label"] == dataset_label]
 
         if len(data_label) != 0:
