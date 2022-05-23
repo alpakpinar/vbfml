@@ -74,9 +74,11 @@ jobs:
             VBF_ROOT_FILE=$(find ${ROOT_INPUT_DIR} -name "tree_VBF*root")
             ./err_analysis predict -i ${VBF_ROOT_FILE} -m ${TRAINING_AREA} --tag "vbf"
             ./err_analysis plot "${TRAINING_AREA}/predictions_vbf" --normalize
+            ./err_analysis cut-and-plot -i "${TRAINING_AREA}/predictions_vbf" -c "mjj" -t 500 -p "score"
             EWK_ROOT_FILE=$(find ${ROOT_INPUT_DIR} -name "tree_EWK*root")
             ./err_analysis predict -i ${EWK_ROOT_FILE} -m ${TRAINING_AREA} --tag "ewk"
             ./err_analysis plot "${TRAINING_AREA}/predictions_ewk" --normalize
+            ./err_analysis cut-and-plot -i "${TRAINING_AREA}/predictions_ewk" -c "mjj" -t 500 -p "score"
 
         - name: Test image rotation
           working-directory: vbfml/scripts
