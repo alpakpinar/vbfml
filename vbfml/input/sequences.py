@@ -45,7 +45,9 @@ class DatasetInfo:
         if re.match("VBF_HToInvisible.*M125.*", self.name):
             return "vbf_h"
 
-        raise RuntimeError(f"Could not find a valid label for dataset: {self.name}")
+        # For any other dataset print a warning, and return "other"
+        print(f'WARNING: Returning "other" as dataset_label for dataset: {self.name}')
+        return "other"
 
 
 def row_vector(branch):
