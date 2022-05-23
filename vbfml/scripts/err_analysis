@@ -938,7 +938,7 @@ def cut_and_plot(
     )
 
     outsave = pjoin(outdir, f"{plot_variable}_density{cut_title}{save_name}.pdf")
-    print(f"File saved at : {outsave}")
+    print(f"(cut_and_plot) File saved at: {outsave}")
 
 
 if __name__ == "__main__":
