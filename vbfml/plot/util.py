@@ -212,7 +212,6 @@ def sort_by_pair_along_first_axis(
     /!/ sort by absolute values !
     """
 
-
     # in case of 2 lists, create a dummy third one
     z_flag = True
     if z[0] == None:
@@ -220,10 +219,13 @@ def sort_by_pair_along_first_axis(
         z = [0] * len(x)
 
     # check length of lists
-    assert len(x) == len(y), f"Cannot use sort_by_pair_along_first_axis because lists (x-y) are not of same length"
-    if z_flag :
-        assert len(x) == len(y), f"Cannot use sort_by_pair_along_first_axis because lists (x-y) are not of same length"
-    
+    assert len(x) == len(
+        y
+    ), f"Cannot use sort_by_pair_along_first_axis because lists (x-y) are not of same length"
+    if z_flag:
+        assert len(x) == len(
+            y
+        ), f"Cannot use sort_by_pair_along_first_axis because lists (x-y) are not of same length"
 
     # create list of coupled elements
     x_y_z = []

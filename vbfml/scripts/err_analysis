@@ -115,9 +115,9 @@ def predict(
     predictions, together with other event data for later use.
 
     input_files can be either a single file, or can contain an asterisk (*)
-    to specify multiple files. 
+    to specify multiple files.
     for a specfic selection, brackets ([]) can be used to select specific range of character
-    for instance "tree_[E-V]*" will select EWK and VBF, 
+    for instance "tree_[E-V]*" will select EWK and VBF,
     or "tree_[V-Z]*" will select VBF and all QCD (W, Z1, Z2)
     """
 
@@ -463,18 +463,21 @@ def compare_hist(
     Compare the statistics of the history of different models.
     """
     if is_parent:
-        assert len(input_dirs) == 1, f"too many '-i' argument, if '--is-parent' is flaged, only one '-i' is accepted"
+        assert (
+            len(input_dirs) == 1
+        ), f"too many '-i' argument, if '--is-parent' is flaged, only one '-i' is accepted"
         input_dirs = glob(pjoin(input_dirs[0], f"*"))
 
         remove_list = []
-        for dir in input_dirs :
-            if not os.path.isdir(dir) : remove_list.append(dir)
-            else :
-                if not os.path.exists(pjoin(dir, "history.pkl")) : remove_list.append(dir)
+        for dir in input_dirs:
+            if not os.path.isdir(dir):
+                remove_list.append(dir)
+            else:
+                if not os.path.exists(pjoin(dir, "history.pkl")):
+                    remove_list.append(dir)
 
-        for el in remove_list :
+        for el in remove_list:
             input_dirs.remove(el)
-            
 
     for dir in input_dirs:
         cache_file = pjoin(dir, "history.pkl")
@@ -869,8 +872,8 @@ def cut_and_plot(
     features, predictions, _, labels = load_cache(input_dir)
 
     # adapt variable if "score" is wanted, because "score" is not in feature
-    read_plot_variable= "mjj" if (plot_variable == "score") else plot_variable
-    read_cut_variable= "mjj" if (cut_variable == "score") else cut_variable
+    read_plot_variable = "mjj" if (plot_variable == "score") else plot_variable
+    read_cut_variable = "mjj" if (cut_variable == "score") else cut_variable
 
     d = pd.DataFrame(
         {
