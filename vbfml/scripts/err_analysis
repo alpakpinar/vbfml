@@ -22,7 +22,11 @@ from vbfml.util import (
     get_process_tag_from_file,
     vbfml_path,
 )
-from vbfml.plot.util import Quantity, plot_histograms_for_each_label
+from vbfml.plot.util import (
+    Quantity,
+    plot_histograms_for_each_label,
+    sort_by_pair_along_first_axis,
+)
 from vbfml.training.util import summarize_datasets, select_and_label_datasets
 from vbfml.training.data import TrainingLoader
 from vbfml.training.plot import ImagePlotter
@@ -112,6 +116,9 @@ def predict(
 
     input_files can be either a single file, or can contain an asterisk (*)
     to specify multiple files.
+    for a specfic selection, brackets ([]) can be used to select specific range of character
+    for instance "tree_[E-V]*" will select EWK and VBF,
+    or "tree_[V-Z]*" will select VBF and all QCD (W, Z1, Z2)
     """
 
     # Create a list of DatasetInfo objects for the files that we are interested in
@@ -119,6 +126,7 @@ def predict(
     file_pattern = os.path.basename(input_files)
 
     datasets = load_datasets_bucoffea(directory, file_pattern)
+
     # Get datasets and corresponding labels from datasets.yml
     datasets_path = vbfml_path("config/datasets/datasets.yml")
     dataset_config = DatasetAndLabelConfiguration(datasets_path)
@@ -279,7 +287,7 @@ def plot(ctx, input_dir: str, normalize: bool) -> None:
         os.makedirs(outdir)
 
     # Based on the predictions, we make histograms for different classes
-    quantities = [x for x in list(df.columns) if x != "weight"]
+    quantities = [x for x in list(df.columns) if x not in ["weight", "dataset_label"]]
 
     for quantity_name in tqdm(quantities, desc="Plotting histograms"):
         quantity = Quantity(quantity_name)
@@ -375,7 +383,7 @@ def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
     for iclass, class_label in enumerate(
         tqdm(classes, desc="Plotting averaged images")
     ):
-        image_mask = mask & (predictions == iclass)
+        image_mask = mask & (predictions.round() == iclass)
         images = image_pixels[image_mask]
         weights = df["weight"][image_mask]
 
@@ -389,7 +397,7 @@ def average(ctx, input_dir: str, quantity: str, threshold: float) -> None:
             vmax=6e-2,
             cbar_label="Average Energy (GeV)",
             left_label=process_tag,
-            right_label=f"predict :{class_label}({sum(image_mask)}/{len(image_pixels)})",
+            right_label=f"predict :{class_label}({sum(image_mask)}/{sum(mask)})",
         )
 
 
@@ -425,7 +433,12 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     "--input-dirs",
     required=True,
     multiple=True,
-    help="Training directories to compare. without / at the end",
+    help="Training directories to compare.",
+)
+@click.option(
+    "--is-parent",
+    is_flag=True,
+    help="If flag, -i take a dir of directories and compare all of them",
 )
 @click.option(
     "-n",
@@ -443,14 +456,24 @@ def evaluate(ctx, input_dir: str, sequence_type: str) -> None:
     default="history",
     help="If specified, clarify the name of the pdf save file",
 )
-def compare_hist(ctx, input_dirs: str, number_epochs: int, save_name: str) -> None:
+def compare_hist(
+    ctx, input_dirs: str, number_epochs: int, save_name: str, is_parent: bool = False
+) -> None:
     """
-    Compare the statistics of the history of different models.
+    Compare the loss and accuracy of different models.
     """
+    if is_parent:
+        assert (
+            len(input_dirs) == 1
+        ), f"Too many '-i' arguments are specified, if '--is-parent' is flaged, only one '-i' is accepted (specifying the parent directory)"
+        input_dirs = glob(pjoin(input_dirs[0], f"*"))
 
     for dir in input_dirs:
+        # Check if dir is a valid directory that contains history.pkl file
+        if not os.path.isdir(dir) or not os.path.exists(pjoin(dir, "history.pkl")):
+            continue
+
         cache_file = pjoin(dir, "history.pkl")
-        assert os.path.exists(cache_file), f"Cannot find file: {cache_file}"
         with open(cache_file, "rb") as f:
             hist = pickle.load(f)
 
@@ -512,16 +535,40 @@ def roc(ctx, input_dir: str) -> None:
     features, predictions, label_encoding, labels = load_cache(input_dir)
     mjj = features["mjj"]
     detajj = features["detajj"]
+    weights = features["weight"]
 
     # compute ROC and precision recall curve
-    precision, recall, thresholds_prc = precision_recall_curve(labels, predictions)
-    fpr, tpr, thresholds_roc = roc_curve(labels, predictions)
+    fpr, tpr, thresholds_roc = roc_curve(labels, predictions, sample_weight=weights)
+    precision, recall, thresholds_prc = precision_recall_curve(
+        labels, predictions, sample_weight=weights
+    )
+
+    # add a dummy extra value above 1 to have a list of the same length
+    thresholds_prc = np.append(thresholds_prc, 2)
 
     # do the same for a simple cut on mjj and detajj
     mjj_norm = mjj / mjj.max()
     detajj_norm = detajj / detajj.max()
-    fpr_mjj, tpr_mjj, thresh_roc_mjj = roc_curve(labels, mjj_norm)
-    fpr_detajj, tpr_detajj, thresh_roc_detajj = roc_curve(labels, detajj_norm)
+    fpr_mjj, tpr_mjj, thresh_roc_mjj = roc_curve(
+        labels, mjj_norm, sample_weight=weights
+    )
+    fpr_detajj, tpr_detajj, thresh_roc_detajj = roc_curve(
+        labels, detajj_norm, sample_weight=weights
+    )
+
+    # sort the fpr values and their according tpr in order to use "auc" function of sklearn
+    # the negative weights make the "roc_curve" not monotonic
+    # the cons are that the threshold is not monotonic (but still associated to the good fpr-tpr value)
+    fpr, tpr, thresholds_roc = sort_by_pair_along_first_axis(fpr, tpr, thresholds_roc)
+    recall, precision, thresholds_prc = sort_by_pair_along_first_axis(
+        recall, precision, thresholds_prc, reverse=True
+    )
+    fpr_mjj, tpr_mjj, thresh_roc_mjj = sort_by_pair_along_first_axis(
+        fpr_mjj, tpr_mjj, thresh_roc_mjj
+    )
+    fpr_detajj, tpr_detajj, thresh_roc_detajj = sort_by_pair_along_first_axis(
+        fpr_detajj, tpr_detajj, thresh_roc_detajj
+    )
 
     output_pkl = pjoin(input_dir, "roc.pkl")
     # Mention the output file path in the logging
@@ -562,13 +609,13 @@ def roc(ctx, input_dir: str) -> None:
     "--save_name",
     required=False,
     type=str,
-    default="",
+    default="roc",
     help="If specified, clarify the name of the pdf save file",
 )
 @click.option(
     "--simple-cut",
     is_flag=True,
-    help="If specified, plot the roc curve of simple cuts on mjj and detajj",
+    help="If specified, plot the roc curve of simple cuts on mjj and detajj (to use with only one input-dir for the plot to be clean)",
 )
 def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> None:
     """
@@ -627,7 +674,7 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
         plt.plot(
             data["recall"],
             data["precision"],
-            label=f"{os.path.basename(dir)} (AUC = {auc_prc:.3f})",
+            label=f"{label_model} (AUC = {auc_prc:.3f})",
         )
         plt.plot(
             data["recall"][middle_thres_prc_index],
@@ -636,11 +683,11 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
         )
 
     if len(input_dirs) == 1:
-        outdir = pjoin(input_dirs[0], f"plots{save_name}")
+        outdir = pjoin(input_dirs[0], f"plots_{save_name}")
     else:
         outdir = pjoin(
             os.path.dirname(os.path.dirname(input_dirs[0].rstrip("/"))),
-            f"comparison{save_name}",
+            f"comparison_{save_name}",
         )
     if not os.path.exists(outdir):
         os.makedirs(outdir)
@@ -648,7 +695,6 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
     # complete graphs
     if simple_cut:
         plt.figure(1)
-        plt.plot([0, 1], [0, 1], "k--")
         plt.plot(
             data["fpr_mjj"],
             data["tpr_mjj"],
@@ -681,6 +727,7 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
         "ko",
         label="score cut 0.5",
     )
+    plt.plot([0, 1], [0, 1], "k--", label="random classifier")
     plt.title("ROC curve")
     plt.xlabel("False positive rate")
     plt.ylabel("True positive rate")
@@ -708,12 +755,14 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
         )
 
         plot_histograms_for_each_label(
-            data=d, variable="mjj", cut=mjj_cut, outdir=outdir
+            data=d, variable="mjj", outdir=outdir, cut=mjj_cut
         )
         plot_histograms_for_each_label(
-            data=d, variable="detajj", cut=detajj_cut, outdir=outdir
+            data=d, variable="detajj", outdir=outdir, cut=detajj_cut
         )
-        plot_histograms_for_each_label(data=d, variable="score", cut=0.5, outdir=outdir)
+        plot_histograms_for_each_label(data=d, variable="score", outdir=outdir, cut=0.5)
+
+    print(f"figures saved at : {outdir}")
 
 
 @cli.command()
@@ -738,7 +787,8 @@ def plot_correl(ctx, input_dir: str) -> None:
         os.makedirs(outdir)
 
     # prepare variables for table
-    correl = []
+    correl_list = []
+    featname_list = []
 
     markersize = 100 / np.sqrt(len(predictions))
     count = 1
@@ -753,7 +803,8 @@ def plot_correl(ctx, input_dir: str) -> None:
             featurename = f"abs_val_{featurename}"
 
         correlation = np.corrcoef(predictions, feature)[0, 1]
-        correl.append([correlation, featurename])
+        correl_list.append(correlation)
+        featname_list.append(featurename)
 
         plt.figure()
         plt.scatter(
@@ -766,13 +817,11 @@ def plot_correl(ctx, input_dir: str) -> None:
         plt.savefig(pjoin(outdir, f"correl_{featurename}.pdf"))
         count += 1
 
-    def absfirst(a: list):
-        return abs(a[0])
+    correl_list, featname_list = sort_by_pair_along_first_axis(
+        correl_list, featname_list, reverse=True, sort_by_abs=True
+    )
 
-    correl.sort(key=absfirst, reverse=True)
-    correl = np.array(correl)
-
-    table = {"variables": correl[:, 1], "score_correlation": correl[:, 0]}
+    table = {"variables": featname_list, "score_correlation": correl_list}
     table_print = tabulate(table, headers="keys")
 
     table_outfile = pjoin(outdir, "correlation_table.txt")
@@ -781,6 +830,118 @@ def plot_correl(ctx, input_dir: str) -> None:
 
     with open(table_outfile, "w") as f:
         f.write(table_print)
+
+
+@cli.command()
+@click.pass_context
+@click.option(
+    "-i",
+    "--input-dir",
+    required=True,
+    help="path to the prediction directory in a model",
+)
+@click.option(
+    "-c",
+    "--cut-variable",
+    required=False,
+    default="mjj",
+    help="The quantity to cut on the threshold.",
+)
+@click.option(
+    "-t",
+    "--threshold",
+    type=float,
+    required=False,
+    default=0,
+    help="The threshold/cut value.",
+)
+@click.option(
+    "-p",
+    "--plot-variable",
+    default="score",
+    required=False,
+    help="The variable to plot the distribution after the cut",
+)
+@click.option(
+    "-d",
+    "--datasets",
+    type=str,
+    default=("vbf_h", "ewk_v", "qcd_v"),
+    multiple=True,
+    required=False,
+    help="List of tags for the datasets to plot. Takes 3 possible values : 'qcd_v', 'ewk_v', 'vbf_h' ",
+)
+@click.option(
+    "-s",
+    "--save_name",
+    required=False,
+    type=str,
+    default="",
+    help="If specified, clarify the name of the pdf save file",
+)
+def cut_and_plot(
+    ctx,
+    input_dir: str,
+    cut_variable: str,
+    threshold: float,
+    plot_variable: str,
+    datasets: tuple,
+    save_name: str,
+) -> None:
+    """
+    Apply a cut on the cut-variable and plot the distribution of the plot-variable after the cut.
+    The datasets to plot on the same figure can be specified via --datasets option, by default
+    all three groups of datasets (if found in cache) will be plotted:
+    - vbf_h, ewk_v, qcd_v
+    """
+
+    # load data
+    features, predictions, _, labels = load_cache(input_dir)
+
+    # One possible hack: Add scores to the features dictionary
+    features["score"] = predictions
+
+    # Check that dataset tags are all valid
+    for data in datasets:
+        assert data in [
+            "vbf_h",
+            "qcd_v",
+            "ewk_v",
+        ], f" '--dataset' doesn't accept '{data}', only  'qcd_v', 'ewk_v', 'vbf_h' are supported"
+
+    d = pd.DataFrame(
+        {
+            cut_variable: features[cut_variable],
+            plot_variable: features[plot_variable],
+            "weights": features["weight"],
+            "dataset_label": features["dataset_label"],
+        }
+    )
+
+    # apply cut
+    d = d[d[cut_variable] > threshold]
+
+    # save the plot
+    outdir = pjoin(input_dir, "distribution_cut")
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    if threshold == 0:
+        cut_title = ""
+    else:
+        cut_title = f"_cut_{cut_variable}_{threshold}"
+
+    plot_histograms_for_each_label(
+        data=d,
+        datasets=datasets,
+        variable=plot_variable,
+        outdir=outdir,
+        save_name=save_name,
+        cut_title=cut_title,
+    )
+
+    outsave = pjoin(outdir, f"{plot_variable}_density{cut_title}{save_name}.pdf")
+    print(f"(cut_and_plot) File saved at: {outsave}")
 
 
 if __name__ == "__main__":

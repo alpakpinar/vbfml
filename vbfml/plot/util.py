@@ -158,33 +158,107 @@ class ScoreDistributionPlotter:
 def plot_histograms_for_each_label(
     data: pd.DataFrame,
     variable: str,
-    cut: float,
     outdir: str,
+    datasets: tuple = ("qcd_v", "ewk_v", "vbf_h"),
+    cut: float = 0,
+    save_name: str = "",
+    cut_title: str = "",
 ) -> None:
     """
-    plot the distribution of a feature according to its label (signal or bkg) from a pandas data frame with a "label" column
+    plot the distribution of a feature according to its dataset_label (['qcd_v', 'ewk_v', 'vbf_h']) from a pandas data frame
     specify the dataframe and the string of the head of the variable's column you want to plot
-    Is also draw the line of a speficic cut to see how it would differentiate bkg from signal
+    the dataframe should contains the following : 'dataset_to_read', 'dataset_label', 'weights' and the variable
+    If cut specified, also draws the line of the specific cut to see how it would differentiate bkg from signal
     """
 
+    # adjust binning
+    bins = 50
+    if variable == "score":
+        bins = 20
+
     plt.figure()
-    plt.hist(
-        data[data["labels"] == 0][variable],
-        bins=50,
-        density=True,
-        histtype="step",
-        label="background",
-    )
-    plt.hist(
-        data[data["labels"] == 1][variable],
-        bins=50,
-        density=True,
-        histtype="step",
-        label="signal",
-    )
-    plt.axvline(x=cut, color="k", linestyle="--", label=f"cut at {cut:.3f}")
-    plt.title(f"{variable} distribution")
+
+    for dataset_label in datasets:
+        data_label = data[data["dataset_label"] == dataset_label]
+
+        if len(data_label) != 0:
+            plt.hist(
+                data_label[variable],
+                bins=bins,
+                density=True,
+                weights=data_label["weights"],
+                histtype="step",
+                label=dataset_label,
+            )
+
+    if cut:
+        plt.axvline(x=cut, color="k", linestyle="--", label=f"cut at {cut:.3f}")
+    plt.title(f"{variable} distribution{cut_title}")
     plt.xlabel(variable)
     plt.ylabel("density counts")
-    plt.legend()
-    plt.savefig(pjoin(outdir, f"{variable}_density.pdf"))
+    plt.ylim(bottom=0)
+    if variable == "mjj":
+        plt.xlim([0, 5000])
+    if variable == "score":
+        plt.legend(loc="upper center")
+    else:
+        plt.legend()
+    plt.savefig(pjoin(outdir, f"{variable}_density{cut_title}{save_name}.pdf"))
+
+
+def sort_by_pair_along_first_axis(
+    x: list,
+    y: list,
+    z: list = [None],
+    reverse: bool = False,
+    sort_by_abs: bool = False,
+):
+    """
+    take 2(3) lists/np.array of the same length representing x-y(-z) coordinate-like objects, y_i(-z_i) need to stay with x_i
+    sort them in the good order according to x from lowest to highest (reverse=True for high to low)
+    return 2(3) np.arrays with x sorted, y(-z) got the same permutation as x
+    /!/ sort by absolute values !
+    """
+
+    # in case of 2 lists, create a dummy third one
+    z_flag = True
+    if z[0] == None:
+        z_flag = False
+        z = [0] * len(x)
+
+    # check length of lists
+    assert len(x) == len(
+        y
+    ), f"Cannot use sort_by_pair_along_first_axis because lists (x-y) are not of same length"
+    if z_flag:
+        assert len(x) == len(
+            y
+        ), f"Cannot use sort_by_pair_along_first_axis because lists (x-y) are not of same length"
+
+    # create list of coupled elements
+    x_y_z = []
+    for i in range(len(x)):
+        x_y_z.append([x[i], y[i], z[i]])
+
+    # define function used to sort the array
+    def absfirst(a: list):
+        return abs(a[0])
+
+    def first(a: list):
+        return a[0]
+
+    # sort the arrays w/o absolute value
+    if sort_by_abs:
+        x_y_z.sort(key=absfirst, reverse=reverse)
+    else:
+        x_y_z.sort(key=first, reverse=reverse)
+
+    x_y_z = np.array(x_y_z)
+    x = x_y_z[:, 0]
+    y = x_y_z[:, 1]
+    z = x_y_z[:, 2]
+
+    if z_flag:
+        return x, y, z
+    else:
+        return x, y
