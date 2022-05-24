@@ -159,7 +159,7 @@ def plot_histograms_for_each_label(
     data: pd.DataFrame,
     variable: str,
     outdir: str,
-    datasets: list = ["qcd_v", "ewk_v", "vbf_h"],
+    datasets: tuple = ("qcd_v", "ewk_v", "vbf_h"),
     cut: float = 0,
     save_name: str = "",
     cut_title: str = "",

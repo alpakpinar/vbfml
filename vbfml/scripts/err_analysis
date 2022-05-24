@@ -866,7 +866,7 @@ def plot_correl(ctx, input_dir: str) -> None:
     "-d",
     "--datasets",
     type=str,
-    default=["vbf_h", "ewk_v", "qcd_v"],
+    default=("vbf_h", "ewk_v", "qcd_v"),
     multiple=True,
     required=False,
     help="List of tags for the datasets to plot. Takes 3 possible values : 'qcd_v', 'ewk_v', 'vbf_h' ",
@@ -885,11 +885,14 @@ def cut_and_plot(
     cut_variable: str,
     threshold: float,
     plot_variable: str,
-    datasets: list,
+    datasets: tuple,
     save_name: str,
 ) -> None:
     """
-    Apply a cut on the  cut-variable and plot the distribution of the plot-variable after the cut
+    Apply a cut on the cut-variable and plot the distribution of the plot-variable after the cut.
+    The datasets to plot on the same figure can be specified via --datasets option, by default
+    all three groups of datasets (if found in cache) will be plotted:
+    - vbf_h, ewk_v, qcd_v
     """
 
     # load data
@@ -904,7 +907,7 @@ def cut_and_plot(
             "vbf_h",
             "qcd_v",
             "ewk_v",
-        ], f" '--dataset' doesn't accept '{data}', only  'qcd_v', 'ewk_v', 'vbf_h' are possible"
+        ], f" '--dataset' doesn't accept '{data}', only  'qcd_v', 'ewk_v', 'vbf_h' are supported"
 
     d = pd.DataFrame(
         {
