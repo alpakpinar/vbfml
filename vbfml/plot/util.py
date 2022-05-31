@@ -41,7 +41,7 @@ class Quantity:
                 8000.0,
             ],
             "detajj": np.linspace(1, 10, 20),
-            "dphijj": np.linspace(0, 1.5, 20),
+            "dphijj": np.linspace(0, 1.5, 10),
             "recoil_pt": pt_bins,
             "recoil_phi": phi_bins,
             "njet": np.arange(0, 10),
@@ -178,7 +178,7 @@ def plot_histograms_for_each_label(
     if variable == "score":
         bins = 20
     if variable == "dphijj":
-        bins = 20
+        bins = 10
         # additional cut because ~0.03% of QCD have dphijj > 1.5 and mess up the binning range
         data = data[data["dphijj"] < 1.5]
 
