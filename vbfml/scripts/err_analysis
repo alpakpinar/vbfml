@@ -138,6 +138,7 @@ def predict(
     high_level_features = [
         "mjj",
         "detajj",
+        "dphijj",
         "njet",
         "njet_pt30",
         "njet_central",
@@ -796,6 +797,10 @@ def plot_correl(ctx, input_dir: str) -> None:
     for (featurename, feature) in features.iteritems():
 
         print(f"plot {featurename} ({count}/{len(features.keys())})")
+
+        if featurename == "dataset_label":
+            print("no correl for dataset_label")
+            continue
 
         # take only the positive value of eta to find a linear correlation
         if (featurename == "leadak4_eta") or (featurename == "trailak4_eta"):
