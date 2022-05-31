@@ -11,3 +11,4 @@ pyyaml
 gitpython
 uproot>=4.1.1
 typing-extensions==4.1.1
+protobuf<4.0.0
