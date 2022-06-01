@@ -752,6 +752,7 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
                 "labels": labels,
                 "weights": features["weight"],
                 "score": predictions,
+                "dataset_label" : features["dataset_label"]
             }
         )
 
