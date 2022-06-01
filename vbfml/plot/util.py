@@ -205,9 +205,11 @@ def plot_histograms_for_each_label(
     plt.ylim(bottom=0)
     if variable == "mjj":
         plt.xlim([0, 5000])
-    if variable == "dphijj":
+        plt.legend()
+    elif variable == "dphijj":
         plt.xlim([0, 1.5])
-    if variable == "score":
+        plt.legend(loc="lower right")
+    elif variable == "score":
         plt.legend(loc="upper center")
     else:
         plt.legend()
