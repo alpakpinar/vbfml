@@ -752,7 +752,7 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
                 "labels": labels,
                 "weights": features["weight"],
                 "score": predictions,
-                "dataset_label" : features["dataset_label"]
+                "dataset_label": features["dataset_label"],
             }
         )
 
@@ -799,19 +799,22 @@ def plot_correl(ctx, input_dir: str) -> None:
 
         print(f"plot {featurename} ({count}/{len(features.keys())})")
 
-        try :
+        try:
             # take only the positive value of eta to find a linear correlation
             if (featurename == "leadak4_eta") or (featurename == "trailak4_eta"):
                 feature = abs(feature)
                 featurename = f"abs_val_{featurename}"
-                
+
             correlation = np.corrcoef(predictions, feature)[0, 1]
             correl_list.append(correlation)
             featname_list.append(featurename)
 
             plt.figure()
             plt.scatter(
-                predictions, feature, s=markersize, label=f"correlation = {correlation:.3f}"
+                predictions,
+                feature,
+                s=markersize,
+                label=f"correlation = {correlation:.3f}",
             )
             plt.title(f"score correlation with {featurename}")
             plt.xlabel("Score")
@@ -819,7 +822,7 @@ def plot_correl(ctx, input_dir: str) -> None:
             plt.legend()
             plt.savefig(pjoin(outdir, f"correl_{featurename}.pdf"))
             count += 1
-        except :
+        except:
             # Skip this invalid feature and do not calculate correlation
             print(f"no correlation for {featurename}")
             continue
