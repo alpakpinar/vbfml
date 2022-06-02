@@ -41,6 +41,7 @@ class Quantity:
                 8000.0,
             ],
             "detajj": np.linspace(1, 10, 20),
+            "dphijj": np.linspace(0, 1.5, 10),
             "recoil_pt": pt_bins,
             "recoil_phi": phi_bins,
             "njet": np.arange(0, 10),
@@ -69,6 +70,7 @@ class Quantity:
         labels = {
             "mjj": r"$M_{jj} \ (GeV)$",
             "detajj": r"$\Delta\eta_{jj}$",
+            "dphijj": r"$\Delta\phi_{jj}$",
             "leadak4_pt": r"Leading Jet $p_T \ (GeV)$",
             "trailak4_pt": r"Trailing Jet $p_T \ (GeV)$",
             "leadak4_eta": r"Leading Jet $\eta$",
@@ -175,6 +177,10 @@ def plot_histograms_for_each_label(
     bins = 50
     if variable == "score":
         bins = 20
+    if variable == "dphijj":
+        bins = 10
+        # additional cut because ~0.03% of QCD have dphijj > 1.5 and mess up the binning range
+        data = data[data["dphijj"] < 1.5]
 
     plt.figure()
 
@@ -199,7 +205,11 @@ def plot_histograms_for_each_label(
     plt.ylim(bottom=0)
     if variable == "mjj":
         plt.xlim([0, 5000])
-    if variable == "score":
+        plt.legend()
+    elif variable == "dphijj":
+        plt.xlim([0, 1.5])
+        plt.legend(loc="lower right")
+    elif variable == "score":
         plt.legend(loc="upper center")
     else:
         plt.legend()
