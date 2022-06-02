@@ -822,7 +822,7 @@ def plot_correl(ctx, input_dir: str) -> None:
             plt.legend()
             plt.savefig(pjoin(outdir, f"correl_{featurename}.pdf"))
             count += 1
-        except:
+        except TypeError:
             # Skip this invalid feature and do not calculate correlation
             print(f"no correlation for {featurename}")
             continue
