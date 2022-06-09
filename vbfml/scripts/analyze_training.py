@@ -49,7 +49,6 @@ def cli():
 @click.option("-s", "--sequence-types", multiple=True, default=["validation"])
 def analyze(training_path: str, sequence_types: List[str]):
     arch = get_model_arch(training_path)
-
     analyzerInstances = {"conv": ImageTrainingAnalyzer, "dense": TrainingAnalyzer}
     analyzer = analyzerInstances[arch](training_path)
     analyzer.analyze(sequence_types)
@@ -61,6 +60,7 @@ def analyze(training_path: str, sequence_types: List[str]):
 @click.option("--force-analyze", default=False, is_flag=True)
 def plot(training_path: str, force_analyze: bool = False):
     arch = get_model_arch(training_path)
+    print(arch)
     # Redo the analysis if cache does not exist
     analyzerInstances = {"conv": ImageTrainingAnalyzer, "dense": TrainingAnalyzer}
     plotterInstances = {
@@ -74,16 +74,32 @@ def plot(training_path: str, force_analyze: bool = False):
 
     # Plot histograms
     output_directory = os.path.join(training_path, "plots")
-    plotter_args = {
+    if arch == "dense":
+         plotter_args = {
         "weights": analyzer.data["weights"],
         "predicted_scores": analyzer.data["predicted_scores"],
         "truth_scores": analyzer.data["truth_scores"],
         "histograms": analyzer.data["histograms"],
         "output_directory": output_directory,
     }
-    if arch == "conv":
+    elif arch == "conv":
+        plotter_args = {
+            "weights": analyzer.data["weights"],
+            "predicted_scores": analyzer.data["predicted_scores"],
+            "truth_scores": analyzer.data["truth_scores"],
+            "histograms": analyzer.data["histograms"],
+            "output_directory": output_directory,
+        }
         plotter_args["sample_counts"] = analyzer.data["sample_counts_per_sequence"]
         plotter_args["label_encoding"] = analyzer.data["label_encoding"]
+    else:
+        plotter_args = {
+            "weights": analyzer.data["weights"],
+            "predicted_scores": analyzer.data["predicted_scores"],
+            "truth_scores": analyzer.data["truth_scores"],
+            "histograms": analyzer.data["histograms"],
+            "output_directory": output_directory,
+        }
 
     plotter = plotterInstances[arch](**plotter_args)
     plotter.plot()
@@ -98,7 +114,7 @@ def plot(training_path: str, force_analyze: bool = False):
     # accumulator_from_cache.plot()
 
     # Plot training history
-    loader = TrainingLoader(training_path)
+    loader = TrainingLoader(training_path,framework="pytorch")
     plot_history(loader.get_history(), output_directory)
 
 

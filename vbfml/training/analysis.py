@@ -67,7 +67,7 @@ class TrainingAnalyzerBase:
     data: "dict" = field(default_factory=dict)
 
     def __post_init__(self):
-        self.loader = TrainingLoader(self.directory)
+        self.loader = TrainingLoader(self.directory,framework="pytorch")
         self.cache = os.path.join(self.directory, os.path.basename(self.cache))
 
     def _make_histogram(self, quantity_name: str) -> hist.Hist:
@@ -158,7 +158,7 @@ class TrainingAnalyzer(TrainingAnalyzerBase):
             ) = self._analyze_sequence(sequence, sequence_type)
             histograms[sequence_type] = histogram_out
             if sequence_type == "validation":
-                self.data["validation_scores"] = validation_scores
+                self.data["truth_scores"] = validation_scores
                 self.data["predicted_scores"] = predicted_scores
                 self.data["weights"] = weights
         self.data["histograms"] = histograms
@@ -251,12 +251,13 @@ class TrainingAnalyzer(TrainingAnalyzerBase):
         validation_scores = []
         sample_weights = []
         for ibatch in tqdm(
-            range(len(sequence)), desc=f"Analyze batches of {sequence_type} sequence."
+            range(len(sequence)), desc=f"jk Analyze batches of {sequence_type} sequence."
         ):
             features, labels_onehot, weights = sequence[ibatch]
             labels = labels_onehot.argmax(axis=1)
 
             scores = model.predict(feature_scaler.transform(features))
+            print(scores)
             if sequence_type == "validation":
                 predicted_scores.append(scores)
                 validation_scores.append(labels_onehot)
@@ -373,6 +374,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
             predicted_scores.append(scores)
             truth_scores.append(labels_onehot)
+            
 
             self._fill_score_histograms(histograms, scores, labels, weights)
 
@@ -429,9 +431,9 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         for sequence_type in sequence_types:
             sequence = self.loader.get_sequence(sequence_type)
             # sequence.scale_features = "norm"
-            sequence.batch_size = 10000
+            sequence.batch_size = int(1e6)
             sequence.batch_buffer_size = 10
-
+            
             (
                 histogram_out,
                 sample_counts,

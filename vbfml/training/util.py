@@ -86,12 +86,12 @@ def get_weight_integral_by_label(sequence: MultiDatasetSequence) -> Dict[str, fl
     return integrals
 
 
-def normalize_classes(sequence: MultiDatasetSequence) -> None:
+def normalize_classes(sequence: MultiDatasetSequence,target_integral: float = 1) -> None:
     """Changes data set weights in-place so that all classes have same integral."""
     label_to_weight_dict = get_weight_integral_by_label(sequence)
     for dataset_obj in sequence.datasets.values():
         weight = label_to_weight_dict[dataset_obj.label]
-        dataset_obj.weight = dataset_obj.weight / weight
+        dataset_obj.weight = target_integral * dataset_obj.weight / weight
 
 
 def generate_callbacks_for_profiling() -> None:
@@ -130,6 +130,23 @@ def summarize_datasets(datasets: List[DatasetInfo]) -> None:
             headers=["Class label", "Physics data set name", "Number of events"],
         )
     )
+
+def summarize_labels(sequence: MultiDatasetSequence,dataset_config: DatasetAndLabelConfiguration) -> None:
+    """
+    Prints the classes encoding and the associated label
+    """
+    table = []
+
+    for label in sequence.dataset_labels():
+        table.append((sequence.label_encoding[label], label,dataset_config.data['datasets'][label]['regex']))
+
+    print(
+        tabulate(
+            sorted(table),
+            headers=["Class label encoding", "Dataset Label","Regular Expression"],
+        )
+    )
+
 
 
 def scale_datasets(
@@ -223,7 +240,6 @@ def do_setup(
     dataset_config = DatasetAndLabelConfiguration(datasets_path)
 
     dataset_labels = dataset_config.get_dataset_labels()
-
     datasets = select_and_label_datasets(all_datasets, dataset_labels)
     scale_datasets(datasets, dataset_config)
     summarize_datasets(datasets)
@@ -252,6 +268,7 @@ def do_setup(
         shuffle=validation_params["shuffle"],
         scale_features=validation_params["scale_features"],
     )
+    summarize_labels(training_sequence,dataset_config)
     normalize_classes(training_sequence)
     normalize_classes(validation_sequence)
 

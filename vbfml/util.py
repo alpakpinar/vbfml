@@ -10,7 +10,7 @@ import subprocess
 import pandas as pd
 
 
-from vbfml.models import sequential_convolutional_model, sequential_dense_model
+from vbfml.models import sequential_convolutional_model, sequential_dense_model,Net
 
 pjoin = os.path.join
 
@@ -190,7 +190,7 @@ class ModelFactory:
         arch_parameters = model_config.get("arch_parameters")
 
         builder_function = {
-            "dense": sequential_dense_model,
+            "dense": Net,
             "conv": sequential_convolutional_model,
         }
 

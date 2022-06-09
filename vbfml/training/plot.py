@@ -443,6 +443,7 @@ class TrainingHistogramPlotter(PlotterBase):
                     rax.set_xlabel(name)
                     rax.set_ylabel("Efficency (a.u.)")
                     ax.set_ylabel("Events (a.u.)")
+                    ax.set_ylim([10e-8,1])
                     ax.set_yscale("log")
                     for ext in "pdf", "png":
                         fig.savefig(
@@ -534,12 +535,13 @@ class TrainingHistogramPlotter(PlotterBase):
 
     def plot(self) -> None:
         self.plot_by_sequence_types()
-        self.plot_ROC()
+        #self.plot_ROC()
 
     # plot ROC curve for each class
     def plot_ROC(self) -> None:
         fpr = dict()
         tpr = dict()
+        print(np.array(self.predicted_scores).shape)
         score_classes = np.array(self.predicted_scores).shape[2]
         number_batches = np.array(self.predicted_scores).shape[0]
         for sclass in tqdm(range(score_classes), desc="Plotting ROC curves"):
@@ -664,61 +666,123 @@ class ImagePlotter:
         fig.savefig(outpath)
         plt.close(fig)
 
-
 def plot_history(history, outdir):
-    """Utility function to plot loss and accuracy metrics."""
-    outdir = os.path.join(outdir, "history")
-    try:
-        os.makedirs(outdir)
-    except FileExistsError:
-        pass
 
-    loss_metrics = [
-        ("Training", "x_loss", "y_loss"),
-        ("Validation", "x_val_loss", "y_val_loss"),
+    fig = plt.figure(figsize=(12, 10))
+    ax = plt.gca()
+
+    accuracy_types = [
+        key for key in history.keys() if "loss" in key and not "val" in key
     ]
+    accuracy_types = [x.replace("x_", "").replace("y_", "") for x in accuracy_types]
+    for index,tensor in enumerate(history["y_loss"]):
+        history["y_loss"][index]= tensor.detach().numpy()
+   
+        
 
-    acc_metrics = [
-        ("Training", "x_categorical_accuracy", "y_categorical_accuracy"),
-        ("Validation", "x_val_categorical_accuracy", "y_val_categorical_accuracy"),
-    ]
+    #for accuracy_type in tqdm(accuracy_types, desc="Plotting History"):
+    for i in range(1):
+        ax.plot(
+            history["x_loss"],
+            history["y_loss"],
+            color="b",
+            ls="--",
+            marker="s",
+            label="Training",
+        )
+        ax.plot(
+            history["x_val_loss"],
+            history["y_val_loss"],
+            color="b",
+            label="Validation",
+            marker="o",
+        )
 
-    metrics = {"Loss": loss_metrics, "Accuracy": acc_metrics}
+        # ax2 = ax.twinx()
+        # ax2.plot(
+        #     history[f"x_{accuracy_type}"],
+        #     history[f"y_{accuracy_type}"],
+        #     color="r",
+        #     ls="--",
+        #     marker="s",
+        #     label="Training",
+        # )
+        # ax2.plot(
+        #     history[f"x_val_{accuracy_type}"],
+        #     history[f"y_val_{accuracy_type}"],
+        #     color="r",
+        #     label="Validation",
+        #     marker="o",
+        # )
+        ax.set_xlabel("Training time (a.u.)")
+        ax.set_ylabel("Loss")
+        ax.set_yscale("log")
+        #ax2.set_ylabel(f"Accuracy ({accuracy_type})")
+       # ax2.set_ylim(0, 1)
+        ax.legend(title="Loss")
+        #ax2.legend(title="Accuracy")
+        outdir = os.path.join(outdir, "history")
+        try:
+            os.makedirs(outdir)
+        except FileExistsError:
+            pass
+        accuracy_type="loss"   
+        for ext in "png", "pdf":
+            fig.savefig(os.path.join(outdir, f"history_{accuracy_type}.{ext}"))
+# def plot_history(history, outdir):
+#     """Utility function to plot loss and accuracy metrics."""
+#     outdir = os.path.join(outdir, "history")
+#     try:
+#         os.makedirs(outdir)
+#     except FileExistsError:
+#         pass
 
-    def shift_by_one(xlist):
-        return [x + 1 for x in xlist]
+#     loss_metrics = [
+#         ("Training", "x_loss", "y_loss"),
+#         ("Validation", "x_val_loss", "y_val_loss"),
+#     ]
 
-    for tag, metriclist in tqdm(metrics.items(), desc="Plotting history"):
-        fig, ax = plt.subplots()
+#     acc_metrics = [
+#         ("Training", "x_categorical_accuracy", "y_categorical_accuracy"),
+#         ("Validation", "x_val_categorical_accuracy", "y_val_categorical_accuracy"),
+#     ]
 
-        for label, metric_x, metric_y in metriclist:
-            # Annoyting: x_loss and x_val_loss shift by one (same for accuracy)
-            # Fix that here before plotting
+#     metrics = {"Loss": loss_metrics, "Accuracy": acc_metrics}
 
-            if label == "Training":
-                history[metric_x] = shift_by_one(history[metric_x])
+#     def shift_by_one(xlist):
+#         return [x + 1 for x in xlist]
 
-            ax.plot(
-                history[metric_x],
-                history[metric_y],
-                label=label,
-                marker="o",
-            )
+#     for tag, metriclist in tqdm(metrics.items(), desc="Plotting history"):
+#         fig, ax = plt.subplots()
 
-            if tag == "Accuracy":
-                ax.axhline(1.0, xmin=0, xmax=1, color="k", ls="--")
+#         for label, metric_x, metric_y in metriclist:
+#             # Annoyting: x_loss and x_val_loss shift by one (same for accuracy)
+#             # Fix that here before plotting
 
-        ax.legend(title=tag)
-        ax.grid(True)
+#             if label == "Training":
+#                 history[metric_x] = shift_by_one(history[metric_x])
 
-        ax.set_xlabel("Training Time (a.u.)", fontsize=14)
-        ax.set_ylabel(tag, fontsize=14)
+#             ax.plot(
+#                 history[metric_x],
+#                 history[metric_y],
+#                 label=label,
+#                 marker="o",
+#             )
 
-        if tag == "Loss":
-            ax.set_yscale("log")
-        else:
-            ax.set_ylim(0, 1.1)
+#             if tag == "Accuracy":
+#                 ax.axhline(1.0, xmin=0, xmax=1, color="k", ls="--")
 
-        outpath = os.path.join(outdir, f"history_{tag.lower()}.pdf")
-        fig.savefig(outpath)
-        plt.close(fig)
+#         ax.legend(title=tag)
+#         ax.grid(True)
+
+#         ax.set_xlabel("Training Time (a.u.)", fontsize=14)
+#         ax.set_ylabel(tag, fontsize=14)
+
+#         if tag == "Loss":
+#             ax.set_yscale("log")
+#         else:
+#             ax.set_ylim(0, 1.1)
+
+#         outpath = os.path.join(outdir, f"history_{tag.lower()}.pdf")
+#         fig.savefig(outpath)
+#         plt.close(fig)
