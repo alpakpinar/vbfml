@@ -48,8 +48,15 @@ def parse_cli():
         "-n",
         "--num_epochs",
         type=int,
-        default=25,
+        default=10,
         help="Number of iterations through the whole training set.",
+    )
+    parser.add_argument(
+        "-lr",
+        "--learning_rate",
+        type=int,
+        default=0.001,
+        help="Learning rate",
     )
     parser.add_argument(
         "--name", default=None, help="Job name specifying this particular submission."
@@ -147,6 +154,7 @@ def do_submit(args):
         "train",
         f"--num-epochs {args.num_epochs}",
         "--no-verbose-output",
+        f"--learning-rate {args.learning_rate}"
     ]
 
     submission_settings = {
