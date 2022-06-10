@@ -388,6 +388,11 @@ def train(
             history["y_loss"].append(training_loss)
             history["y_val_loss"].append(validation_loss)
 
+        def prepend_path(fname):
+            return os.path.join(training_directory, fname)
+
+        # save The trained model
+        torch.save(model, prepend_path("model.pt"))
     # Keras-based training
     else:
         fit_args = {

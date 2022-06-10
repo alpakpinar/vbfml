@@ -6,6 +6,7 @@ import warnings
 import logging
 import pandas as pd
 import tensorflow as tf
+import torch
 
 from datetime import datetime
 
@@ -47,7 +48,7 @@ def parse_cli():
         "-n",
         "--num_epochs",
         type=int,
-        default=20,
+        default=25,
         help="Number of iterations through the whole training set.",
     )
     parser.add_argument(
@@ -97,22 +98,28 @@ def do_submit(args):
     # Set up the model and save into the training directory
     mconfig = ModelConfiguration(args.model_config)
     model = ModelFactory.build(mconfig)
+    if mconfig.get("architecture") == "dense":
+        print(model)
+        def prepend_path(fname):
+            return os.path.join(subdir, fname) 
+        torch.save(model, prepend_path("model.pt"))
+    else:
+        optimizer = tf.keras.optimizers.Adam(
+            learning_rate=0.001,
+            beta_1=0.9,
+            beta_2=0.999,
+            epsilon=1e-07,
+            amsgrad=False,
+            name="Adam",
+        )
+        model.compile(
+            loss="categorical_crossentropy",
+            optimizer=optimizer,
+            weighted_metrics=["categorical_accuracy"],
+        )
+        model.summary()
 
-    optimizer = tf.keras.optimizers.Adam(
-        beta_1=0.9,
-        beta_2=0.999,
-        epsilon=1e-07,
-        amsgrad=False,
-        name="Adam",
-    )
-    model.compile(
-        loss="categorical_crossentropy",
-        optimizer=optimizer,
-        weighted_metrics=["categorical_accuracy"],
-    )
-    model.summary()
-
-    model.save(pjoin(subdir, "models/latest"), include_optimizer=True)
+        model.save(pjoin(subdir, "models/latest"), include_optimizer=True)
 
     # Repo version information
     with open(pjoin(subdir, "version.txt"), "w") as f:

@@ -157,10 +157,10 @@ class TrainingAnalyzer(TrainingAnalyzerBase):
                 weights,
             ) = self._analyze_sequence(sequence, sequence_type)
             histograms[sequence_type] = histogram_out
-            if sequence_type == "validation":
-                self.data["truth_scores"] = validation_scores
-                self.data["predicted_scores"] = predicted_scores
-                self.data["weights"] = weights
+            # if sequence_type == "validation":
+            self.data["truth_scores"] = validation_scores
+            self.data["predicted_scores"] = predicted_scores
+            self.data["weights"] = weights
         self.data["histograms"] = histograms
 
     def _fill_feature_histograms(
@@ -258,10 +258,10 @@ class TrainingAnalyzer(TrainingAnalyzerBase):
 
             scores = model.predict(feature_scaler.transform(features))
             print(scores)
-            if sequence_type == "validation":
-                predicted_scores.append(scores)
-                validation_scores.append(labels_onehot)
-                sample_weights.append(weights)
+            # if sequence_type == "validation":
+            predicted_scores.append(scores)
+            validation_scores.append(labels_onehot)
+            sample_weights.append(weights)
 
             for scaler in feature_scaler, None:
                 self._fill_feature_histograms(
