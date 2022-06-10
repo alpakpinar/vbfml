@@ -130,10 +130,9 @@ def setup(
         shuffle=validation_params["shuffle"],
         scale_features=validation_params["scale_features"],
     )
-    summarize_labels(training_sequence,dataset_config)
-    normalize_classes(training_sequence,target_integral=1e6)
-    normalize_classes(validation_sequence,target_integral=1e6)
-    
+    summarize_labels(training_sequence, dataset_config)
+    normalize_classes(training_sequence, target_integral=1e6)
+    normalize_classes(validation_sequence, target_integral=1e6)
 
     # Training sequence
     train_size = training_params["train_size"]
@@ -155,7 +154,7 @@ def setup(
     model = ModelFactory.build(mconfig)
     if mconfig.get("architecture") == "dense":
         print(model)
-        
+
     else:
         optimizer = tf.keras.optimizers.Adam(
             learning_rate=learning_rate,
@@ -174,8 +173,10 @@ def setup(
         model.summary()
 
     training_directory = ctx.obj["TRAINING_DIRECTORY"]
+
     def prepend_path(fname):
-        return os.path.join(training_directory, fname) 
+        return os.path.join(training_directory, fname)
+
     # The trained model
     if mconfig.get("architecture") == "dense":
         torch.save(model, prepend_path("model.pt"))
@@ -186,8 +187,6 @@ def setup(
         model.save(
             os.path.join(training_directory, "models/latest"), include_optimizer=True
         )
-
-    
 
     # Feature scaling object for future evaluation
     save(training_sequence._feature_scaler, prepend_path("feature_scaler.pkl"))
@@ -231,7 +230,7 @@ def setup(
         f.write("\n")
 
     # Save a plot of the model architecture
-    if not no_plot_model and mconfig.get("architecture") != "dense" :
+    if not no_plot_model and mconfig.get("architecture") != "dense":
         from keras.utils.vis_utils import plot_model
 
         plot_dir = os.path.join(training_directory, "plots")
@@ -273,35 +272,41 @@ def train(
     """
     training_directory = ctx.obj["TRAINING_DIRECTORY"]
     framework = "pytorch"
-    loader = TrainingLoader(training_directory,framework=framework)
+    loader = TrainingLoader(training_directory, framework=framework)
 
     model = loader.get_model("latest")
 
     if learning_rate:
         assert learning_rate > 0, "Learning rate should be positive."
-        if framework=="keras":
+        if framework == "keras":
             K.set_value(model.optimizer.learning_rate, learning_rate)
 
     training_sequence = loader.get_sequence("training")
     validation_sequence = loader.get_sequence("validation")
-    #assert training_sequence._feature_scaler
-    #assert validation_sequence._feature_scaler
+    # assert training_sequence._feature_scaler
+    # assert validation_sequence._feature_scaler
 
     validation_freq = 1  # Frequency of validation
-    if framework=="pytorch":
-        device =torch.device('cpu')
+    if framework == "pytorch":
+        device = torch.device("cpu")
         # Binary cross entropy loss
         # Do not apply reduction, so that we can implement
         # manual weighted reduction later on
         history = defaultdict(list)
-        criterion =  nn.BCELoss(reduction='none')
-        #criterion =  nn.CrossEntropyLoss(reduction='none')
-        #criterion =  nn.MSELoss(reduction='none')
+        criterion = nn.BCELoss(reduction="none")
+        # criterion =  nn.CrossEntropyLoss(reduction='none')
+        # criterion =  nn.MSELoss(reduction='none')
         optm = SGD(model.parameters(), lr=learning_rate)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optm, factor=0.1, patience=5, threshold=1e-2, verbose=True, cooldown=2, min_lr=1e-5 
+            optm,
+            factor=0.1,
+            patience=5,
+            threshold=1e-2,
+            verbose=True,
+            cooldown=2,
+            min_lr=1e-5,
         )
-        
+
         def train_pytorch(
             model,
             features: torch.Tensor,
@@ -326,20 +331,20 @@ def train(
             Compute the weighted loss for a batch of data.
             """
             predicted_labels = model(features)
-            print(predicted_labels)
+            # print(predicted_labels)
             raw_loss = loss_criterion(predicted_labels, true_labels)
             loss = torch.sum(weights * raw_loss) / torch.sum(weights)
             return loss, predicted_labels
+
         for epoch in range(num_epochs):
-            epoch_loss = 0
+            training_loss = 0
             correct = 0
 
             # Put model into training mode
             model.train(True)
 
             # Loop over training batches and train
-            
-            for bidx, batch in tqdm(enumerate(training_sequence)):
+            for batch in tqdm(training_sequence, desc="Running training"):
                 x_train, y_train, w_train = batch
                 loss, predictions = train_pytorch(
                     model,
@@ -349,14 +354,14 @@ def train(
                     optm,
                     criterion,
                 )
-                epoch_loss += loss.item()
+                training_loss += loss.item()
 
             # Put model into inference mode
             model.train(False)
 
             # Calculate validation loss
             validation_loss = 0
-            for bidx, batch in enumerate(validation_sequence):
+            for batch in validation_sequence:
                 x, y, w = batch
                 loss, _ = weighted_loss(
                     model,
@@ -367,16 +372,23 @@ def train(
                 )
                 validation_loss += loss.item()
 
+            # Normalize losses by number of batches
+            training_loss /= len(training_sequence)
+            validation_loss /= len(validation_sequence)
+
             # Pass validation loss to learning rate scheduler
             scheduler.step(validation_loss)
 
-            print(f"Epoch {epoch+1} Loss : {epoch_loss} Validation loss : {validation_loss}")
+            print(
+                f"Epoch {epoch+1} Loss : {training_loss:.4f} Validation loss : {validation_loss:.4f}"
+            )
 
             history["x_loss"].append(epoch)
             history["x_val_loss"].append(epoch)
-            history["y_loss"].append(loss)
+            history["y_loss"].append(training_loss)
             history["y_val_loss"].append(validation_loss)
 
+    # Keras-based training
     else:
         fit_args = {
             "x": training_sequence,
@@ -407,7 +419,8 @@ def train(
         )
 
     def prepend_path(fname):
-        return os.path.join(training_directory, fname)     
+        return os.path.join(training_directory, fname)
+
     save(history, prepend_path("history.pkl"))
 
 

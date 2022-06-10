@@ -443,7 +443,7 @@ class TrainingHistogramPlotter(PlotterBase):
                     rax.set_xlabel(name)
                     rax.set_ylabel("Efficency (a.u.)")
                     ax.set_ylabel("Events (a.u.)")
-                    ax.set_ylim([10e-8,1])
+                    ax.set_ylim([10e-8, 1])
                     ax.set_yscale("log")
                     for ext in "pdf", "png":
                         fig.savefig(
@@ -535,7 +535,7 @@ class TrainingHistogramPlotter(PlotterBase):
 
     def plot(self) -> None:
         self.plot_by_sequence_types()
-        #self.plot_ROC()
+        # self.plot_ROC()
 
     # plot ROC curve for each class
     def plot_ROC(self) -> None:
@@ -666,6 +666,7 @@ class ImagePlotter:
         fig.savefig(outpath)
         plt.close(fig)
 
+
 def plot_history(history, outdir):
 
     fig = plt.figure(figsize=(12, 10))
@@ -675,12 +676,7 @@ def plot_history(history, outdir):
         key for key in history.keys() if "loss" in key and not "val" in key
     ]
     accuracy_types = [x.replace("x_", "").replace("y_", "") for x in accuracy_types]
-    for index,tensor in enumerate(history["y_loss"]):
-        history["y_loss"][index]= tensor.detach().numpy()
-   
-        
 
-    #for accuracy_type in tqdm(accuracy_types, desc="Plotting History"):
     for i in range(1):
         ax.plot(
             history["x_loss"],
@@ -717,18 +713,20 @@ def plot_history(history, outdir):
         ax.set_xlabel("Training time (a.u.)")
         ax.set_ylabel("Loss")
         ax.set_yscale("log")
-        #ax2.set_ylabel(f"Accuracy ({accuracy_type})")
-       # ax2.set_ylim(0, 1)
+        # ax2.set_ylabel(f"Accuracy ({accuracy_type})")
+        # ax2.set_ylim(0, 1)
         ax.legend(title="Loss")
-        #ax2.legend(title="Accuracy")
+        # ax2.legend(title="Accuracy")
         outdir = os.path.join(outdir, "history")
         try:
             os.makedirs(outdir)
         except FileExistsError:
             pass
-        accuracy_type="loss"   
+        accuracy_type = "loss"
         for ext in "png", "pdf":
             fig.savefig(os.path.join(outdir, f"history_{accuracy_type}.{ext}"))
+
+
 # def plot_history(history, outdir):
 #     """Utility function to plot loss and accuracy metrics."""
 #     outdir = os.path.join(outdir, "history")

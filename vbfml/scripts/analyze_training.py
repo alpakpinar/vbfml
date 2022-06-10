@@ -51,7 +51,8 @@ def analyze(training_path: str, sequence_types: List[str]):
     arch = get_model_arch(training_path)
     analyzerInstances = {"conv": ImageTrainingAnalyzer, "dense": TrainingAnalyzer}
     analyzer = analyzerInstances[arch](training_path)
-    analyzer.analyze(sequence_types)
+    # analyzer.analyze(sequence_types)
+    analyzer.analyze()
     analyzer.write_to_cache()
 
 
@@ -75,13 +76,13 @@ def plot(training_path: str, force_analyze: bool = False):
     # Plot histograms
     output_directory = os.path.join(training_path, "plots")
     if arch == "dense":
-         plotter_args = {
-        "weights": analyzer.data["weights"],
-        "predicted_scores": analyzer.data["predicted_scores"],
-        "truth_scores": analyzer.data["truth_scores"],
-        "histograms": analyzer.data["histograms"],
-        "output_directory": output_directory,
-    }
+        plotter_args = {
+            "weights": analyzer.data["weights"],
+            "predicted_scores": analyzer.data["predicted_scores"],
+            "truth_scores": analyzer.data["truth_scores"],
+            "histograms": analyzer.data["histograms"],
+            "output_directory": output_directory,
+        }
     elif arch == "conv":
         plotter_args = {
             "weights": analyzer.data["weights"],
@@ -114,7 +115,7 @@ def plot(training_path: str, force_analyze: bool = False):
     # accumulator_from_cache.plot()
 
     # Plot training history
-    loader = TrainingLoader(training_path,framework="pytorch")
+    loader = TrainingLoader(training_path, framework="pytorch")
     plot_history(loader.get_history(), output_directory)
 
 

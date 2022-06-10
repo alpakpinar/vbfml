@@ -86,7 +86,9 @@ def get_weight_integral_by_label(sequence: MultiDatasetSequence) -> Dict[str, fl
     return integrals
 
 
-def normalize_classes(sequence: MultiDatasetSequence,target_integral: float = 1) -> None:
+def normalize_classes(
+    sequence: MultiDatasetSequence, target_integral: float = 1
+) -> None:
     """Changes data set weights in-place so that all classes have same integral."""
     label_to_weight_dict = get_weight_integral_by_label(sequence)
     for dataset_obj in sequence.datasets.values():
@@ -131,22 +133,30 @@ def summarize_datasets(datasets: List[DatasetInfo]) -> None:
         )
     )
 
-def summarize_labels(sequence: MultiDatasetSequence,dataset_config: DatasetAndLabelConfiguration) -> None:
+
+def summarize_labels(
+    sequence: MultiDatasetSequence, dataset_config: DatasetAndLabelConfiguration
+) -> None:
     """
     Prints the classes encoding and the associated label
     """
     table = []
 
     for label in sequence.dataset_labels():
-        table.append((sequence.label_encoding[label], label,dataset_config.data['datasets'][label]['regex']))
+        table.append(
+            (
+                sequence.label_encoding[label],
+                label,
+                dataset_config.data["datasets"][label]["regex"],
+            )
+        )
 
     print(
         tabulate(
             sorted(table),
-            headers=["Class label encoding", "Dataset Label","Regular Expression"],
+            headers=["Class label encoding", "Dataset Label", "Regular Expression"],
         )
     )
-
 
 
 def scale_datasets(
@@ -268,7 +278,7 @@ def do_setup(
         shuffle=validation_params["shuffle"],
         scale_features=validation_params["scale_features"],
     )
-    summarize_labels(training_sequence,dataset_config)
+    summarize_labels(training_sequence, dataset_config)
     normalize_classes(training_sequence)
     normalize_classes(validation_sequence)
 

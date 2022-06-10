@@ -1,12 +1,11 @@
 import os
 
 
-
 from vbfml.training.util import load
 
 
 class TrainingLoader:
-    def __init__(self, training_directory,framework):
+    def __init__(self, training_directory, framework):
         self._directory = os.path.abspath(training_directory)
         self.framework = framework
 
@@ -14,8 +13,9 @@ class TrainingLoader:
         return os.path.join(self._directory, fname)
 
     def get_model(self, tag: str = "latest"):
-        if self.framework=="keras":
+        if self.framework == "keras":
             import tensorflow as tf
+
             return tf.keras.models.load_model(
                 os.path.join(self._directory, f"models/{tag}")
             )

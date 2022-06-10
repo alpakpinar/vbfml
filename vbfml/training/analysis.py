@@ -67,7 +67,7 @@ class TrainingAnalyzerBase:
     data: "dict" = field(default_factory=dict)
 
     def __post_init__(self):
-        self.loader = TrainingLoader(self.directory,framework="pytorch")
+        self.loader = TrainingLoader(self.directory, framework="pytorch")
         self.cache = os.path.join(self.directory, os.path.basename(self.cache))
 
     def _make_histogram(self, quantity_name: str) -> hist.Hist:
@@ -251,7 +251,7 @@ class TrainingAnalyzer(TrainingAnalyzerBase):
         validation_scores = []
         sample_weights = []
         for ibatch in tqdm(
-            range(len(sequence)), desc=f"jk Analyze batches of {sequence_type} sequence."
+            range(len(sequence)), desc=f"Analyze batches of {sequence_type} sequence."
         ):
             features, labels_onehot, weights = sequence[ibatch]
             labels = labels_onehot.argmax(axis=1)
@@ -374,7 +374,6 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
 
             predicted_scores.append(scores)
             truth_scores.append(labels_onehot)
-            
 
             self._fill_score_histograms(histograms, scores, labels, weights)
 
@@ -433,7 +432,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
             # sequence.scale_features = "norm"
             sequence.batch_size = int(1e6)
             sequence.batch_buffer_size = 10
-            
+
             (
                 histogram_out,
                 sample_counts,

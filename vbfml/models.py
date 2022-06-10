@@ -137,6 +137,7 @@ def sequential_convolutional_model(
     model.add(Dense(n_classes, activation="softmax"))
     return model
 
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -147,7 +148,7 @@ def swish(x):
 
 
 class Net(nn.Module):
-    def __init__(self, n_features, n_classes,n_nodes, dropout=0.5):
+    def __init__(self, n_features, n_classes, n_nodes, dropout=0.5):
         super(Net, self).__init__()
         self.layers = []
         self.n_classes = n_classes
@@ -176,15 +177,13 @@ class Net(nn.Module):
                 x = swish(layer(x))
             else:
                 x = layer(x)
-        #x = F.softmax(x,dim=1)
-        x = F.softmax(x,dim=1)
-        #x = torch.sigmoid(x)
-    # print(x)
+        # x = F.softmax(x,dim=1)
+        x = F.softmax(x, dim=1)
+        # x = torch.sigmoid(x)
+        # print(x)
         return x
 
     def predict(self, x):
         x = torch.Tensor(x).to(torch.device("cpu"))
         self.eval()
         return self(x).cpu().detach().numpy()
-
-
