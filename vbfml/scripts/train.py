@@ -271,14 +271,16 @@ def train(
     Train in a previously created working area.
     """
     training_directory = ctx.obj["TRAINING_DIRECTORY"]
-    framework = "pytorch"
-    loader = TrainingLoader(training_directory, framework=framework)
+    filepath = pjoin(training_directory, "model_identifier.txt")
+    with open(filepath, "r") as f:
+        arch = f.read().strip()
+    loader = TrainingLoader(training_directory, arch=arch)
 
     model = loader.get_model("latest")
 
     if learning_rate:
         assert learning_rate > 0, "Learning rate should be positive."
-        if framework == "keras":
+        if arch != "dense":
             K.set_value(model.optimizer.learning_rate, learning_rate)
 
     training_sequence = loader.get_sequence("training")
@@ -287,7 +289,7 @@ def train(
     # assert validation_sequence._feature_scaler
 
     validation_freq = 1  # Frequency of validation
-    if framework == "pytorch":
+    if arch == "dense":
         device = torch.device("cpu")
         # Binary cross entropy loss
         # Do not apply reduction, so that we can implement

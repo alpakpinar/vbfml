@@ -5,15 +5,15 @@ from vbfml.training.util import load
 
 
 class TrainingLoader:
-    def __init__(self, training_directory, framework):
+    def __init__(self, training_directory, arch):
         self._directory = os.path.abspath(training_directory)
-        self.framework = framework
+        self.arch = arch
 
     def _fpath(self, fname):
         return os.path.join(self._directory, fname)
 
     def get_model(self, tag: str = "latest"):
-        if self.framework == "keras":
+        if self.arch != "dense":
             import tensorflow as tf
 
             return tf.keras.models.load_model(
