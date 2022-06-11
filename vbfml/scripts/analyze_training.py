@@ -51,7 +51,6 @@ def analyze(training_path: str, sequence_types: List[str]):
     arch = get_model_arch(training_path)
     analyzerInstances = {"conv": ImageTrainingAnalyzer, "dense": TrainingAnalyzer}
     analyzer = analyzerInstances[arch](training_path)
-    # analyzer.analyze(sequence_types)
     analyzer.analyze()
     analyzer.write_to_cache()
 
@@ -61,7 +60,7 @@ def analyze(training_path: str, sequence_types: List[str]):
 @click.option("--force-analyze", default=False, is_flag=True)
 def plot(training_path: str, force_analyze: bool = False):
     arch = get_model_arch(training_path)
-    print(arch)
+
     # Redo the analysis if cache does not exist
     analyzerInstances = {"conv": ImageTrainingAnalyzer, "dense": TrainingAnalyzer}
     plotterInstances = {

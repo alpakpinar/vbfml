@@ -257,8 +257,6 @@ class TrainingAnalyzer(TrainingAnalyzerBase):
             labels = labels_onehot.argmax(axis=1)
 
             scores = model.predict(feature_scaler.transform(features))
-            print(scores)
-            # if sequence_type == "validation":
             predicted_scores.append(scores)
             validation_scores.append(labels_onehot)
             sample_weights.append(weights)
@@ -270,7 +268,6 @@ class TrainingAnalyzer(TrainingAnalyzerBase):
 
             self._fill_score_histograms(histograms, scores, labels, weights)
             self._fill_feature_covariance(features, labels_onehot, feature_scaler)
-            # self._fill_composition_histograms(histograms, scores, labels, weights)
 
         return histograms, predicted_scores, validation_scores, weights
 
@@ -408,7 +405,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
             sample_weights,
         )
 
-    def analyze(self, sequence_types: List[str]):
+    def analyze(self):
         """
         Loads all relevant data sets and analyze them.
         """
@@ -427,7 +424,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         # - List of labels
         # - Score distributions for a given class
 
-        for sequence_type in sequence_types:
+        for sequence_type in ["validation"]:
             sequence = self.loader.get_sequence(sequence_type)
             # sequence.scale_features = "norm"
             sequence.batch_size = int(1e6)

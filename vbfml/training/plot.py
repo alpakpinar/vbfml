@@ -541,7 +541,6 @@ class TrainingHistogramPlotter(PlotterBase):
     def plot_ROC(self) -> None:
         fpr = dict()
         tpr = dict()
-        print(np.array(self.predicted_scores).shape)
         score_classes = np.array(self.predicted_scores).shape[2]
         number_batches = np.array(self.predicted_scores).shape[0]
         for sclass in tqdm(range(score_classes), desc="Plotting ROC curves"):
