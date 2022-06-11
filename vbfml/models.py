@@ -12,6 +12,8 @@ from tensorflow.keras.layers import (
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import regularizers
 
+from typing import List
+
 
 def sequential_dense_model(
     n_features: int,

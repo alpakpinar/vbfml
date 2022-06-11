@@ -126,6 +126,7 @@ def summarize_datasets(datasets: List[DatasetInfo]) -> None:
     for key, value in total_by_label.items():
         table.append((key, "--- TOTAL ---", value))
 
+    print("")
     print(
         tabulate(
             sorted(table),
@@ -151,14 +152,14 @@ def summarize_labels(
             )
         )
 
-    # Print an enter to distinguish output from earlier output
     print("")
     print(
         tabulate(
             sorted(table),
-            headers=["Class label encoding", "Dataset Label", "Regular Expression"],
+            headers=["Class label", "Dataset Label", "Regular Expression"],
         )
     )
+    print("")
 
 
 def scale_datasets(

@@ -12,7 +12,6 @@ import pandas as pd
 
 
 from vbfml.models import sequential_convolutional_model, fully_connected_neural_network
-from vbfml.util import ModelConfiguration
 
 pjoin = os.path.join
 
@@ -42,24 +41,6 @@ def write_repo_version(outfile: str) -> None:
         f.write(git_diff() + "\n")
         f.write("git diff --staged:\n\n")
         f.write(git_diff_staged() + "\n")
-
-
-def write_model_info(model_config: ModelConfiguration, outfile: str) -> None:
-    """
-    Retrieves information about the given model configuration,
-    and writes the architecture parameters to outfile.
-    """
-    # Retrieve the model architecture parameters
-    arch_params = model_config.get("arch_parameters")
-    table = []
-    for k, v in arch_params.items():
-        table.append([k, v])
-
-    # Write to output file
-    with open(outfile, "w") as f:
-        f.write("Arch parameters:\n\n")
-        f.write(tabulate(table, headers=["Parameter Name", "Parameter Value"]))
-        f.write("\n")
 
 
 def get_process_tag_from_file(filename: str) -> str:
@@ -230,6 +211,24 @@ class ModelFactory:
             arch_parameters["n_features"] = len(model_config.get("features"))
 
         return builder_function[model](**arch_parameters)
+
+
+def write_model_info(model_config: ModelConfiguration, outfile: str) -> None:
+    """
+    Retrieves information about the given model configuration,
+    and writes the architecture parameters to outfile.
+    """
+    # Retrieve the model architecture parameters
+    arch_params = model_config.get("arch_parameters")
+    table = []
+    for k, v in arch_params.items():
+        table.append([k, v])
+
+    # Write to output file
+    with open(outfile, "w") as f:
+        f.write("Arch parameters:\n\n")
+        f.write(tabulate(table, headers=["Parameter Name", "Parameter Value"]))
+        f.write("\n")
 
 
 @dataclass
