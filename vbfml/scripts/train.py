@@ -65,9 +65,9 @@ def cli(ctx, training_directory):
     "--learning-rate", default=1e-3, required=False, help="Learning rate for training."
 )
 @click.option(
+    "-i",
     "--input-dir",
-    default=vbfml_path("root/2021-11-13_vbfhinv_treesForML"),
-    required=False,
+    required=True,
     help="Input directory containing the ROOT files for training and validation.",
 )
 @click.option(
@@ -188,7 +188,8 @@ def setup(
 
     # Save the model for later training
     if use_pytorch:
-        torch.save(model, prepend_path("model.pt"))
+        model.save(prepend_path("model.pt"))
+
     else:
         model.save(
             os.path.join(training_directory, "models/initial"), include_optimizer=True
@@ -297,7 +298,7 @@ def train(
         )
 
         # Save the trained model
-        torch.save(model, prepend_path("model.pt"))
+        model.save(prepend_path("model.pt"))
 
     # Keras-based training
     else:

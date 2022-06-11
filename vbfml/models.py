@@ -198,6 +198,10 @@ class FullyConnectedNN(nn.Module):
         self.eval()
         return self(x).cpu().detach().numpy()
 
+    def save(self, outpath: str) -> None:
+        """Save the model under path outpath."""
+        torch.save(self, outpath)
+
     def compute_weighted_loss(
         self,
         features: torch.Tensor,
