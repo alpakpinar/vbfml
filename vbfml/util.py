@@ -53,6 +53,9 @@ def get_model_arch(training_path: str):
 
     """
     filepath = pjoin(training_path, "model_identifier.txt")
+
+    assert os.path.exists(filepath), f"File not found: {filepath}"
+
     with open(filepath, "r") as f:
         arch = f.read().strip()
 

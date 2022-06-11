@@ -251,7 +251,7 @@ class TrainingAnalyzer(TrainingAnalyzerBase):
         validation_scores = []
         sample_weights = []
         for ibatch in tqdm(
-            range(len(sequence)), desc=f"Analyze batches of {sequence_type} sequence."
+            range(len(sequence)), desc=f"Analyze batches of {sequence_type} sequence"
         ):
             features, labels_onehot, weights = sequence[ibatch]
             labels = labels_onehot.argmax(axis=1)

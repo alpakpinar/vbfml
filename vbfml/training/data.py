@@ -1,6 +1,6 @@
 import os
 
-
+from vbfml.util import get_model_arch
 from vbfml.training.util import load
 
 
@@ -14,45 +14,25 @@ class TrainingLoader:
 
     def __init__(self, training_directory):
         self._directory = os.path.abspath(training_directory)
-        self._read_model_type()
+        self._arch = get_model_arch(training_directory)
 
     def _fpath(self, fname):
         return os.path.join(self._directory, fname)
 
-    def _read_model_type(self):
-        """
-        From the training directory, read the model type.
-        If it is a dense model, this class will use PyTorch to load it,
-        If it is a CNN model, it will use Keras instead.
-
-        Throws an error if the architecture parameter is not recognized.
-        """
-        arch_file = self._fpath("model_identifier.txt")
-
-        # Assert that this file exists
-        assert os.path.exists(arch_file), f"File not found: {arch_file}"
-
-        with open(arch_file, "r") as f:
-            arch = f.read().strip()
-
-        # Make sure that arch is valid, it must be "dense" or "conv"!
-        assert arch in ["dense", "conv"], f"Invalid arch parameter: {arch}"
-        self.arch = arch
-
     def get_model(self, tag: str = "latest"):
         """Loads and returns the neural network model."""
-        if self.arch == "conv":
+        if self._arch == "conv":
             import tensorflow as tf
 
             return tf.keras.models.load_model(
                 os.path.join(self._directory, f"models/{tag}")
             )
-        elif self.arch == "dense":
+        elif self._arch == "dense":
             import torch
 
             return torch.load(os.path.join(self._directory, "model.pt"))
 
-        raise RuntimeError(f"Cannot load model of given architecture: {self.arch}")
+        raise RuntimeError(f"Cannot load model of given architecture: {self._arch}")
 
     def get_sequence(self, sequence_type="training"):
         return load(self._fpath(f"{sequence_type}_sequence.pkl"))
