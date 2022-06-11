@@ -246,7 +246,7 @@ def setup(
     help="Number of iterations through the whole training set.",
 )
 @click.option(
-    "--learning-rate", type=float, default=None, help="Set new learning rate."
+    "--learning-rate", type=float, default=1e-3, help="Set new learning rate."
 )
 @click.option(
     "--no-verbose-output",
@@ -267,6 +267,7 @@ def train(
     Train in a previously created working area.
     """
     training_directory = ctx.obj["TRAINING_DIRECTORY"]
+    # Read the model architecture ("dense" or "conv")
     filepath = pjoin(training_directory, "model_identifier.txt")
     with open(filepath, "r") as f:
         arch = f.read().strip()
@@ -274,6 +275,7 @@ def train(
 
     model = loader.get_model("latest")
 
+    # Set non-default learning rate for Keras
     if learning_rate:
         assert learning_rate > 0, "Learning rate should be positive."
         if arch != "dense":
@@ -281,118 +283,25 @@ def train(
 
     training_sequence = loader.get_sequence("training")
     validation_sequence = loader.get_sequence("validation")
-    # assert training_sequence._feature_scaler
-    # assert validation_sequence._feature_scaler
 
-    validation_freq = 1  # Frequency of validation
+    def prepend_path(fname):
+        return os.path.join(training_directory, fname)
+
+    # Run PyTorch training
     if arch == "dense":
-        device = torch.device("cpu")
-        # Binary cross entropy loss
-        # Do not apply reduction, so that we can implement
-        # manual weighted reduction later on
-        history = defaultdict(list)
-        criterion = nn.BCELoss(reduction="none")
-        # criterion =  nn.CrossEntropyLoss(reduction='none')
-        # criterion =  nn.MSELoss(reduction='none')
-        optm = SGD(model.parameters(), lr=learning_rate)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optm,
-            factor=0.1,
-            patience=5,
-            threshold=1e-2,
-            verbose=True,
-            cooldown=2,
-            min_lr=1e-5,
+        history = model.run_training(
+            training_sequence=training_sequence,
+            validation_sequence=validation_sequence,
+            learning_rate=learning_rate,
+            num_epochs=num_epochs,
         )
 
-        def train_pytorch(
-            model,
-            features: torch.Tensor,
-            true_labels: torch.Tensor,
-            weights: torch.Tensor,
-            optimizer,
-            loss_criterion,
-        ):
-            """
-            One iteration of training on a batch of data.
-            """
-            model.zero_grad()
-            loss, predicted_labels = weighted_loss(
-                model, features, true_labels, weights, loss_criterion
-            )
-            loss.backward()
-            optimizer.step()
-            return loss, predicted_labels
-
-        def weighted_loss(model, features, true_labels, weights, loss_criterion):
-            """
-            Compute the weighted loss for a batch of data.
-            """
-            predicted_labels = model(features)
-            # print(predicted_labels)
-            raw_loss = loss_criterion(predicted_labels, true_labels)
-            loss = torch.sum(weights * raw_loss) / torch.sum(weights)
-            return loss, predicted_labels
-
-        for epoch in range(num_epochs):
-            training_loss = 0
-            correct = 0
-
-            # Put model into training mode
-            model.train(True)
-
-            # Loop over training batches and train
-            for batch in tqdm(training_sequence, desc="Running training"):
-                x_train, y_train, w_train = batch
-                loss, predictions = train_pytorch(
-                    model,
-                    torch.Tensor(x_train).to(device),
-                    torch.Tensor(y_train).to(device),
-                    torch.Tensor(w_train).to(device),
-                    optm,
-                    criterion,
-                )
-                training_loss += loss.item()
-
-            # Put model into inference mode
-            model.train(False)
-
-            # Calculate validation loss
-            validation_loss = 0
-            for batch in validation_sequence:
-                x, y, w = batch
-                loss, _ = weighted_loss(
-                    model,
-                    torch.Tensor(x).to(device),
-                    torch.Tensor(y).to(device),
-                    torch.Tensor(w).to(device),
-                    criterion,
-                )
-                validation_loss += loss.item()
-
-            # Normalize losses by number of batches
-            training_loss /= len(training_sequence)
-            validation_loss /= len(validation_sequence)
-
-            # Pass validation loss to learning rate scheduler
-            scheduler.step(validation_loss)
-
-            print(
-                f"Epoch {epoch+1} Loss : {training_loss:.4f} Validation loss : {validation_loss:.4f}"
-            )
-
-            history["x_loss"].append(epoch)
-            history["x_val_loss"].append(epoch)
-            history["y_loss"].append(training_loss)
-            history["y_val_loss"].append(validation_loss)
-
-        def prepend_path(fname):
-            return os.path.join(training_directory, fname)
-
-        # save The trained model
+        # Save the trained model
         torch.save(model, prepend_path("model.pt"))
+
     # Keras-based training
     else:
+        validation_freq = 1  # Frequency of validation
         fit_args = {
             "x": training_sequence,
             "epochs": num_epochs,
@@ -421,9 +330,7 @@ def train(
             os.path.join(training_directory, "models/latest"), include_optimizer=True
         )
 
-    def prepend_path(fname):
-        return os.path.join(training_directory, fname)
-
+    # Save the training history
     save(history, prepend_path("history.pkl"))
 
 
