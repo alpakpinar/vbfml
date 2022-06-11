@@ -38,6 +38,10 @@ class TestTrainingLoader(TestCase):
             n_classes=1,
         )
 
+        self.model_identifier_file = os.path.join(self.wdir, "model_identifier.txt")
+        with open(self.model_identifier_file, "w+") as f:
+            f.write("dense")
+
         self.model.save(os.path.join(self.wdir, "models/latest"))
         save("training_sequence", self.training_sequence_file)
         save("validation_sequence", self.validation_sequence_file)
@@ -96,6 +100,11 @@ class TestTrainingAnalysisAndPlot(TestCase):
             n_nodes=[1],
             n_classes=2,
         )
+
+        self.model_identifier_file = os.path.join(self.wdir, "model_identifier.txt")
+        with open(self.model_identifier_file, "w+") as f:
+            f.write("dense")
+
         self.model.compile(
             loss="categorical_crossentropy",
             optimizer="adam",

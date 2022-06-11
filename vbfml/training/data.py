@@ -33,7 +33,7 @@ class TrainingLoader:
         assert os.path.exists(arch_file), f"File not found: {arch_file}"
 
         with open(arch_file, "r") as f:
-            arch = f.read.strip()
+            arch = f.read().strip()
 
         # Make sure that arch is valid, it must be "dense" or "conv"!
         assert arch in ["dense", "conv"], f"Invalid arch parameter: {arch}"
