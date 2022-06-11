@@ -115,7 +115,7 @@ def plot(training_path: str, force_analyze: bool = False):
     # accumulator_from_cache.plot()
 
     # Plot training history
-    loader = TrainingLoader(training_path, framework="pytorch")
+    loader = TrainingLoader(training_path)
     plot_history(loader.get_history(), output_directory)
 
 

@@ -271,7 +271,7 @@ def train(
     filepath = pjoin(training_directory, "model_identifier.txt")
     with open(filepath, "r") as f:
         arch = f.read().strip()
-    loader = TrainingLoader(training_directory, arch=arch)
+    loader = TrainingLoader(training_directory)
 
     model = loader.get_model("latest")
 
