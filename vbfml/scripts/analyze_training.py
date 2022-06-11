@@ -35,6 +35,9 @@ def cli():
 @click.argument("training_path")
 @click.option("-s", "--sequence-types", multiple=True, default=["validation"])
 def analyze(training_path: str, sequence_types: List[str]):
+    """
+    Given a training area, analyze the trained model and fill feature and score histograms.
+    """
     arch = get_model_arch(training_path)
     analyzerInstances = {"conv": ImageTrainingAnalyzer, "dense": TrainingAnalyzer}
     analyzer = analyzerInstances[arch](training_path)
@@ -46,6 +49,10 @@ def analyze(training_path: str, sequence_types: List[str]):
 @click.argument("training_path")
 @click.option("--force-analyze", default=False, is_flag=True)
 def plot(training_path: str, force_analyze: bool = False):
+    """
+    Given a training area with the analyzer cache (output of the analyze function),
+    plot the resulting histograms.
+    """
     arch = get_model_arch(training_path)
 
     # Redo the analysis if cache does not exist
