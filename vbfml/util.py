@@ -43,6 +43,25 @@ def write_repo_version(outfile: str) -> None:
         f.write(git_diff_staged() + "\n")
 
 
+def get_model_arch(training_path: str):
+    """
+    Get the model architecture from a file called "model_identifier.txt".
+    This will be used to determine which analyzer/plotter to call in these functions.
+
+    Args:
+        training_path ([type]): Path to the training directory, where the "model_identifier.txt" file is located.
+
+    """
+    filepath = pjoin(training_path, "model_identifier.txt")
+    with open(filepath, "r") as f:
+        arch = f.read().strip()
+
+    # Make sure the arch parameter makes sense
+    assert arch in ["dense", "conv"], f"Unknown architecture type: {arch}"
+
+    return arch
+
+
 def get_process_tag_from_file(filename: str) -> str:
     """
     Given a ROOT filename, return the process tag showing

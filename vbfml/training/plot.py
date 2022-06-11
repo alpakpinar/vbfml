@@ -592,6 +592,13 @@ class TrainingHistogramPlotter(PlotterBase):
 
 @dataclass
 class ImagePlotter:
+    """
+    Class to plot a 2D jet-based image. Usage is simple:
+
+    >>> plotter = ImagePlotter()
+    >>> plotter.plot(image_array, outdir, filename)
+    """
+
     n_eta_bins: int = 40
     n_phi_bins: int = 20
     eta_range: Tuple[float] = (-5, 5)

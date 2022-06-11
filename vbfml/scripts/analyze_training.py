@@ -19,28 +19,11 @@ from vbfml.training.plot import (
     plot_history,
 )
 
+from vbfml.util import get_model_arch
+
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
 pjoin = os.path.join
-
-
-def get_model_arch(training_path: str):
-    """
-    Get the model architecture from a file called "model_identifier.txt".
-    This will be used to determine which analyzer/plotter to call in these functions.
-
-    Args:
-        training_path ([type]): Path to the training directory, where the "model_identifier.txt" file is located.
-
-    """
-    filepath = pjoin(training_path, "model_identifier.txt")
-    with open(filepath, "r") as f:
-        arch = f.read().strip()
-
-    # Make sure the arch parameter makes sense
-    assert arch in ["dense", "conv"], f"Unknown architecture type: {arch}"
-
-    return arch
 
 
 @click.group()
