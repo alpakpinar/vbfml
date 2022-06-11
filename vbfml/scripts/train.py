@@ -11,7 +11,6 @@ from collections import defaultdict
 import click
 import tensorflow as tf
 from keras import backend as K
-from tabulate import tabulate
 from tqdm import tqdm
 
 import torch
@@ -36,9 +35,8 @@ from vbfml.util import (
     ModelFactory,
     DatasetAndLabelConfiguration,
     vbfml_path,
-    git_rev_parse,
-    git_diff,
-    git_diff_staged,
+    write_repo_version,
+    write_model_info,
 )
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
@@ -92,6 +90,10 @@ def setup(
 ):
     """
     Creates a new working area. Prerequisite for later training.
+
+    By default, if the model is a dense neural network (DNN), this function
+    will setup a PyTorch model, and if it is a convolutional neural network (CNN),
+    it will setup a Keras model.
     """
 
     all_datasets = load_datasets_bucoffea(input_dir)
@@ -130,7 +132,9 @@ def setup(
         shuffle=validation_params["shuffle"],
         scale_features=validation_params["scale_features"],
     )
+
     summarize_labels(training_sequence, dataset_config)
+
     normalize_classes(training_sequence, target_integral=1e6)
     normalize_classes(validation_sequence, target_integral=1e6)
 
@@ -151,10 +155,15 @@ def setup(
     validation_sequence.batch_buffer_size = validation_params["batch_buffer_size"]
 
     # Build model
-    model = ModelFactory.build(mconfig)
-    if mconfig.get("architecture") == "dense":
-        print(model)
+    # We're assuming that if architecture = "dense", this is a PyTorch model
+    use_pytorch = mconfig.get("architecture") == "dense"
 
+    model = ModelFactory.build(mconfig)
+    if use_pytorch:
+        print("\nPyTorch DNN model:")
+        print(f"\n{model}\n")
+
+    # Keras-related model operations
     else:
         optimizer = tf.keras.optimizers.Adam(
             learning_rate=learning_rate,
@@ -177,8 +186,8 @@ def setup(
     def prepend_path(fname):
         return os.path.join(training_directory, fname)
 
-    # The trained model
-    if mconfig.get("architecture") == "dense":
+    # Save the model for later training
+    if use_pytorch:
         torch.save(model, prepend_path("model.pt"))
     else:
         model.save(
@@ -211,26 +220,13 @@ def setup(
         f.write(mconfig.get("architecture"))
 
     # Save repo version information to version.txt
-    with open(os.path.join(training_directory, "version.txt"), "w") as f:
-        f.write(f"Commit hash: {git_rev_parse()}\n")
-        f.write("git diff:\n\n")
-        f.write(git_diff() + "\n")
-        f.write("git diff --staged:\n\n")
-        f.write(git_diff_staged() + "\n")
+    write_repo_version(os.path.join(training_directory, "version.txt"))
 
     # Save the arch parameters for this model as a table
-    arch_params = mconfig.get("arch_parameters")
-    table = []
-    for k, v in arch_params.items():
-        table.append([k, v])
+    write_model_info(mconfig, os.path.join(training_directory, "arch.txt"))
 
-    with open(os.path.join(training_directory, "arch.txt"), "w") as f:
-        f.write("Arch parameters:\n\n")
-        f.write(tabulate(table, headers=["Parameter Name", "Parameter Value"]))
-        f.write("\n")
-
-    # Save a plot of the model architecture
-    if not no_plot_model and mconfig.get("architecture") != "dense":
+    # Save a plot of the model architecture (only supported for Keras models)
+    if not no_plot_model and not use_pytorch:
         from keras.utils.vis_utils import plot_model
 
         plot_dir = os.path.join(training_directory, "plots")

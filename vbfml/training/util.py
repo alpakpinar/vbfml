@@ -151,6 +151,8 @@ def summarize_labels(
             )
         )
 
+    # Print an enter to distinguish output from earlier output
+    print("")
     print(
         tabulate(
             sorted(table),

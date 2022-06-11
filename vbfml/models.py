@@ -138,6 +138,7 @@ def sequential_convolutional_model(
     return model
 
 
+# Pytorch based models
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -147,9 +148,13 @@ def swish(x):
     return x * torch.sigmoid(x)
 
 
-class Net(nn.Module):
+class FullyConnectedNN(nn.Module):
+    """
+    PyTorch based fully connected neural network class that runs on CPU.
+    """
+
     def __init__(self, n_features, n_classes, n_nodes, dropout=0.5):
-        super(Net, self).__init__()
+        super(FullyConnectedNN, self).__init__()
         self.layers = []
         self.n_classes = n_classes
         self.n_features = n_features
@@ -172,18 +177,32 @@ class Net(nn.Module):
             setattr(self, "layer_%d" % i, layer)
 
     def forward(self, x):
+        """Forward pass through the network."""
         for layer in self.layers:
             if isinstance(layer, nn.Linear):
                 x = swish(layer(x))
             else:
                 x = layer(x)
-        # x = F.softmax(x,dim=1)
         x = F.softmax(x, dim=1)
-        # x = torch.sigmoid(x)
-        # print(x)
         return x
 
     def predict(self, x):
+        """Make predictions on input data."""
         x = torch.Tensor(x).to(torch.device("cpu"))
+        # Put the model into evaluation mode i.e. self.train(False)
         self.eval()
         return self(x).cpu().detach().numpy()
+
+
+def fully_connected_neural_network(
+    n_features: int, n_classes: int, n_nodes: List[int], dropout: float = 0.5
+) -> FullyConnectedNN:
+    """
+    Wrapper function that returns a PyTorch based DNN model.
+    """
+    return FullyConnectedNN(
+        n_features=n_features,
+        n_classes=n_classes,
+        n_nodes=n_nodes,
+        dropout=dropout,
+    )
