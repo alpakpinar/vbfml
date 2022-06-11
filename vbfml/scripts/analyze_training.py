@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 pjoin = os.path.join
 
 
-def get_model_arch(training_path):
+def get_model_arch(training_path: str):
     """
     Get the model architecture from a file called "model_identifier.txt".
     This will be used to determine which analyzer/plotter to call in these functions.
@@ -36,6 +36,10 @@ def get_model_arch(training_path):
     filepath = pjoin(training_path, "model_identifier.txt")
     with open(filepath, "r") as f:
         arch = f.read().strip()
+
+    # Make sure the arch parameter makes sense
+    assert arch in ["dense", "conv"], f"Unknown architecture type: {arch}"
+
     return arch
 
 
@@ -74,44 +78,24 @@ def plot(training_path: str, force_analyze: bool = False):
 
     # Plot histograms
     output_directory = os.path.join(training_path, "plots")
-    if arch == "dense":
-        plotter_args = {
-            "weights": analyzer.data["weights"],
-            "predicted_scores": analyzer.data["predicted_scores"],
-            "truth_scores": analyzer.data["truth_scores"],
-            "histograms": analyzer.data["histograms"],
-            "output_directory": output_directory,
-        }
-    elif arch == "conv":
-        plotter_args = {
-            "weights": analyzer.data["weights"],
-            "predicted_scores": analyzer.data["predicted_scores"],
-            "truth_scores": analyzer.data["truth_scores"],
-            "histograms": analyzer.data["histograms"],
-            "output_directory": output_directory,
-        }
+    plotter_args = {
+        "weights": analyzer.data["weights"],
+        "predicted_scores": analyzer.data["predicted_scores"],
+        "truth_scores": analyzer.data["truth_scores"],
+        "histograms": analyzer.data["histograms"],
+        "output_directory": output_directory,
+    }
+    if arch == "conv":
         plotter_args["sample_counts"] = analyzer.data["sample_counts_per_sequence"]
         plotter_args["label_encoding"] = analyzer.data["label_encoding"]
-    else:
-        plotter_args = {
-            "weights": analyzer.data["weights"],
-            "predicted_scores": analyzer.data["predicted_scores"],
-            "truth_scores": analyzer.data["truth_scores"],
-            "histograms": analyzer.data["histograms"],
-            "output_directory": output_directory,
-        }
 
+    # Create the plotter instance and plot the histograms
     plotter = plotterInstances[arch](**plotter_args)
     plotter.plot()
 
+    # Covariance plots for DNNs
     if arch == "dense":
         plotter.plot_covariance(analyzer.data["covariance"])
-
-    # accumulator_from_cache = ImageAccumulatorFromAnalyzerCache(
-    # analyzer.data["grouped_image_data"], output_directory
-    # )
-    # accumulator_from_cache.accumulate()
-    # accumulator_from_cache.plot()
 
     # Plot training history
     loader = TrainingLoader(training_path)
