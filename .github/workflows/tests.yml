@@ -1,7 +1,7 @@
 
 name: tests
 # Running tests on all branches
-on: [pull_request]
+on: [pull_request, push]
 
 # Suppress tensorflow logging
 # Only print messages classified as ERROR
