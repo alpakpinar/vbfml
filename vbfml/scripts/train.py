@@ -37,6 +37,7 @@ from vbfml.util import (
     vbfml_path,
     write_repo_version,
     write_model_info,
+    get_model_arch,
 )
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
@@ -269,9 +270,8 @@ def train(
     """
     training_directory = ctx.obj["TRAINING_DIRECTORY"]
     # Read the model architecture ("dense" or "conv")
-    filepath = pjoin(training_directory, "model_identifier.txt")
-    with open(filepath, "r") as f:
-        arch = f.read().strip()
+    arch = get_model_arch(training_directory)
+
     loader = TrainingLoader(training_directory)
 
     model = loader.get_model("latest")
