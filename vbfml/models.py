@@ -202,6 +202,12 @@ class FullyConnectedNN(nn.Module):
         """Save the model under path outpath."""
         torch.save(self, outpath)
 
+    def save_state_dict(self, outpath: str) -> None:
+        """
+        Save the state dictionary of the model under outpath.
+        """
+        torch.save(self.state_dict(), outpath)
+
     def compute_weighted_loss(
         self,
         features: torch.Tensor,

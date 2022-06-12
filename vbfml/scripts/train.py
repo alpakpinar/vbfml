@@ -298,7 +298,7 @@ def train(
         )
 
         # Save the trained model
-        model.save(prepend_path("model.pt"))
+        model.save_state_dict(prepend_path("model_state_dict.pt"))
 
     # Keras-based training
     else:
