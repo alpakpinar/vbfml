@@ -246,8 +246,8 @@ class FullyConnectedNN(nn.Module):
         self,
         training_sequence,
         validation_sequence,
-        learning_rate: float,
-        num_epochs: int,
+        learning_rate: float = 1e-3,
+        num_epochs: int = 10,
     ) -> defaultdict:
         """Run training on this model."""
 
