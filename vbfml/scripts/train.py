@@ -154,7 +154,7 @@ def setup(
     )
     validation_sequence.batch_size = validation_params["batch_size"]
     validation_sequence.batch_buffer_size = validation_params["batch_buffer_size"]
-   
+
     # Build model
     # We're assuming that if architecture = "dense", this is a PyTorch model
     use_pytorch = mconfig.get("architecture") == "dense"
@@ -300,7 +300,6 @@ def train(
         # Save the trained model
         model.save_state_dict(prepend_path("model_state_dict.pt"))
         model.save(prepend_path("model.pt"))
-        
 
     # Keras-based training
     else:
