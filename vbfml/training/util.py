@@ -282,8 +282,8 @@ def do_setup(
         scale_features=validation_params["scale_features"],
     )
     summarize_labels(training_sequence, dataset_config)
-    normalize_classes(training_sequence)
-    normalize_classes(validation_sequence)
+    normalize_classes(training_sequence,target_integral=1e6)
+    normalize_classes(validation_sequence,target_integral=1e6)
 
     # Training sequence
     train_size = training_params["train_size"]
@@ -301,7 +301,6 @@ def do_setup(
     )
     validation_sequence.batch_size = validation_params["batch_size"]
     validation_sequence.batch_buffer_size = validation_params["batch_buffer_size"]
-
     try:
         os.makedirs(output_directory)
     except FileExistsError:
