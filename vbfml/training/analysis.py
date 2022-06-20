@@ -269,7 +269,7 @@ class TrainingAnalyzer(TrainingAnalyzerBase):
             self._fill_score_histograms(histograms, scores, labels, weights)
             self._fill_feature_covariance(features, labels_onehot, feature_scaler)
 
-        return histograms, predicted_scores, validation_scores, weights
+        return histograms, predicted_scores, validation_scores, sample_weights
 
 
 @dataclass

@@ -534,42 +534,43 @@ class TrainingHistogramPlotter(PlotterBase):
                 plt.close(fig)
 
     def plot(self) -> None:
+        self.plot_ROC()
         self.plot_by_sequence_types()
-        # self.plot_ROC()
 
     # plot ROC curve for each class
     def plot_ROC(self) -> None:
         fpr = dict()
         tpr = dict()
-        score_classes = np.array(self.predicted_scores).shape[2]
-        number_batches = np.array(self.predicted_scores).shape[0]
+        score_classes = len(self.predicted_scores[0][0])
+        number_batches = len(self.predicted_scores)
         for sclass in tqdm(range(score_classes), desc="Plotting ROC curves"):
             # combine batch scores for each class
             p_score = np.array(self.predicted_scores[0][:, sclass])
             v_score = np.array(self.truth_scores[0][:, sclass])
-            sample_weights = np.array(self.weights)
+            weights_combined = np.array(self.weights[0])
             predicted_scores_combined = p_score
             truth_scores_combined = v_score
             for batch in range(1, number_batches):
-                sample_weights = np.append(sample_weights, sample_weights)
+                sample_weights = np.asarray(self.weights[batch])
                 p_score = np.asarray(self.predicted_scores[batch][:, sclass])
                 v_score = np.asarray(self.truth_scores[batch][:, sclass])
                 predicted_scores_combined = np.append(
                     predicted_scores_combined, p_score
                 )
                 truth_scores_combined = np.append(truth_scores_combined, v_score)
+                weights_combined = np.append(weights_combined, sample_weights)
             np.reshape(predicted_scores_combined, (len(predicted_scores_combined), 1))
             np.reshape(truth_scores_combined, (len(truth_scores_combined), 1))
             # make ROC curve
             fpr[sclass], tpr[sclass], thresholds = metrics.roc_curve(
                 truth_scores_combined,
                 predicted_scores_combined,
-                sample_weight=sample_weights,
+                sample_weight=weights_combined,
             )
             auc = metrics.roc_auc_score(
                 truth_scores_combined,
                 predicted_scores_combined,
-                sample_weight=sample_weights,
+                sample_weight=weights_combined,
             )
             fig, ax = plt.subplots()
             label_1 = "Current Classifier- AUC =" + str(round(auc, 3))
