@@ -1,9 +1,10 @@
 import copy
 import os
 import shutil
+import torch
 from unittest import TestCase
 
-from vbfml.models import sequential_dense_model
+from vbfml.models import sequential_dense_model, fully_connected_neural_network
 from vbfml.tests.util import create_test_tree, make_tmp_dir
 from vbfml.training.analysis import TrainingAnalyzer
 from vbfml.training.data import TrainingLoader
@@ -12,9 +13,24 @@ from vbfml.training.plot import TrainingHistogramPlotter, plot_history
 from vbfml.training.util import append_history, save
 
 
-def keras_model_compare(model1, model2):
+def keras_model_compare(model1, model2) -> bool:
+    """
+    Compare two Keras models to determine whether
+    the weights and biases are identical.
+    """
     for l1, l2 in zip(model1.layers, model2.layers):
         if not l1.get_config() == l2.get_config():
+            return False
+    return True
+
+
+def pytorch_model_compare(model1, model2) -> bool:
+    """
+    Compare two PyTorch models to determine whether
+    the weights and biases are identical.
+    """
+    for p1, p2 in zip(model1.parameters(), model2.parameters()):
+        if p1.data.ne(p2.data).sum() > 0:
             return False
     return True
 
@@ -31,14 +47,19 @@ class TestTrainingLoader(TestCase):
         self.history_file = os.path.join(self.wdir, "history.pkl")
         self.feature_scaler_file = os.path.join(self.wdir, "feature_scaler.pkl")
 
-        self.model = sequential_dense_model(
+        # Set up a DNN model using PyTorch
+        self.model = fully_connected_neural_network(
             n_features=1,
-            n_layers=1,
             n_nodes=[1],
             n_classes=1,
         )
 
-        self.model.save(os.path.join(self.wdir, "models/latest"))
+        self.model_identifier_file = os.path.join(self.wdir, "model_identifier.txt")
+        with open(self.model_identifier_file, "w+") as f:
+            f.write("dense")
+
+        # Save the PyTorch model, and other data under the working directory
+        self.model.save(os.path.join(self.wdir, "model.pt"))
         save("training_sequence", self.training_sequence_file)
         save("validation_sequence", self.validation_sequence_file)
         save("features", self.feature_file)
@@ -46,8 +67,12 @@ class TestTrainingLoader(TestCase):
         save("feature_scaler", self.feature_scaler_file)
 
     def test_loader(self):
+        """
+        Test that the objects returned from the TrainingLoader are the same
+        as the objects that were saved by it.
+        """
         loader = TrainingLoader(self.wdir)
-        self.assertTrue(keras_model_compare(loader.get_model(), self.model))
+        self.assertTrue(pytorch_model_compare(loader.get_model(), self.model))
         self.assertEqual(loader.get_sequence("training"), "training_sequence")
         self.assertEqual(loader.get_sequence("validation"), "validation_sequence")
         self.assertEqual(loader.get_features(), "features")
@@ -90,30 +115,31 @@ class TestTrainingAnalysisAndPlot(TestCase):
         self.history_file = os.path.join(self.wdir, "history.pkl")
         self.feature_scaler_file = os.path.join(self.wdir, "feature_scaler.pkl")
 
-        self.model = sequential_dense_model(
+        # Create PyTorch DNN model
+        self.model = fully_connected_neural_network(
             n_features=len(self.features),
-            n_layers=1,
             n_nodes=[1],
             n_classes=2,
         )
-        self.model.compile(
-            loss="categorical_crossentropy",
-            optimizer="adam",
-            metrics=["categorical_accuracy"],
+
+        self.model_identifier_file = os.path.join(self.wdir, "model_identifier.txt")
+        with open(self.model_identifier_file, "w+") as f:
+            f.write("dense")
+
+        # Run training on the PyTorch model
+        history = self.model.run_training(
+            training_sequence=self.training_sequence,
+            validation_sequence=self.validation_sequence,
+            num_epochs=5,
         )
 
-        self.model.fit(
-            self.training_sequence,
-            shuffle=False,
-            validation_data=self.validation_sequence,
-        )
-
-        self.model.save(os.path.join(self.wdir, "models", "latest"))
+        # Save the trained model, and the training/validation datasets
+        self.model.save(os.path.join(self.wdir, "model.pt"))
         save(self.training_sequence, self.training_sequence_file)
         save(self.validation_sequence, self.validation_sequence_file)
         save(self.features, self.feature_file)
 
-        save(append_history({}, self.model.history.history), self.history_file)
+        save(history, self.history_file)
         save(self.training_sequence._feature_scaler, self.feature_scaler_file)
 
         self.analyzer = TrainingAnalyzer(self.wdir)
@@ -147,7 +173,7 @@ class TestTrainingAnalysisAndPlot(TestCase):
         plotter = TrainingHistogramPlotter(
             self.analyzer.data["weights"],
             self.analyzer.data["predicted_scores"],
-            self.analyzer.data["validation_scores"],
+            self.analyzer.data["truth_scores"],
             self.analyzer.data["histograms"],
         )
         plotter.plot_by_sequence_types()

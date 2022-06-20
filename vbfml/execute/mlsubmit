@@ -6,13 +6,13 @@ import warnings
 import logging
 import pandas as pd
 import tensorflow as tf
+import torch
 
 from datetime import datetime
 
 from vbfml.util import (
     vbfml_path,
-    git_rev_parse,
-    git_diff,
+    write_repo_version,
     ModelConfiguration,
     ModelFactory,
 )
@@ -47,8 +47,15 @@ def parse_cli():
         "-n",
         "--num_epochs",
         type=int,
-        default=20,
+        default=10,
         help="Number of iterations through the whole training set.",
+    )
+    parser.add_argument(
+        "-lr",
+        "--learning_rate",
+        type=int,
+        default=0.001,
+        help="Learning rate",
     )
     parser.add_argument(
         "--name", default=None, help="Job name specifying this particular submission."
@@ -70,7 +77,10 @@ def parse_cli():
 
 
 def do_submit(args):
-    """Submission operation."""
+    """
+    Sets up a training area with the given model configuration,
+    and submits a job to HTCondor to run the training.
+    """
     import htcondor
 
     # Create the submission directory
@@ -98,26 +108,41 @@ def do_submit(args):
     mconfig = ModelConfiguration(args.model_config)
     model = ModelFactory.build(mconfig)
 
-    optimizer = tf.keras.optimizers.Adam(
-        beta_1=0.9,
-        beta_2=0.999,
-        epsilon=1e-07,
-        amsgrad=False,
-        name="Adam",
-    )
-    model.compile(
-        loss="categorical_crossentropy",
-        optimizer=optimizer,
-        weighted_metrics=["categorical_accuracy"],
-    )
-    model.summary()
+    model_arch = mconfig.get("architecture")
+    assert model_arch in ["dense", "conv"], f"Unknown model architecture: {model_arch}"
 
-    model.save(pjoin(subdir, "models/latest"), include_optimizer=True)
+    # For dense models, we will use PyTorch
+    if model_arch == "dense":
+        print("\nPyTorch DNN model:")
+        print(f"\n{model}\n")
+
+        def prepend_path(fname):
+            return os.path.join(subdir, fname)
+
+        # Save the model
+        torch.save(model, prepend_path("model.pt"))
+
+    # Keras models for CNNs
+    else:
+        optimizer = tf.keras.optimizers.Adam(
+            learning_rate=0.001,
+            beta_1=0.9,
+            beta_2=0.999,
+            epsilon=1e-07,
+            amsgrad=False,
+            name="Adam",
+        )
+        model.compile(
+            loss="categorical_crossentropy",
+            optimizer=optimizer,
+            weighted_metrics=["categorical_accuracy"],
+        )
+        model.summary()
+
+        model.save(pjoin(subdir, "models/latest"), include_optimizer=True)
 
     # Repo version information
-    with open(pjoin(subdir, "version.txt"), "w") as f:
-        f.write(git_rev_parse() + "\n")
-        f.write(git_diff() + "\n")
+    write_repo_version(pjoin(subdir, "version.txt"))
 
     # List of input files/directories we want to ship to the execution machine
     input_files = []
@@ -140,6 +165,7 @@ def do_submit(args):
         "train",
         f"--num-epochs {args.num_epochs}",
         "--no-verbose-output",
+        f"--learning-rate {args.learning_rate}",
     ]
 
     submission_settings = {

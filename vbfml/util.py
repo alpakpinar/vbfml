@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict
 from collections import OrderedDict
+from tabulate import tabulate
 
 import os
 import re
@@ -10,7 +11,7 @@ import subprocess
 import pandas as pd
 
 
-from vbfml.models import sequential_convolutional_model, sequential_dense_model
+from vbfml.models import sequential_convolutional_model, fully_connected_neural_network
 
 pjoin = os.path.join
 
@@ -30,6 +31,38 @@ def git_diff():
 
 def git_diff_staged():
     return subprocess.check_output(["git", "diff", "--staged"]).decode("utf-8")
+
+
+def write_repo_version(outfile: str) -> None:
+    """Writes information about repository version to outfile."""
+    with open(outfile, "w") as f:
+        f.write(f"Commit hash: {git_rev_parse()}\n")
+        f.write("git diff:\n\n")
+        f.write(git_diff() + "\n")
+        f.write("git diff --staged:\n\n")
+        f.write(git_diff_staged() + "\n")
+
+
+def get_model_arch(training_path: str):
+    """
+    Get the model architecture from a file called "model_identifier.txt".
+    This will be used to determine which analyzer/plotter to call in these functions.
+
+    Args:
+        training_path ([type]): Path to the training directory, where the "model_identifier.txt" file is located.
+
+    """
+    filepath = pjoin(training_path, "model_identifier.txt")
+
+    assert os.path.exists(filepath), f"File not found: {filepath}"
+
+    with open(filepath, "r") as f:
+        arch = f.read().strip()
+
+    # Make sure the arch parameter makes sense
+    assert arch in ["dense", "conv"], f"Unknown architecture type: {arch}"
+
+    return arch
 
 
 def get_process_tag_from_file(filename: str) -> str:
@@ -190,7 +223,7 @@ class ModelFactory:
         arch_parameters = model_config.get("arch_parameters")
 
         builder_function = {
-            "dense": sequential_dense_model,
+            "dense": fully_connected_neural_network,
             "conv": sequential_convolutional_model,
         }
 
@@ -202,8 +235,30 @@ class ModelFactory:
         return builder_function[model](**arch_parameters)
 
 
+def write_model_info(model_config: ModelConfiguration, outfile: str) -> None:
+    """
+    Retrieves information about the given model configuration,
+    and writes the architecture parameters to outfile.
+    """
+    # Retrieve the model architecture parameters
+    arch_params = model_config.get("arch_parameters")
+    table = []
+    for k, v in arch_params.items():
+        table.append([k, v])
+
+    # Write to output file
+    with open(outfile, "w") as f:
+        f.write("Arch parameters:\n\n")
+        f.write(tabulate(table, headers=["Parameter Name", "Parameter Value"]))
+        f.write("\n")
+
+
 @dataclass
 class MultiBatchBuffer:
+    """
+    Buffer object to store multiple batches of data in memory.
+    """
+
     df: pd.DataFrame = None
     batch_size: int = 1
     min_batch: int = -1

@@ -1,7 +1,7 @@
 
 name: tests
 # Running tests on all branches
-on: [pull_request]
+on: [pull_request, push]
 
 # Suppress tensorflow logging
 # Only print messages classified as ERROR
@@ -40,6 +40,7 @@ jobs:
             python3 -m pip install tensorflow==2.5.0
             python3 -m pip install scikit-learn==0.24.2
             python3 -m pip install awkward==1.0.2
+            python3 -m pip install torch==1.9.0
             python3 -m pip install 'protobuf<4.0.0'
             python3 -m pytest
         

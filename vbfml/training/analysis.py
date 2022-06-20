@@ -157,10 +157,10 @@ class TrainingAnalyzer(TrainingAnalyzerBase):
                 weights,
             ) = self._analyze_sequence(sequence, sequence_type)
             histograms[sequence_type] = histogram_out
-            if sequence_type == "validation":
-                self.data["validation_scores"] = validation_scores
-                self.data["predicted_scores"] = predicted_scores
-                self.data["weights"] = weights
+            # if sequence_type == "validation":
+            self.data["truth_scores"] = validation_scores
+            self.data["predicted_scores"] = predicted_scores
+            self.data["weights"] = weights
         self.data["histograms"] = histograms
 
     def _fill_feature_histograms(
@@ -251,16 +251,15 @@ class TrainingAnalyzer(TrainingAnalyzerBase):
         validation_scores = []
         sample_weights = []
         for ibatch in tqdm(
-            range(len(sequence)), desc=f"Analyze batches of {sequence_type} sequence."
+            range(len(sequence)), desc=f"Analyze batches of {sequence_type} sequence"
         ):
             features, labels_onehot, weights = sequence[ibatch]
             labels = labels_onehot.argmax(axis=1)
 
             scores = model.predict(feature_scaler.transform(features))
-            if sequence_type == "validation":
-                predicted_scores.append(scores)
-                validation_scores.append(labels_onehot)
-                sample_weights.append(weights)
+            predicted_scores.append(scores)
+            validation_scores.append(labels_onehot)
+            sample_weights.append(weights)
 
             for scaler in feature_scaler, None:
                 self._fill_feature_histograms(
@@ -269,9 +268,8 @@ class TrainingAnalyzer(TrainingAnalyzerBase):
 
             self._fill_score_histograms(histograms, scores, labels, weights)
             self._fill_feature_covariance(features, labels_onehot, feature_scaler)
-            # self._fill_composition_histograms(histograms, scores, labels, weights)
 
-        return histograms, predicted_scores, validation_scores, weights
+        return histograms, predicted_scores, validation_scores, sample_weights
 
 
 @dataclass
@@ -407,7 +405,7 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
             sample_weights,
         )
 
-    def analyze(self, sequence_types: List[str]):
+    def analyze(self):
         """
         Loads all relevant data sets and analyze them.
         """
@@ -426,10 +424,10 @@ class ImageTrainingAnalyzer(TrainingAnalyzerBase):
         # - List of labels
         # - Score distributions for a given class
 
-        for sequence_type in sequence_types:
+        for sequence_type in ["validation"]:
             sequence = self.loader.get_sequence(sequence_type)
             # sequence.scale_features = "norm"
-            sequence.batch_size = 10000
+            sequence.batch_size = int(1e6)
             sequence.batch_buffer_size = 10
 
             (

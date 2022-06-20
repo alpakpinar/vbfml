@@ -443,6 +443,7 @@ class TrainingHistogramPlotter(PlotterBase):
                     rax.set_xlabel(name)
                     rax.set_ylabel("Efficency (a.u.)")
                     ax.set_ylabel("Events (a.u.)")
+                    ax.set_ylim([10e-8, 1])
                     ax.set_yscale("log")
                     for ext in "pdf", "png":
                         fig.savefig(
@@ -533,42 +534,43 @@ class TrainingHistogramPlotter(PlotterBase):
                 plt.close(fig)
 
     def plot(self) -> None:
-        self.plot_by_sequence_types()
         self.plot_ROC()
+        self.plot_by_sequence_types()
 
     # plot ROC curve for each class
     def plot_ROC(self) -> None:
         fpr = dict()
         tpr = dict()
-        score_classes = np.array(self.predicted_scores).shape[2]
-        number_batches = np.array(self.predicted_scores).shape[0]
+        score_classes = len(self.predicted_scores[0][0])
+        number_batches = len(self.predicted_scores)
         for sclass in tqdm(range(score_classes), desc="Plotting ROC curves"):
             # combine batch scores for each class
             p_score = np.array(self.predicted_scores[0][:, sclass])
             v_score = np.array(self.truth_scores[0][:, sclass])
-            sample_weights = np.array(self.weights)
+            weights_combined = np.array(self.weights[0])
             predicted_scores_combined = p_score
             truth_scores_combined = v_score
             for batch in range(1, number_batches):
-                sample_weights = np.append(sample_weights, sample_weights)
+                sample_weights = np.asarray(self.weights[batch])
                 p_score = np.asarray(self.predicted_scores[batch][:, sclass])
                 v_score = np.asarray(self.truth_scores[batch][:, sclass])
                 predicted_scores_combined = np.append(
                     predicted_scores_combined, p_score
                 )
                 truth_scores_combined = np.append(truth_scores_combined, v_score)
+                weights_combined = np.append(weights_combined, sample_weights)
             np.reshape(predicted_scores_combined, (len(predicted_scores_combined), 1))
             np.reshape(truth_scores_combined, (len(truth_scores_combined), 1))
             # make ROC curve
             fpr[sclass], tpr[sclass], thresholds = metrics.roc_curve(
                 truth_scores_combined,
                 predicted_scores_combined,
-                sample_weight=sample_weights,
+                sample_weight=weights_combined,
             )
             auc = metrics.roc_auc_score(
                 truth_scores_combined,
                 predicted_scores_combined,
-                sample_weight=sample_weights,
+                sample_weight=weights_combined,
             )
             fig, ax = plt.subplots()
             label_1 = "Current Classifier- AUC =" + str(round(auc, 3))
@@ -591,6 +593,13 @@ class TrainingHistogramPlotter(PlotterBase):
 
 @dataclass
 class ImagePlotter:
+    """
+    Class to plot a 2D jet-based image. Usage is simple:
+
+    >>> plotter = ImagePlotter()
+    >>> plotter.plot(image_array, outdir, filename)
+    """
+
     n_eta_bins: int = 40
     n_phi_bins: int = 20
     eta_range: Tuple[float] = (-5, 5)
@@ -666,59 +675,119 @@ class ImagePlotter:
 
 
 def plot_history(history, outdir):
-    """Utility function to plot loss and accuracy metrics."""
-    outdir = os.path.join(outdir, "history")
-    try:
-        os.makedirs(outdir)
-    except FileExistsError:
-        pass
 
-    loss_metrics = [
-        ("Training", "x_loss", "y_loss"),
-        ("Validation", "x_val_loss", "y_val_loss"),
+    fig = plt.figure(figsize=(12, 10))
+    ax = plt.gca()
+
+    accuracy_types = [
+        key for key in history.keys() if "loss" in key and not "val" in key
     ]
+    accuracy_types = [x.replace("x_", "").replace("y_", "") for x in accuracy_types]
 
-    acc_metrics = [
-        ("Training", "x_categorical_accuracy", "y_categorical_accuracy"),
-        ("Validation", "x_val_categorical_accuracy", "y_val_categorical_accuracy"),
-    ]
+    for i in range(1):
+        ax.plot(
+            history["x_loss"],
+            history["y_loss"],
+            color="b",
+            ls="--",
+            marker="s",
+            label="Training",
+        )
+        ax.plot(
+            history["x_val_loss"],
+            history["y_val_loss"],
+            color="b",
+            label="Validation",
+            marker="o",
+        )
 
-    metrics = {"Loss": loss_metrics, "Accuracy": acc_metrics}
+        # ax2 = ax.twinx()
+        # ax2.plot(
+        #     history[f"x_{accuracy_type}"],
+        #     history[f"y_{accuracy_type}"],
+        #     color="r",
+        #     ls="--",
+        #     marker="s",
+        #     label="Training",
+        # )
+        # ax2.plot(
+        #     history[f"x_val_{accuracy_type}"],
+        #     history[f"y_val_{accuracy_type}"],
+        #     color="r",
+        #     label="Validation",
+        #     marker="o",
+        # )
+        ax.set_xlabel("Training time (a.u.)")
+        ax.set_ylabel("Loss")
+        ax.set_yscale("log")
+        # ax2.set_ylabel(f"Accuracy ({accuracy_type})")
+        # ax2.set_ylim(0, 1)
+        ax.legend(title="Loss")
+        # ax2.legend(title="Accuracy")
+        outdir = os.path.join(outdir, "history")
+        try:
+            os.makedirs(outdir)
+        except FileExistsError:
+            pass
+        accuracy_type = "loss"
+        for ext in "png", "pdf":
+            fig.savefig(os.path.join(outdir, f"history_{accuracy_type}.{ext}"))
 
-    def shift_by_one(xlist):
-        return [x + 1 for x in xlist]
 
-    for tag, metriclist in tqdm(metrics.items(), desc="Plotting history"):
-        fig, ax = plt.subplots()
+# def plot_history(history, outdir):
+#     """Utility function to plot loss and accuracy metrics."""
+#     outdir = os.path.join(outdir, "history")
+#     try:
+#         os.makedirs(outdir)
+#     except FileExistsError:
+#         pass
 
-        for label, metric_x, metric_y in metriclist:
-            # Annoyting: x_loss and x_val_loss shift by one (same for accuracy)
-            # Fix that here before plotting
+#     loss_metrics = [
+#         ("Training", "x_loss", "y_loss"),
+#         ("Validation", "x_val_loss", "y_val_loss"),
+#     ]
 
-            if label == "Training":
-                history[metric_x] = shift_by_one(history[metric_x])
+#     acc_metrics = [
+#         ("Training", "x_categorical_accuracy", "y_categorical_accuracy"),
+#         ("Validation", "x_val_categorical_accuracy", "y_val_categorical_accuracy"),
+#     ]
 
-            ax.plot(
-                history[metric_x],
-                history[metric_y],
-                label=label,
-                marker="o",
-            )
+#     metrics = {"Loss": loss_metrics, "Accuracy": acc_metrics}
 
-            if tag == "Accuracy":
-                ax.axhline(1.0, xmin=0, xmax=1, color="k", ls="--")
+#     def shift_by_one(xlist):
+#         return [x + 1 for x in xlist]
 
-        ax.legend(title=tag)
-        ax.grid(True)
+#     for tag, metriclist in tqdm(metrics.items(), desc="Plotting history"):
+#         fig, ax = plt.subplots()
 
-        ax.set_xlabel("Training Time (a.u.)", fontsize=14)
-        ax.set_ylabel(tag, fontsize=14)
+#         for label, metric_x, metric_y in metriclist:
+#             # Annoyting: x_loss and x_val_loss shift by one (same for accuracy)
+#             # Fix that here before plotting
 
-        if tag == "Loss":
-            ax.set_yscale("log")
-        else:
-            ax.set_ylim(0, 1.1)
+#             if label == "Training":
+#                 history[metric_x] = shift_by_one(history[metric_x])
 
-        outpath = os.path.join(outdir, f"history_{tag.lower()}.pdf")
-        fig.savefig(outpath)
-        plt.close(fig)
+#             ax.plot(
+#                 history[metric_x],
+#                 history[metric_y],
+#                 label=label,
+#                 marker="o",
+#             )
+
+#             if tag == "Accuracy":
+#                 ax.axhline(1.0, xmin=0, xmax=1, color="k", ls="--")
+
+#         ax.legend(title=tag)
+#         ax.grid(True)
+
+#         ax.set_xlabel("Training Time (a.u.)", fontsize=14)
+#         ax.set_ylabel(tag, fontsize=14)
+
+#         if tag == "Loss":
+#             ax.set_yscale("log")
+#         else:
+#             ax.set_ylim(0, 1.1)
+
+#         outpath = os.path.join(outdir, f"history_{tag.lower()}.pdf")
+#         fig.savefig(outpath)
+#         plt.close(fig)

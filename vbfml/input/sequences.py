@@ -1,3 +1,4 @@
+from cProfile import label
 from dataclasses import dataclass
 from collections import OrderedDict
 
@@ -257,6 +258,7 @@ class MultiDatasetSequence(Sequence):
 
     def dataset_labels(self) -> "list[str]":
         """Return list of labels of all data sets in this Sequence."""
+        # print(sorted(list(set(dataset.label for dataset in self.datasets.values()))))
         return sorted(list(set(dataset.label for dataset in self.datasets.values())))
 
     def dataset_names(self) -> "list[str]":
@@ -335,6 +337,7 @@ class MultiDatasetSequence(Sequence):
         """Add a new data set to the Sequence."""
         if dataset.name in self.datasets:
             raise IndexError(f"Dataset already exists: '{dataset.name}'.")
+        # print(dataset)
         self.datasets[dataset.name] = dataset
         self._datasets_changed()
 
@@ -372,7 +375,10 @@ class MultiDatasetSequence(Sequence):
         """Create encoding of string labels <-> integer class indices"""
         labels = self.dataset_labels()
         label_encoding = OrderedDict(enumerate(labels))
+        # print(labels)
+        # print(label_encoding)
         label_encoding.update({v: k for k, v in label_encoding.items()})
+        # print(label_encoding)
         self.label_encoding = label_encoding
 
     def _datasets_changed(self):
