@@ -1,7 +1,7 @@
 # Datasets and labels corresponding to different classes
 datasets:
   signal_17: 
-    regex: VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017
+    regex: (VBF_.*|GluGlu_.*)_pow_pythia8_2017
   bkg_17: 
     regex: ((WJetsToLNu_Pt-\d+To.*|Z\dJetsToNuNu_M-50_LHEFilterPtZ-\d+To.*)_MatchEWPDG20-amcatnloFXFX_2017|EWK.*2017)
 
@@ -15,4 +15,7 @@ scales:
     scale: 1.0
   vbf_h:
     regex: VBF_HToInvisible_M125_withDipoleRecoil_pow_pythia8_2017
+    scale: 1.0
+  gg_h:
+    regex: GluGlu_HToInvisible_M125_HiggspTgt190_pow_pythia8_2017
     scale: 1.0

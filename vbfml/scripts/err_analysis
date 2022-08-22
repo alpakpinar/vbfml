@@ -664,7 +664,7 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
 
         # plot graphs
         plt.figure(1)
-        plt.plot(data["fpr"], data["tpr"], label=f"{label_model} (AUC = {auc_roc:.3f})")
+        plt.plot(data["fpr"], data["tpr"], label=f"{label_model[:25]} (AUC = {auc_roc:.3f})")
         plt.plot(
             data["fpr"][middle_thres_roc_index],
             data["tpr"][middle_thres_roc_index],
@@ -675,7 +675,7 @@ def plot_roc(ctx, input_dirs: str, save_name: str, simple_cut: bool = False) -> 
         plt.plot(
             data["recall"],
             data["precision"],
-            label=f"{label_model} (AUC = {auc_prc:.3f})",
+            label=f"{label_model[:25]} (AUC = {auc_prc:.3f})",
         )
         plt.plot(
             data["recall"][middle_thres_prc_index],
@@ -876,10 +876,10 @@ def plot_correl(ctx, input_dir: str) -> None:
     "-d",
     "--datasets",
     type=str,
-    default=("vbf_h", "ewk_v", "qcd_v"),
+    default=("vbf_h", "ewk_v", "qcd_v", "other"),
     multiple=True,
     required=False,
-    help="List of tags for the datasets to plot. Takes 3 possible values : 'qcd_v', 'ewk_v', 'vbf_h' ",
+    help="List of tags for the datasets to plot. Takes 4 possible values : 'qcd_v', 'ewk_v', 'vbf_h', 'gg_h'='other ",
 )
 @click.option(
     "-s",
@@ -917,7 +917,8 @@ def cut_and_plot(
             "vbf_h",
             "qcd_v",
             "ewk_v",
-        ], f" '--dataset' doesn't accept '{data}', only  'qcd_v', 'ewk_v', 'vbf_h' are supported"
+            "other",
+        ], f" '--dataset' doesn't accept '{data}', only  'qcd_v', 'ewk_v', 'vbf_h', 'other' are supported"
 
     d = pd.DataFrame(
         {
