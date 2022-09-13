@@ -12,7 +12,7 @@ validation_parameters:
   shuffle: true
 weight_expression: weight_total*xs/sumw
 features:
-- JetImage_pixels
+- JetImageFine_FloatE
 arch_parameters:
   n_layers_for_conv: 2
   n_filters_for_conv: [32,32]
@@ -20,5 +20,5 @@ arch_parameters:
   pool_size_for_conv: [2,2]
   n_layers_for_dense: 3
   n_nodes_for_dense: [200,200,200]
-  image_shape: [40, 20, 1]
+  image_shape: [59, 45, 1]
   dropout: 0

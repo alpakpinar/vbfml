@@ -58,10 +58,15 @@ def main():
         with uproot.recreate(outrootfile) as f:
             tree_data = {}
             for inputname in inputs:
-                if "nBins" in inputname:
-                    tree_data[inputname] = np.stack(data[inputname]).astype(np.uint16)
-                else:
-                    tree_data[inputname] = np.stack(np.array(data[inputname]))
+                try:
+                    if "nBins" in inputname:
+                        tree_data[inputname] = np.stack(data[inputname]).astype(np.uint16)
+                    else:
+                        tree_data[inputname] = np.stack(np.array(data[inputname]))
+
+                except ValueError:
+                    print(f'Skipping: {inputname}')
+                    continue
 
             tree_data["xs"] = [xs] * numevents
             tree_data["sumw"] = [sumw] * numevents

@@ -3,6 +3,7 @@ import glob
 import pickle
 import uproot
 import os
+import re
 import numpy as np
 import click
 import random
@@ -31,7 +32,14 @@ def cli():
     required=True,
     help="Path to the ROOT file.",
 )
-def rotate(input_file: str):
+@click.option(
+    "-b",
+    "--image-branch",
+    required=False,
+    default="JetImageFine_E",
+    help="Name of the branch containing image data.",
+)
+def rotate(input_file: str, image_branch: str):
     """
     Preprocess the image (in the root file) with a phi-rotation and eta-inversion to have the leading jet in the right center
     """
@@ -42,29 +50,32 @@ def rotate(input_file: str):
         os.mkdir(output_dir)
     output_file = output_dir + os.path.basename(input_file)
 
-    # define writable file
+    # Output file
     file = uproot.recreate(output_file)
 
-    # size of the image
-    n_eta_bins: int = 40
-    n_phi_bins: int = 20
+    # Load the tree 
+    tree = uproot.open(f"{input_file}:sr_vbf")
+    
+    # Determine size of the image (for reshaping 1D array into 2D)
+    table_name = image_branch.split('_')[0]
+    n_eta_bins = int( tree[f'{table_name}_nEtaBins'].array()[0] )
+    n_phi_bins = int( tree[f'{table_name}_nPhiBins'].array()[0] )
     im_shape = (n_eta_bins, n_phi_bins)
 
-    # load the tree and initilize batch info
-    tree = uproot.open(f"{input_file}:sr_vbf")
+    # Initilize batch info
     batch_size = 5000
     batch_number = ceil(tree.num_entries / batch_size)
     batch_counter = 0
 
     # iterate by batches of 500 over the tree, aim to save memoryquit
     for sub_tree in tree.iterate(
-        ["JetImage_pixels", "leadak4_phi", "leadak4_eta"],
+        [image_branch, "leadak4_phi", "leadak4_eta"],
         step_size=batch_size,
         library="np",
     ):
 
         batch_counter += 1
-        print(f"batch {batch_counter}/{batch_number}")
+        print(f">> Processing batch {batch_counter}/{batch_number}", end="\r")
 
         batch_index = (batch_counter - 1) * batch_size
 
@@ -78,7 +89,7 @@ def rotate(input_file: str):
 
         new_images_batch = np.ones((batch_size, n_eta_bins, n_phi_bins))
         for j in range(batch_size):
-            new_images_batch[j] = sub_tree["JetImage_pixels"][j].reshape(im_shape)
+            new_images_batch[j] = sub_tree[image_branch][j].reshape(im_shape)
 
             # set phi = 0 (leading jet is at the center horizontal)
             for i in range(n_eta_bins):
@@ -87,16 +98,17 @@ def rotate(input_file: str):
                 )
                 new_images_batch[j][i] = np.roll(new_images_batch[j][i], shift_phi)
 
-            # set eta > 0 (leading jet is on the right side)
+            # Set leading jet eta > 0 (leading jet is on the right side)
             if sub_tree["leadak4_eta"][j] < 0:
                 new_images_batch[j] = np.flip(new_images_batch[j], 0)
 
+            # Flatten to 1D array, so that we can write it to output ROOT file
             new_images[j] = new_images_batch[j].flatten()
 
-        # writing in the new tree
+        # Writing in the new tree
         new_tree = {}
-        new_tree["JetImage_pixels_preprocessed"] = new_images  # add the new branch
-        for branch in tree.keys():  # copy all the other branches
+        new_tree[f"{image_branch}_preprocessed"] = new_images  # Add the new branch
+        for branch in tree.keys():  # Copy all the other branches
             new_tree[branch] = tree[branch].arrays(
                 entry_start=batch_index,
                 entry_stop=batch_index + batch_size,
@@ -108,7 +120,7 @@ def rotate(input_file: str):
         else:
             file["sr_vbf"].extend(new_tree)
 
-        print(file["sr_vbf"].num_entries)
+    print(f">> Done, processed {file['sr_vbf'].num_entries} entries.")
 
 
 @cli.command()
@@ -118,18 +130,25 @@ def rotate(input_file: str):
     required=True,
     help="Path to the directory with the input ROOT files.",
 )
-def rotate_all(input_dir: str):
+@click.option(
+    "-b",
+    "--image-branch",
+    required=False,
+    default="JetImageFine_E",
+    help="Name of the branch containing image data.",
+)
+def rotate_all(input_dir: str, image_branch: str):
     """
     Preprocess all root files of the directory by applying rotate function on every files of the input_dir
     Warning -> have weird behavior over a lot of files. miss some events
     """
     files = glob.glob(pjoin(input_dir, f"*root"))
 
-    for file in tqdm(files, desc="Rotating images"):
-        print(
-            f"/////////////////// processing {os.path.basename(file)}///////////////////"
-        )
-        os.system("./preprocess_image.py rotate -i " + file)
+    print("Rotating images...")
+    for file in files:
+        cmd = f"./preprocess_image.py rotate -i {file} -b {image_branch}"
+        print(f"\n{cmd}\n")
+        os.system(cmd)
 
 
 @cli.command()
@@ -160,11 +179,17 @@ def rotate_all(input_dir: str):
     required=False,
     help="number of event to plot",
 )
-def plot_rotation(input_file: str, name_save: str, ievent: int, num_events: int):
+@click.option(
+    "-b",
+    "--image-branch",
+    required=False,
+    default="JetImageFine_E",
+    help="Name of the branch containing image data.",
+)
+def plot_rotation(input_file: str, name_save: str, ievent: int, num_events: int, image_branch: str):
     """
     Plot random images in the first 500 events before and after processing to check rotation
     """
-
     # download tree and test if it is preprocessed and get the channel of the process
     tree = uproot.lazy(f"{input_file}:sr_vbf")
     process_tag = get_process_tag_from_file(input_file)
@@ -175,19 +200,25 @@ def plot_rotation(input_file: str, name_save: str, ievent: int, num_events: int)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    number_image = 1 if ievent else num_events
+    # Number of images to plot
+    num_images = 1 if ievent else num_events
 
-    for i in range(number_image):
+    # Determine size of the image (for reshaping 1D array into 2D)
+    table_name = image_branch.split('_')[0]
+    n_eta_bins = int( tree[f'{table_name}_nEtaBins'][0] )
+    n_phi_bins = int( tree[f'{table_name}_nPhiBins'][0] )
+
+    for i in range(num_images):
 
         index = ievent - 1 if ievent else random.randint(0, len(tree["mjj"]) - 1)
-        print(f"image_{index+1}")
+        print(f">> Plotting image_{index+1}")
 
         eta = tree["leadak4_eta", index]
         phi = tree["leadak4_phi", index]
         # plot the image before preprocessing
-        plotter = ImagePlotter()
+        plotter = ImagePlotter(n_eta_bins=n_eta_bins, n_phi_bins=n_phi_bins)
         plotter.plot(
-            ak.to_numpy(tree["JetImage_pixels", index]),
+            ak.to_numpy(tree[image_branch, index]),
             output_dir,
             f"image_{os.path.basename(input_file)[5:-5]}_{index+1}",
             vmin=1,
@@ -197,14 +228,14 @@ def plot_rotation(input_file: str, name_save: str, ievent: int, num_events: int)
         )
 
         # plot the image after processing
-        plotter = ImagePlotter()
+        plotter = ImagePlotter(n_eta_bins=n_eta_bins, n_phi_bins=n_phi_bins)
         plotter.plot(
-            ak.to_numpy(tree["JetImage_pixels_preprocessed", index]),
+            ak.to_numpy(tree[f"{image_branch}_preprocessed", index]),
             output_dir,
             f"image_{os.path.basename(input_file)[5:-5]}_{index+1}_preprocessed",
             vmin=1,
             vmax=300,
-            left_label=f"$\eta$ = {abs(eta):.2f} // preprocessed",
+            left_label=f"$\eta$ = {abs(eta):.2f} (Pre-processed)",
             right_label=process_tag,
         )
 
@@ -216,25 +247,30 @@ def plot_rotation(input_file: str, name_save: str, ievent: int, num_events: int)
     required=True,
     help="Path to the directory with the input ROOT files.",
 )
-def plot_rotation_all(input_dir: str):
+@click.option(
+    "-b",
+    "--image-branch",
+    required=False,
+    default="JetImageFine_E",
+    help="Name of the branch containing image data.",
+)
+def plot_rotation_all(input_dir: str, image_branch: str):
     """
-    use function plot_rotation on all root files
+    Use plot_rotation function on all root files within the input directory.
     """
     files = glob.glob(pjoin(input_dir, f"*root"))
 
-    for file in tqdm(files, desc="plot images"):
-        print(
-            f"/////////////////// plotting {os.path.basename(file)}///////////////////"
-        )
-        name_dir = os.path.basename(file)[:44]
+    output_dir = pjoin(os.path.dirname(input_dir), "image_processing_plots")
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
 
-        output_dir = pjoin(os.path.dirname(input_dir), f"plots_image_processing")
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
-
-        os.system(
-            f"./preprocess_image.py plot-rotation -i {file} -n {os.path.basename(output_dir)}/{name_dir}"
-        )
+    for file in files:
+        subdir = re.findall('tree_(.*)\.root', os.path.basename(file))[0]
+        outdir = pjoin(os.path.basename(output_dir), subdir)
+        
+        cmd = f"./preprocess_image.py plot-rotation -i {file} -n {outdir} -b {image_branch}"
+        print(f"\n{cmd}\n")
+        os.system(cmd)
 
 
 @cli.command()
