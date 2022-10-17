@@ -17,7 +17,7 @@ from vbfml.util import (
     ModelFactory,
 )
 from vbfml.helpers.deployment import pack_repo
-from vbfml.helpers.condor import condor_submit
+from vbfml.helpers.condor import condor_submit, remove_condor_config_env
 from vbfml.training.util import do_setup
 
 pjoin = os.path.join
@@ -72,6 +72,9 @@ def parse_cli():
 def do_submit(args):
     """Submission operation."""
     import htcondor
+
+    # Unset the CONDOR_CONFIG environment variable
+    remove_condor_config_env()
 
     # Create the submission directory
     if args.name:

@@ -4,6 +4,21 @@ import subprocess
 import htcondor
 
 
+def remove_condor_config_env():
+    """
+    Unset the CONDOR_CONFIG env variable for LPC, as it points to an invalid location.
+    """
+    hostname = socket.gethostname()
+    # Nothing to do for lxplus
+    if "fnal" not in hostname:
+        return
+
+    ENV_VARIABLE = "CONDOR_CONFIG"
+    if ENV_VARIABLE in os.environ:
+        print(f"INFO: Unsetting {ENV_VARIABLE}={os.environ[ENV_VARIABLE]}")
+        del os.environ[ENV_VARIABLE]
+
+
 def condor_submit(jobfile):
     """Handle the job submission for HTCondor."""
     # Slightly different implementations for lxplus and LPC nodes
