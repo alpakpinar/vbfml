@@ -30,6 +30,12 @@ def main():
 
     outtag = inpath.split("/")[-2]
 
+    outdir = vbfml_path(f"root/{outtag}")
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    print(f'Will save ROOT files under: {outdir}')
+
     for infile in tqdm(infiles):
         # Decompress the file and read the pickled contents
         with gzip.open(infile, "rb") as fin:
@@ -43,15 +49,16 @@ def main():
 
         # Scout branches
         inputs = [input for input in data.keys() if input not in ["xs", "sumw"]]
+        if len(inputs) == 0:
+            print(f'No input found, skipping: {dataset_name}')
+            continue
+        
         numevents = len(data[inputs[0]])
 
         # Read weight values necessary to compute normalization factor
         xs = data["xs"]
         sumw = data["sumw"]
 
-        outdir = vbfml_path(f"root/{outtag}")
-        if not os.path.exists(outdir):
-            os.makedirs(outdir)
         outrootfile = pjoin(outdir, f"tree_{dataset_name}.root")
 
         # Save the tree

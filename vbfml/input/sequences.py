@@ -98,6 +98,8 @@ class MultiDatasetSequence(Sequence):
         self._feature_scaler = None
         self._float_dtype = np.float32
 
+        self.integral_mode = False
+
     def __len__(self) -> int:
         read_fraction = self.read_range[1] - self.read_range[0]
         return int(np.ceil(self.total_events() * read_fraction / self.batch_size))
@@ -329,6 +331,7 @@ class MultiDatasetSequence(Sequence):
 
         batch_df = self.buffer.get_batch_df(batch)
         batch = self._batch_df_formatting(batch_df)
+
         return batch
 
     def add_dataset(self, dataset: DatasetInfo) -> None:
@@ -361,6 +364,11 @@ class MultiDatasetSequence(Sequence):
         if self.weight_expression:
             branches_to_read.append(self.weight_expression)
 
+        # Just keep the non-feature columns for weight integration mode
+        if self.integral_mode:
+            keep_col = lambda x: "JetImage" not in x
+            branches_to_read = list(filter(keep_col, branches_to_read))
+
         reader = UprootReaderMultiFile(
             files=info.files,
             branches=branches_to_read,
@@ -387,7 +395,7 @@ class MultiDatasetSequence(Sequence):
             name: info.n_events / total for name, info in self.datasets.items()
         }
 
-    def is_weighted(self):
+    def is_weighted(self) -> bool:
         """
         Weights are needed if a per-event expression is used OR any data set has a weight.
         """
@@ -396,3 +404,21 @@ class MultiDatasetSequence(Sequence):
         if any([dataset.weight != 1 for dataset in self.datasets.values()]):
             return True
         return False
+
+    def set_integral_mode(self, integral_mode: bool) -> None:
+        """
+        Set the integral_mode option (False by default) to integral_mode.
+
+        In integral_mode, the features (e.g. the image branches) won't be read,
+        just the weights and labels will be read to determine weight integrals.
+        """
+        # No changes, just return out of the function
+        if self.integral_mode == integral_mode:
+            return
+
+        # Update the integral_mode attribute
+        self.integral_mode = integral_mode
+
+        # Re-init the reader object for each dataset since the branches to read are changed
+        for dataset_name in self.datasets:
+            self._init_reader(dataset_name)

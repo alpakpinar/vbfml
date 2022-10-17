@@ -61,6 +61,7 @@ def cli(ctx, training_directory):
     "--learning-rate", default=1e-3, required=False, help="Learning rate for training."
 )
 @click.option(
+    "-i",
     "--input-dir",
     default=vbfml_path("root/2021-11-13_vbfhinv_treesForML"),
     required=False,

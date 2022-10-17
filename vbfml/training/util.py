@@ -59,7 +59,10 @@ def get_weight_integral_by_label(sequence: MultiDatasetSequence) -> Dict[str, fl
 
     # For integration, batches can be large
     sequence.batch_size = int(1e6)
-    sequence.batch_buffer_size = 10
+    sequence.batch_buffer_size = 1
+
+    # Set integral mode for the sequence, meaning that we'll only read weights+labels
+    sequence.set_integral_mode(True)
 
     # Histogram to handle storage
     string_labels = sequence.dataset_labels()
@@ -82,6 +85,8 @@ def get_weight_integral_by_label(sequence: MultiDatasetSequence) -> Dict[str, fl
     # Restore original settings
     for key, value in backup.items():
         setattr(sequence, str(key), value)
+
+    sequence.set_integral_mode(False)
 
     return integrals
 
