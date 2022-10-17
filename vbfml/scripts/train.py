@@ -50,8 +50,6 @@ pjoin = os.path.join
 @click.pass_context
 def cli(ctx, training_directory):
     ctx.ensure_object(dict)
-    if not os.path.exists(training_directory):
-        os.makedirs(training_directory)
     ctx.obj["TRAINING_DIRECTORY"] = training_directory
 
 
@@ -164,6 +162,9 @@ def setup(
     model.summary()
 
     training_directory = ctx.obj["TRAINING_DIRECTORY"]
+
+    if not os.path.exists(training_directory):
+        os.makedirs(training_directory)
 
     # The trained model
     model.save(
