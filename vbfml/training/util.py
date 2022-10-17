@@ -129,12 +129,15 @@ def summarize_datasets(datasets: List[DatasetInfo]) -> None:
     for key, value in total_by_label.items():
         table.append((key, "--- TOTAL ---", value))
 
+    print("\nDataset summary:\n")
+
     print(
         tabulate(
             sorted(table),
             headers=["Class label", "Physics data set name", "Number of events"],
         )
     )
+    print("")
 
 
 def scale_datasets(
